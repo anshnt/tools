@@ -82,6 +82,7 @@ const CSS = `
   transition: transform .38s var(--spring), width .3s var(--ease); pointer-events: none; }
 :root[data-theme="dark"] .is-pills .thumb { background: var(--surface-3); }
 .is-pills.block { display: flex; width: 100%; }
+.field > .is-pills:not(.block), .stack > .is-pills:not(.block) { align-self: flex-start; }
 .is-pills.block button { flex: 1; }
 
 /* Preset chips */
@@ -238,12 +239,12 @@ export function stagger(container) {
 export const stage = (...kids) => h('div', { class: 'is-stage' }, kids)
 
 /** Hero drop zone with floating cards. Returns a wrapper; .dz is the kit dropzone, .setCompact(bool) shrinks it once files are loaded. */
-export function heroDrop({ accept = IMG_ACCEPT, multiple = false, onFiles, label, hint, paste = true, sample = 0, sampleLabel }) {
+export function heroDrop({ accept = IMG_ACCEPT, multiple = false, onFiles, label, hint, paste = true, sample = 0, sampleLabel, sampleFrom = 0 }) {
   const dz = dropzone({ accept, multiple, onFiles, label, hint, paste, icon: 'image-plus' })
   dz.append(h('div', { class: 'is-art', 'aria-hidden': 'true' }, h('i', { class: 'a1' }), h('i', { class: 'a2' }), h('i', { class: 'a3' }), h('i', { class: 'a4' })))
   const extra = sample ? h('div', { class: 'row', style: 'margin-top:10px' },
     button(sampleLabel || (multiple ? `Try ${sample} sample images` : 'Try a sample image'), { icon: 'wand-sparkles', variant: 'ghost', size: 'sm',
-      onClick: async (e) => { const files = await sampleFiles(sample); (multiple ? onFiles : (f) => onFiles(f.slice(0, 1)))(files); e?.target?.blur?.() } })) : null
+      onClick: async (e) => { const files = await sampleFiles(sample, 1200, 800, sampleFrom); (multiple ? onFiles : (f) => onFiles(f.slice(0, 1)))(files); e?.target?.blur?.() } })) : null
   const wrap = h('div', {}, h('div', { class: 'is-drop' }, dz), extra)
   const ring = wrap.firstChild
   wrap.dz = dz
@@ -595,9 +596,10 @@ export function sampleCanvas(i = 0, w = 1200, hh = 800) {
 }
 
 /** Make n sample image Files (JPEG, 1200 x 800). */
-export async function sampleFiles(n = 1, w = 1200, hh = 800) {
+export async function sampleFiles(n = 1, w = 1200, hh = 800, start = 0) {
   const files = []
-  for (let i = 0; i < n; i++) {
+  for (let k = 0; k < n; k++) {
+    const i = start + k
     const c = sampleCanvas(i, w, hh)
     const blob = await toBlob(c, 'image/jpeg', 0.9)
     files.push(new File([blob], `sample-${SCENES[i % SCENES.length].name}${i >= SCENES.length ? `-${Math.floor(i / SCENES.length) + 1}` : ''}.jpg`, { type: 'image/jpeg' }))
