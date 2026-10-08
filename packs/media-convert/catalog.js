@@ -1,0 +1,25 @@
+// Pack media-convert: video & audio conversion and editing with ffmpeg.wasm, on your device. Default category: media.
+export const cat = 'media'
+export default [
+  { id: 'video-converter', name: 'Video converter', desc: 'Convert videos between MP4, WebM, MOV, MKV and AVI.', icon: 'repeat-2', tags: 'convert format video' },
+  { id: 'video-to-mp4', name: 'Video to MP4', module: 'video-converter', params: { to: 'mp4' }, desc: 'Convert any video into widely compatible MP4 (H.264).', icon: 'file-video', tags: 'mp4 h264 convert mov webm mkv' },
+  { id: 'video-to-mp3', name: 'Video to MP3', module: 'extract-audio', params: { to: 'mp3' }, desc: 'Grab the soundtrack of a video as an MP3.', icon: 'music', tags: 'mp3 audio soundtrack' },
+  { id: 'extract-audio', name: 'Extract audio from video', desc: 'Save the audio track as MP3, M4A, WAV or the original format.', icon: 'audio-waveform', tags: 'audio track rip' },
+  { id: 'video-to-gif', name: 'Video to GIF', desc: 'Turn a clip into a GIF with size, FPS and trim controls.', icon: 'film', tags: 'gif animation clip' },
+  { id: 'audio-converter', name: 'Audio converter', desc: 'Convert audio to MP3, WAV, M4A, OGG, OPUS or FLAC.', icon: 'file-audio', tags: 'convert audio format' },
+  { id: 'audio-to-mp3', name: 'Audio to MP3', module: 'audio-converter', params: { to: 'mp3' }, desc: 'Convert WAV, M4A, OGG and other audio to MP3.', icon: 'music', tags: 'mp3 convert' },
+  { id: 'audio-to-wav', name: 'Audio to WAV', module: 'audio-converter', params: { to: 'wav' }, desc: 'Convert any audio to uncompressed WAV.', icon: 'audio-lines', tags: 'wav convert' },
+  { id: 'compress-video', name: 'Compress video', desc: 'Make videos smaller for WhatsApp, email or upload limits.', icon: 'minimize-2', tags: 'reduce size smaller whatsapp' },
+  { id: 'compress-audio', name: 'Compress audio', desc: 'Reduce audio file size by lowering bitrate and channels.', icon: 'minimize-2', tags: 'reduce size bitrate' },
+  { id: 'trim-video', name: 'Trim video', desc: 'Cut the start and end off a video, with a preview.', icon: 'scissors', tags: 'cut clip shorten' },
+  { id: 'trim-audio', name: 'Trim audio', desc: 'Cut audio to the part you want, with a waveform view.', icon: 'scissors', tags: 'cut ringtone clip' },
+  { id: 'merge-videos', name: 'Merge videos', desc: 'Join several clips into one video in any order.', icon: 'combine', tags: 'join combine concatenate' },
+  { id: 'merge-audio', name: 'Merge audio files', desc: 'Join audio files into one track.', icon: 'merge', tags: 'join combine concatenate' },
+  { id: 'mute-video', name: 'Remove audio from video', desc: 'Strip the sound from a video without re-encoding.', icon: 'volume-x', tags: 'mute silent' },
+  { id: 'change-video-resolution', name: 'Change video resolution', desc: 'Resize video to 1080p, 720p, 480p or a custom size.', icon: 'monitor', tags: 'resize 1080p 720p scale' },
+  { id: 'change-video-fps', name: 'Change video FPS', desc: 'Change the frame rate of a video, e.g. 60 to 30 fps.', icon: 'gauge', tags: 'frame rate fps' },
+  { id: 'add-subtitles', name: 'Add subtitles to video', desc: 'Burn in or attach an SRT/VTT subtitle track.', icon: 'captions', tags: 'srt vtt captions burn' },
+  { id: 'rotate-video', name: 'Rotate & flip video', desc: 'Fix sideways videos by rotating or flipping them.', icon: 'rotate-cw', tags: 'turn orientation' },
+  { id: 'video-speed', name: 'Change video speed', desc: 'Speed up or slow down a video (with audio pitch kept).', icon: 'fast-forward', tags: 'slow motion timelapse speed' },
+  { id: 'audio-volume', name: 'Audio volume & normalize', desc: 'Boost, lower or normalize loudness of audio or video.', icon: 'volume-2', tags: 'louder normalize boost' },
+]

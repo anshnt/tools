@@ -1,0 +1,27 @@
+// Pack india: Indian government forms, taxes, finance and lookups. Default category: india.
+export const cat = 'india'
+export default [
+  { id: 'govt-photo-resizer', name: 'Government photo resizer', desc: 'Photo presets for Aadhaar, PAN, passport, visa, DL, exams and state forms.', icon: 'contact-round', tags: 'photo resize form ssc upsc ibps neet jee kb' },
+  { id: 'aadhaar-photo', name: 'Aadhaar photo resize', module: 'govt-photo-resizer', params: { preset: 'aadhaar' }, desc: 'Resize a photo for Aadhaar update and enrolment uploads.', icon: 'id-card', tags: 'aadhaar uidai photo' },
+  { id: 'passport-photo-india', name: 'Indian passport photo resize', module: 'govt-photo-resizer', params: { preset: 'passport' }, desc: 'Photo sized for Passport Seva applications.', icon: 'book-user', tags: 'passport seva photo' },
+  { id: 'pan-photo-signature', name: 'PAN photo & signature resize', module: 'govt-photo-resizer', params: { preset: 'pan' }, desc: 'Photo and signature at NSDL/UTIITSL PAN specs.', icon: 'credit-card', tags: 'pan nsdl utiitsl protean photo signature' },
+  { id: 'exam-photo-resizer', name: 'Exam form photo resize', module: 'govt-photo-resizer', params: { preset: 'exam' }, desc: 'SSC, UPSC, IBPS, SBI, RRB, NEET, JEE photo and signature presets.', icon: 'graduation-cap', tags: 'ssc upsc ibps sbi rrb neet jee exam form' },
+  { id: 'signature-resizer', name: 'Signature resize (size & KB)', desc: 'Resize a signature to exact dimensions and a KB limit.', icon: 'signature', tags: 'signature resize kb form' },
+  { id: 'signature-bg-remover', name: 'Signature background remover', desc: 'Make a signature photo clean and transparent, darken the ink.', icon: 'eraser', also: ['image'], tags: 'signature transparent png clean' },
+  { id: 'photo-signature-package', name: 'Photo + signature package', desc: 'Make the photo and signature files a form needs in one go, or combine them on one image.', icon: 'package', tags: 'photo signature combine form' },
+  { id: 'pdf-for-govt-portal', name: 'PDF for government portals', desc: 'Make a PDF fit portal rules: under 100/200/500 KB, A4, grayscale.', icon: 'file-down', also: ['pdf'], tags: 'pdf size limit kb portal upload' },
+  { id: 'income-tax-calculator', name: 'Income tax calculator (India)', desc: 'New vs old regime tax for salaried and others, with rebate and surcharge.', icon: 'indian-rupee', also: ['calc'], tags: 'income tax new regime old regime itr' },
+  { id: 'hra-calculator', name: 'HRA exemption calculator', desc: 'HRA exemption from basic, rent and city.', icon: 'house', also: ['calc'], tags: 'hra rent exemption' },
+  { id: 'epf-calculator', name: 'EPF calculator', desc: 'PF balance at retirement from salary, contributions and rate.', icon: 'piggy-bank', also: ['calc'], tags: 'pf epf provident fund' },
+  { id: 'gratuity-calculator', name: 'Gratuity calculator', desc: 'Gratuity due from last salary and years of service.', icon: 'gift', also: ['calc'], tags: 'gratuity' },
+  { id: 'sip-calculator', name: 'SIP calculator', desc: 'Future value of monthly SIP investments, with step-up.', icon: 'trending-up', also: ['calc'], tags: 'sip mutual fund returns' },
+  { id: 'fd-rd-calculator', name: 'FD & RD calculator', desc: 'Maturity amount for fixed and recurring deposits.', icon: 'landmark', also: ['calc'], tags: 'fd rd fixed deposit recurring' },
+  { id: 'ppf-calculator', name: 'PPF calculator', desc: 'PPF maturity and yearly interest over 15+ years.', icon: 'shield-check', also: ['calc'], tags: 'ppf public provident fund' },
+  { id: 'ifsc-finder', name: 'IFSC code finder', desc: 'Look up bank, branch, address and MICR from an IFSC code.', icon: 'landmark', mode: 'online', tags: 'ifsc bank branch micr' },
+  { id: 'pincode-finder', name: 'PIN code finder', desc: 'Find post offices for a PIN code, or the PIN for a place.', icon: 'map-pin', mode: 'online', tags: 'pincode postal code post office' },
+  { id: 'id-validator', name: 'PAN, GSTIN & Aadhaar validator', desc: 'Check the format and checksum of PAN, GSTIN, Aadhaar and IFSC.', icon: 'badge-check', also: ['security'], tags: 'pan gstin aadhaar verhoeff validate' },
+  { id: 'vehicle-registration', name: 'Vehicle registration decoder', desc: 'Decode a number plate to state and RTO, with links to official lookup.', icon: 'car', tags: 'rto number plate vehicle parivahan vahan' },
+  { id: 'pnr-status', name: 'Train PNR status', desc: 'Validate a PNR and jump straight to the official status pages.', icon: 'train-front', mode: 'online', tags: 'pnr irctc railway' },
+  { id: 'train-timetable', name: 'Train timetable & live status', desc: 'Find train schedules and running status from official sources.', icon: 'train-track', mode: 'online', tags: 'train schedule ntes running status' },
+  { id: 'indian-amount-words', name: 'Amount in words (Rupees)', module: 'amount-in-words', desc: 'Write any amount in Indian words for cheques: lakh, crore, paise.', icon: 'indian-rupee', tags: 'cheque rupees words lakh crore' },
+]

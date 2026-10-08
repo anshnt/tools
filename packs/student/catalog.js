@@ -1,0 +1,24 @@
+// Pack student: study, notes, quizzes, citations and maths. Default category: student.
+export const cat = 'student'
+export default [
+  { id: 'notes-to-pdf', name: 'Notes to PDF', desc: 'Turn typed notes or photos of notes into a tidy PDF.', icon: 'notebook', also: ['pdf'], tags: 'notes pdf study' },
+  { id: 'flashcards', name: 'Flashcard generator', desc: 'Make flashcards from notes, study with flip cards, export for Anki.', icon: 'layers', tags: 'flashcards anki study revise' },
+  { id: 'quiz-generator', name: 'Quiz generator', desc: 'Create fill-in-the-blank and short-answer quizzes from your notes.', icon: 'list-checks', tags: 'quiz test questions' },
+  { id: 'mcq-generator', name: 'MCQ generator', desc: 'Generate multiple-choice questions with answers from any text.', icon: 'circle-check', tags: 'mcq multiple choice questions' },
+  { id: 'answer-evaluator', name: 'Answer evaluator', desc: 'Score an answer against a model answer or rubric, with feedback.', icon: 'graduation-cap', tags: 'grade marks evaluate rubric' },
+  { id: 'formula-sheet', name: 'Formula sheet generator', desc: 'Pick formulas for maths, physics, chemistry and print a sheet.', icon: 'sigma', tags: 'formulas cheat sheet maths physics' },
+  { id: 'citation-generator', name: 'Citation generator', desc: 'Cite books, articles and websites in APA, MLA, IEEE, Chicago, Harvard.', icon: 'quote', also: ['text', 'career'], tags: 'cite reference doi isbn' },
+  { id: 'bibliography-generator', name: 'Bibliography generator', module: 'citation-generator', params: { list: true }, desc: 'Build a sorted bibliography and copy or export it.', icon: 'library', tags: 'bibliography references works cited' },
+  { id: 'apa-formatter', name: 'APA formatter', module: 'citation-generator', params: { style: 'apa' }, desc: 'Format references in APA 7th edition.', icon: 'quote', tags: 'apa citation' },
+  { id: 'mla-formatter', name: 'MLA formatter', module: 'citation-generator', params: { style: 'mla' }, desc: 'Format references in MLA 9th edition.', icon: 'quote', tags: 'mla citation' },
+  { id: 'ieee-formatter', name: 'IEEE formatter', module: 'citation-generator', params: { style: 'ieee' }, desc: 'Format references in IEEE style.', icon: 'quote', tags: 'ieee citation engineering' },
+  { id: 'latex-to-pdf', name: 'LaTeX to PDF', desc: 'Render LaTeX math and documents and save as PDF or PNG.', icon: 'square-function', tags: 'latex tex math equations' },
+  { id: 'math-ocr', name: 'Math equation OCR', desc: 'Photo of an equation to LaTeX you can edit and render.', icon: 'scan-line', mode: 'ai', also: ['ai'], tags: 'equation latex photo handwriting' },
+  { id: 'question-paper-to-text', name: 'Question paper to text', desc: 'Scan question papers (images or PDF) into editable, numbered text.', icon: 'file-scan', mode: 'model', tags: 'ocr exam paper questions' },
+  { id: 'lecture-to-notes', name: 'Lecture audio to notes', desc: 'Transcribe a lecture recording and turn it into study notes.', icon: 'audio-lines', mode: 'model', also: ['ai'], tags: 'lecture recording notes transcribe' },
+  { id: 'scientific-calculator', name: 'Scientific calculator', desc: 'Trig, logs, powers, memory and history, keyboard friendly.', icon: 'calculator', also: ['calc'], tags: 'calculator sin cos log' },
+  { id: 'graph-plotter', name: 'Graph plotter', desc: 'Plot functions like y = sin(x) and x^2 - 3 with zoom and pan.', icon: 'chart-spline', also: ['calc'], tags: 'graph function plot desmos' },
+  { id: 'gpa-calculator', name: 'GPA / CGPA calculator', desc: 'Compute GPA, CGPA and convert CGPA to percentage.', icon: 'award', also: ['calc'], tags: 'gpa cgpa sgpa percentage marks' },
+  { id: 'percentage-marks', name: 'Marks percentage calculator', desc: 'Percentage, grade and total from subject marks.', icon: 'percent', tags: 'marks percentage grade' },
+  { id: 'study-planner', name: 'Study timetable planner', desc: 'Plan subjects across days before exams and print the timetable.', icon: 'calendar-clock', also: ['personal'], tags: 'timetable exam schedule' },
+]

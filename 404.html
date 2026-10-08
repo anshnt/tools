@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Tools</title>
+  <script>
+    // Pretty paths like /tools/merge-pdf redirect to the hash route #/merge-pdf
+    var base = '/tools/'
+    var rest = location.pathname.indexOf(base) === 0 ? location.pathname.slice(base.length) : ''
+    location.replace(base + (rest ? '#/' + rest.replace(/\/$/, '') : ''))
+  </script>
+</head>
+<body></body>
+</html>

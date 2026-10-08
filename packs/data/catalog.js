@@ -1,0 +1,28 @@
+// Pack data: spreadsheets, CSV/JSON/XML and quick analysis. Default category: data.
+export const cat = 'data'
+export default [
+  { id: 'csv-to-excel', name: 'CSV to Excel', desc: 'Convert CSV files to .xlsx with proper columns and types.', icon: 'sheet', tags: 'csv xlsx convert' },
+  { id: 'excel-to-csv', name: 'Excel to CSV', desc: 'Export any sheet of an .xlsx/.xls/.ods file to CSV.', icon: 'file-spreadsheet', tags: 'xlsx xls csv export' },
+  { id: 'excel-to-pdf', name: 'Excel to PDF', desc: 'Turn spreadsheets into printable PDF tables.', icon: 'file-output', also: ['pdf'], tags: 'xlsx pdf print' },
+  { id: 'json-to-csv', name: 'JSON to CSV', desc: 'Flatten JSON arrays into CSV columns.', icon: 'braces', also: ['dev'], tags: 'json csv flatten' },
+  { id: 'csv-to-json', name: 'CSV to JSON', desc: 'Convert CSV rows into JSON objects or arrays.', icon: 'braces', also: ['dev'], tags: 'csv json convert' },
+  { id: 'json-to-excel', name: 'JSON to Excel', desc: 'Convert JSON data into an .xlsx spreadsheet.', icon: 'sheet', also: ['dev'], tags: 'json xlsx' },
+  { id: 'xml-to-json', name: 'XML to JSON', desc: 'Convert XML documents to JSON (and back).', icon: 'code-xml', also: ['dev'], tags: 'xml json convert' },
+  { id: 'csv-viewer', name: 'CSV & Excel viewer', desc: 'Open CSV or spreadsheet files in a fast, searchable table.', icon: 'table', tags: 'view open spreadsheet table' },
+  { id: 'csv-cleaner', name: 'CSV cleaner', desc: 'Trim spaces, fix headers, remove empty rows and normalize values.', icon: 'brush-cleaning', tags: 'clean tidy normalize' },
+  { id: 'remove-duplicate-rows', name: 'Remove duplicate rows', desc: 'Deduplicate rows by all columns or the ones you choose.', icon: 'rows-3', tags: 'dedupe duplicates unique' },
+  { id: 'merge-csv', name: 'Merge CSV files', desc: 'Stack or join multiple CSV files into one.', icon: 'combine', tags: 'join append combine' },
+  { id: 'split-csv', name: 'Split CSV', desc: 'Split a large CSV by row count or by a column value.', icon: 'split', tags: 'split chunk' },
+  { id: 'sort-filter-data', name: 'Sort & filter data', desc: 'Sort, filter and pick columns, then export the result.', icon: 'filter', tags: 'sort filter query' },
+  { id: 'missing-values', name: 'Find missing values', desc: 'Spot empty cells and gaps per column, and fill or drop them.', icon: 'search-x', tags: 'null empty blanks na' },
+  { id: 'chart-maker', name: 'Chart maker', desc: 'Make bar, line, pie and scatter charts from your data and export PNG.', icon: 'chart-column', tags: 'chart graph visualize visualization plot' },
+  { id: 'data-statistics', name: 'Statistics calculator', desc: 'Mean, median, mode, std dev, percentiles and correlations.', icon: 'sigma', also: ['calc', 'student'], tags: 'stats mean median standard deviation' },
+  { id: 'sql-to-csv', name: 'Query CSV with SQL', desc: 'Run SQL on CSV/Excel files, or turn INSERT statements into CSV.', icon: 'database', also: ['dev'], tags: 'sql query select insert' },
+  { id: 'excel-formula-generator', name: 'Excel formula generator', desc: 'Describe what you need in plain words and get the Excel formula.', icon: 'square-function', mode: 'ai', also: ['ai'], tags: 'excel formula vlookup sumif' },
+  { id: 'excel-formula-explainer', name: 'Excel formula explainer', desc: 'Paste a formula and get a step-by-step explanation.', icon: 'circle-help', tags: 'excel formula explain' },
+  { id: 'csv-to-table', name: 'CSV to table', desc: 'Turn CSV into a Markdown, HTML or ASCII table.', icon: 'table-2', also: ['dev', 'text'], tags: 'markdown html table' },
+  { id: 'table-to-csv', name: 'Table to CSV', desc: 'Paste an HTML, Markdown or copied web table and get CSV.', icon: 'table-properties', tags: 'html table markdown csv' },
+  { id: 'sort-csv', name: 'Sort CSV', module: 'sort-filter-data', params: { focus: 'sort' }, desc: 'Sort CSV rows by one or more columns.', icon: 'arrow-down-up', tags: 'sort order' },
+  { id: 'transpose-data', name: 'Transpose rows & columns', desc: 'Swap rows and columns of CSV or pasted table data.', icon: 'rotate-ccw-square', tags: 'transpose pivot swap' },
+  { id: 'pivot-table', name: 'Pivot table', desc: 'Group and summarize data with sum, count and average.', icon: 'grid-3x3', tags: 'group by summarize aggregate' },
+]

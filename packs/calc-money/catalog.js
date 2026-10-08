@@ -1,0 +1,27 @@
+// Pack calc-money: money, tax, loan and cost calculators. Default category: calc.
+export const cat = 'calc'
+export default [
+  { id: 'percentage-calculator', name: 'Percentage calculator', desc: 'X% of Y, X is what % of Y, and percentage increase/decrease.', icon: 'percent', tags: 'percent' },
+  { id: 'percentage-change', name: 'Percentage change', module: 'percentage-calculator', params: { mode: 'change' }, desc: 'Percent increase or decrease between two numbers.', icon: 'trending-up', tags: 'growth difference' },
+  { id: 'reverse-percentage', name: 'Reverse percentage', module: 'percentage-calculator', params: { mode: 'reverse' }, desc: 'Rs 800 after 20% off: what was the original price?', icon: 'undo-2', tags: 'original price before discount' },
+  { id: 'discount-calculator', name: 'Discount calculator', desc: 'Final price and savings for single or stacked discounts.', icon: 'tag', also: ['personal'], tags: 'sale offer price' },
+  { id: 'gst-calculator', name: 'GST calculator', desc: 'Add or remove GST (5/12/18/28%) with CGST, SGST and IGST split.', icon: 'receipt-indian-rupee', also: ['india'], tags: 'gst india tax inclusive exclusive' },
+  { id: 'reverse-gst', name: 'Reverse GST calculator', module: 'gst-calculator', params: { mode: 'reverse' }, desc: 'Find the pre-GST price from a GST-inclusive amount.', icon: 'undo-2', also: ['india'], tags: 'gst inclusive base price' },
+  { id: 'sales-tax-calculator', name: 'Sales tax / VAT calculator', desc: 'Add or remove sales tax or VAT at any rate.', icon: 'receipt', tags: 'vat tax' },
+  { id: 'emi-calculator', name: 'EMI calculator', desc: 'Monthly EMI, total interest and a full amortization schedule.', icon: 'landmark', also: ['india'], tags: 'emi loan home car personal' },
+  { id: 'loan-calculator', name: 'Loan calculator', desc: 'Payments, interest and prepayment savings for any loan.', icon: 'banknote', tags: 'loan mortgage prepayment' },
+  { id: 'amortization-schedule', name: 'EMI amortization table', module: 'emi-calculator', params: { view: 'schedule' }, desc: 'Month-by-month principal, interest and balance; export to CSV.', icon: 'table', tags: 'schedule table' },
+  { id: 'loan-comparison', name: 'Loan comparison', desc: 'Compare loans side by side by rate, tenure and fees.', icon: 'scale', tags: 'compare loans' },
+  { id: 'interest-calculator', name: 'Interest calculator', desc: 'Simple and compound interest with any compounding frequency.', icon: 'piggy-bank', tags: 'compound simple interest' },
+  { id: 'salary-calculator', name: 'Salary calculator', desc: 'Convert hourly, monthly and yearly pay, and estimate take-home.', icon: 'wallet', tags: 'salary hourly annual monthly' },
+  { id: 'salary-breakup', name: 'Salary breakup (CTC to in-hand)', desc: 'Split CTC into basic, HRA, PF, tax and in-hand salary.', icon: 'chart-pie', also: ['india', 'career'], tags: 'ctc in hand take home india' },
+  { id: 'fuel-cost-calculator', name: 'Fuel cost calculator', desc: 'Trip fuel cost from distance, mileage and fuel price.', icon: 'fuel', also: ['personal'], tags: 'petrol diesel mileage trip' },
+  { id: 'trip-cost-calculator', name: 'Trip cost calculator', desc: 'Total and per-person cost of a trip: fuel, tolls, stay, food.', icon: 'car', also: ['personal'], tags: 'travel budget' },
+  { id: 'electricity-bill', name: 'Electricity bill estimator', desc: 'Estimate your bill from appliances or units, with slab rates.', icon: 'zap', also: ['personal', 'india'], tags: 'units kwh power bill' },
+  { id: 'tip-calculator', name: 'Tip calculator', desc: 'Tip and total per person in seconds.', icon: 'hand-coins', also: ['personal'], tags: 'tip restaurant' },
+  { id: 'bill-splitter', name: 'Bill splitter', desc: 'Split a bill evenly or by items, with tax and tip.', icon: 'split', also: ['personal'], tags: 'split share restaurant' },
+  { id: 'currency-converter', name: 'Currency converter', desc: 'Live exchange rates for 30+ currencies including INR, USD, EUR.', icon: 'coins', mode: 'online', tags: 'exchange rate forex inr usd' },
+  { id: 'profit-margin', name: 'Profit margin calculator', desc: 'Margin, markup, cost and selling price from any two values.', icon: 'trending-up', also: ['career'], tags: 'margin markup business' },
+  { id: 'roi-calculator', name: 'ROI & CAGR calculator', desc: 'Return on investment and compound annual growth rate.', icon: 'chart-line', tags: 'returns cagr investment' },
+  { id: 'inflation-calculator', name: 'Inflation calculator', desc: 'What money today will be worth in the future (and the reverse).', icon: 'trending-down', tags: 'inflation future value' },
+]
