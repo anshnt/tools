@@ -123,6 +123,8 @@ export async function mount(root, { signal }) {
     clear(status)
     const tone = TONES.find((t) => t[0] === st.tone)
     st.view = st.view === 'rewrite' ? 'rewrite' : st.view
+    const prevResult = result
+    const hadResult = !!result
     result = ''
     out.value = ''
     clear(viewHost, out)
@@ -130,7 +132,7 @@ export async function mount(root, { signal }) {
     const lenRule = { shorter: 'Make it noticeably shorter (about 30 to 50 percent fewer words) by cutting filler, not facts.', same: 'Keep roughly the same length.', longer: 'Expand it slightly with helpful context and smoother transitions, without inventing facts.' }[st.length]
     const text2 = await ai.ask({
       system: 'You are an expert business writing editor. Rewrite emails to match the requested tone and length. Preserve every fact, name, date, number and request exactly. Never invent details. Keep [placeholders] unchanged. Output only the rewritten email (subject line only if the original had one), with no commentary and no quotation marks. Do not use em dashes.',
-      prompt: `Tone: ${tone[1]} (${tone[2]}).\n${lenRule}${extra.value.trim() ? `\nExtra instruction: ${extra.value.trim()}` : ''}${again && result ? '\nUse clearly different wording from your previous version.' : ''}\n\nEMAIL:\n${text}`,
+      prompt: `Tone: ${tone[1]} (${tone[2]}).\n${lenRule}${extra.value.trim() ? `\nExtra instruction: ${extra.value.trim()}` : ''}${again && hadResult ? `\nUse clearly different wording from this previous version:\n${prevResult}` : ''}\n\nEMAIL:\n${text}`,
       effort: 'low', maxTokens: 3000, signal, onText: (t) => { out.value = t; result = t },
     })
     result = text2.trim()

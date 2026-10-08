@@ -60,7 +60,7 @@ export async function mount(root, { signal }) {
     ].map((t, i) => tile({ ...t, i }))
 
     const skillGroup = (title, list, kind) => list.length ? h('div', { class: 'stack tight' }, h('h3', { style: 'font-size:14px' }, `${title} (${list.length})`),
-      [...byCat(list)].map(([cat, items]) => h('div', { class: 'stack tight' }, h('div', { class: 'small muted' }, cat), h('div', { class: 'cr-chips' }, items.map((s, i) => chip(s.name, kind, { i, count: s.count })))))) : null
+      h('div', [...byCat(list)].map(([cat, items]) => h('div', { class: 'cr-cat' }, h('div', { class: 'k' }, cat), h('div', { class: 'cr-chips' }, items.map((s, i) => chip(s.name, kind, { i, count: s.count })))))) ) : null
 
     const listCard = (title, ic, items, empty) => h('div', { class: 'cr-card' }, h('h2', { class: 'cr-h' }, h('span', { class: 'tile' }, icon(ic)), title, h('span', { class: 'aside' }, String(items.length))),
       items.length ? h('ul', { style: 'margin:0;padding-left:18px;display:grid;gap:7px;font-size:14px' }, items.slice(0, 14).map((x) => h('li', x))) : h('div', { class: 'small muted' }, empty))

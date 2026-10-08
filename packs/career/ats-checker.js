@@ -109,9 +109,7 @@ export async function mount(root, { signal }) {
     const byCat = new Map()
     for (const s of a.skills) (byCat.get(s.cat) || byCat.set(s.cat, []).get(s.cat)).push(s)
     if (!byCat.size) return alert('warn', 'No known skills were detected. Add a Skills section listing your tools and technologies.')
-    return h('div', { class: 'stack' }, [...byCat].map(([cat, list]) => h('div', { class: 'stack tight' }, h('h3', { style: 'font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em' }, cat),
-      h('div', { class: 'cr-chips' }, list.map((s, i) => chip(s.name, 'ok', { i, count: s.count })))))
-    )
+    return h('div', [...byCat].map(([cat, list]) => h('div', { class: 'cr-cat' }, h('div', { class: 'k' }, cat), h('div', { class: 'cr-chips' }, list.map((s, i) => chip(s.name, 'ok', { i, count: s.count }))))))
   }
 
   function aiView() {

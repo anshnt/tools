@@ -49,7 +49,7 @@ const CSS = String.raw`
 /* score ring */
 .cr-ring { position: relative; display: inline-grid; place-items: center; width: var(--sz, 148px); height: var(--sz, 148px); color: var(--danger); }
 .cr-ring.mid { color: var(--warning); } .cr-ring.hi { color: var(--success); }
-.cr-ring svg { width: 100%; height: 100%; display: block; }
+.cr-ring svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .cr-ring .track { stroke: var(--surface-3); }
 .cr-ring .arc { stroke: currentColor; transition: stroke-dashoffset 1.2s var(--ease), stroke .4s; filter: drop-shadow(0 4px 8px color-mix(in srgb, currentColor 40%, transparent)); }
 .cr-ring .mid-text { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
@@ -75,7 +75,7 @@ const CSS = String.raw`
 .cr-chip.btn-chip[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
 
 /* bento tiles */
-.cr-bento { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 12px; }
+.cr-bento { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 176px), 1fr)); gap: 12px; }
 .cr-tile { position: relative; overflow: hidden; padding: 16px; border-radius: 22px; min-width: 0; --t: var(--cr);
   background: linear-gradient(155deg, color-mix(in srgb, var(--t) 11%, var(--surface)), var(--surface) 70%); border: 1px solid color-mix(in srgb, var(--t) 24%, var(--border));
   transition: transform .3s var(--ease), box-shadow .3s var(--ease); animation: crRise .55s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms); }
@@ -195,6 +195,15 @@ const CSS = String.raw`
 .cr-thumb-s:hover { transform: translateY(-2px); }
 .cr-thumb-s.on { border-color: var(--accent); }
 .cr-thumb-s .n { position: absolute; left: 9px; bottom: 9px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 7px; display: grid; place-items: center; font-size: 11px; font-weight: 600; color: #fff; background: rgba(0, 0, 0, .55); }
+.cr-cat { display: grid; grid-template-columns: 138px minmax(0, 1fr); gap: 6px 14px; align-items: start; padding: 8px 0; border-top: 1px dashed var(--border); }
+.cr-cat:first-of-type { border-top: 0; }
+.cr-cat > .k { font-size: 12.5px; font-weight: 600; color: var(--muted); padding-top: 6px; }
+@media (max-width: 600px) { .cr-cat { grid-template-columns: minmax(0, 1fr); } .cr-cat > .k { padding-top: 0; } }
+.cr-menu { position: relative; }
+.cr-menu > summary { list-style: none; cursor: pointer; }
+.cr-menu > summary::-webkit-details-marker { display: none; }
+.cr-menu-list { position: absolute; left: 0; top: calc(100% + 6px); z-index: 40; min-width: 220px; padding: 6px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-lg); display: grid; gap: 2px; animation: crPop .2s var(--spring) both; }
+.cr-menu-list .btn { justify-content: flex-start; width: 100%; }
 .cr-diff { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); overflow: hidden; min-width: 0; }
 .cr-diff-h { padding: 8px 14px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--border); }
 .cr-diff > div:last-child { padding: 14px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14.5px; line-height: 1.65; min-height: 120px; }
@@ -416,6 +425,20 @@ export function openMail({ to = '', subject = '', body = '' }) {
   const url = `mailto:${encodeURIComponent(to).replace(/%40/g, '@')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body).replace(/%0A/g, '%0D%0A')}`
   if (url.length > 1900) toast('This email is long, so your mail app may cut it off. Copy the text instead if that happens.', 'info', 6000)
   location.href = url
+}
+
+/** Dropdown menu button: moreMenu('More', 'ellipsis', [{label, icon, onClick}]). Closes on outside click and Escape. */
+export function moreMenu(label, ic, items) {
+  const det = h('details', { class: 'cr-menu' })
+  const sum = h('summary', { class: 'btn btn-ghost btn-sm', 'aria-haspopup': 'menu' }, icon(ic), h('span', label), icon('chevron-down'))
+  const list = h('div', { class: 'cr-menu-list', role: 'menu' }, items.map((it) => h('button', { type: 'button', class: 'btn btn-ghost btn-sm', role: 'menuitem', onclick: () => { det.open = false; it.onClick() } }, icon(it.icon), h('span', it.label))))
+  det.append(sum, list)
+  const away = (e) => { if (det.open && !det.contains(e.target)) det.open = false }
+  const esc_ = (e) => { if (e.key === 'Escape' && det.open) { det.open = false; sum.focus() } }
+  document.addEventListener('click', away)
+  document.addEventListener('keydown', esc_)
+  onCleanup(() => { document.removeEventListener('click', away); document.removeEventListener('keydown', esc_) })
+  return det
 }
 
 /** Clear and fill a container, returning it. */

@@ -108,11 +108,15 @@ export async function mount(root, { signal }) {
   const saved = saveIndicator('Saved on this device')
   const persist = debounce(() => { save(KEY, { ...f, tpl: o.tpl, font: o.font, size: o.size, accent: o.accent, social: o.social }); setProfile({ name: f.name, title: f.title, email: f.email, phone: f.phone, website: f.website, company: f.company }); saved.saved() }, 400)
   const mailbox = h('div', { class: 'cr-mailbox' })
+  const photoWarn = alert('warn', 'The photo could not be loaded. Use a public address that starts with https:// and points straight to the image.')
+  photoWarn.hidden = true
   const draw = () => {
     const html = buildSignature(f, o)
     mailbox.innerHTML = f.name || f.email || f.title ? html : ''
     if (!mailbox.innerHTML) mailbox.append(h('div', { class: 'small muted' }, 'Fill in your details and your signature appears here.'))
     mailbox.classList.toggle('dark', o.dark)
+    photoWarn.hidden = true
+    mailbox.querySelectorAll('img').forEach((img) => img.addEventListener('error', () => { img.style.display = 'none'; photoWarn.hidden = false }, { once: true }))
   }
   const onField = () => { saved.dirty(); persist(); draw() }
   const html = () => buildSignature(f, o)
@@ -167,7 +171,7 @@ export async function mount(root, { signal }) {
         card('Style', 'palette', h('div', { class: 'stack tight' }, tplPick,
           h('div', { class: 'row', style: 'gap:18px' }, field('Accent', sw), fs(o, 'font', 'Font', FONTS, onField), fs(o, 'size', 'Size', [[12, '12 px'], [13, '13 px'], [14, '14 px'], [15, '15 px']], (k, v) => { o.size = +v; onField() })),
           field('Social links as', segmented([['text', 'Text links'], ['badge', 'Color badges']], o.social, (v) => { o.social = v; onField() }, 'Social style')))),
-        card('Preview', 'eye', h('div', { class: 'stack tight' }, mailbox,
+        card('Preview', 'eye', h('div', { class: 'stack tight' }, mailbox, photoWarn,
           h('div', { class: 'row' }, field('', segmented([['light', 'Light mail'], ['dark', 'Dark mail']], 'light', (v) => { o.dark = v === 'dark'; draw() }, 'Preview background'))),
           h('div', { class: 'row' }, copyRich, button('Copy HTML code', { icon: 'code', variant: 'secondary', onClick: () => copyText(html()) }), button('Download .html', { icon: 'download', variant: 'ghost', size: 'sm', onClick: () => saveAs(`<!doctype html><meta charset="utf-8"><title>Email signature</title><body style="margin:20px">${html()}</body>`, 'email-signature.html', 'text/html;charset=utf-8') })),
           h('div', { class: 'small muted' }, 'Photos hosted at a public web address work everywhere. Uploaded photos are embedded and work in Outlook and Apple Mail, but Gmail may drop them.'), saved.el)),

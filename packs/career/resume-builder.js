@@ -5,7 +5,7 @@ import { h, icon, button, busy, toast, alert, modal, field, input, textarea, seg
 import { load, save } from '../../lib/store.js'
 import { pickFiles, safeName } from '../../lib/files.js'
 import * as ai from '../../lib/ai.js'
-import { shell, banner, card, saveIndicator, sortable, handle, burst, saveAs } from './_kit.js'
+import { shell, banner, card, saveIndicator, sortable, handle, burst, saveAs, moreMenu } from './_kit.js'
 import { SECTIONS, emptyResume, sampleResume, normalizeResume, newEntry, parseResumeText, resumeToText, hasContent, RESUME_SCHEMA, RESUME_AI_SYSTEM, cleanBullets } from './_resume.js'
 import { buildResumePdf, TEMPLATES, textIssues } from './_resume-pdf.js'
 import { buildResumeDocx } from './_resume-docx.js'
@@ -57,7 +57,7 @@ export async function mount(root, { params, signal }) {
       lastPages = pages
       await view.show(blob)
       const bad = textIssues(data)
-      clear(warn, bad.length ? alert('warn', `The PDF uses built-in fonts, so ${bad.slice(0, 6).join(' ')} cannot be drawn. Use Word export for non-Latin text.`) : null)
+      clear(warn, bad.length ? alert('warn', `The PDF uses built-in fonts, so some characters (${bad.slice(0, 4).join('')}) cannot be drawn and show as "?". Use the Word export for non-Latin text.`) : null)
     } catch (e) {
       console.error(e)
       clear(warn, alert('error', errorMessage(e)))
@@ -278,24 +278,26 @@ export async function mount(root, { params, signal }) {
     toast('Word file downloaded', 'success')
   })
   const exportBar = h('div', { class: 'row', style: 'gap:8px' }, pdfBtn, docxBtn,
-    button('Copy text', { icon: 'copy', variant: 'ghost', size: 'sm', onClick: () => copyText(resumeToText(data)) }),
-    button('Save backup', { icon: 'save', variant: 'ghost', size: 'sm', title: 'Download your resume data as JSON', onClick: () => saveAs(JSON.stringify(data, null, 2), `${fileBase()}.json`, 'application/json') }),
-    button('Load backup', { icon: 'folder-open', variant: 'ghost', size: 'sm', onClick: async () => {
-      const [f] = await pickFiles({ accept: '.json,application/json' })
-      if (!f) return
-      try {
-        const obj = JSON.parse(await f.text())
-        if (!obj || typeof obj !== 'object' || (!obj.contact && !obj.experience)) throw new Error('This file does not look like a resume backup.')
-        replaceData(obj, { keepStyle: false })
-        toast('Backup loaded', 'success')
-      } catch (e) { toast(e instanceof SyntaxError ? 'That file is not valid JSON.' : errorMessage(e), 'error') }
-    } }),
     button('Import resume', { icon: 'import', variant: 'ghost', size: 'sm', onClick: openImportModal }),
-    button('Clear', { icon: 'eraser', variant: 'ghost', size: 'sm', onClick: () => {
-      const yes = button('Clear everything', { variant: 'danger', icon: 'trash-2' })
-      const m = modal({ title: 'Clear this resume?', icon: 'triangle-alert', body: h('p', 'This removes all your details from this device. Tip: use Save backup first if you want to keep a copy.'), actions: [button('Cancel', { onClick: () => m.close() }), yes] })
-      yes.addEventListener('click', () => { m.close(); replaceData(emptyResume()); toast('Cleared') })
-    } }))
+    moreMenu('More', 'ellipsis', [
+      { label: 'Copy as plain text', icon: 'copy', onClick: () => copyText(resumeToText(data)) },
+      { label: 'Save backup (JSON)', icon: 'save', onClick: () => saveAs(JSON.stringify(data, null, 2), `${fileBase()}.json`, 'application/json') },
+      { label: 'Load backup', icon: 'folder-open', onClick: async () => {
+        const [f] = await pickFiles({ accept: '.json,application/json' })
+        if (!f) return
+        try {
+          const obj = JSON.parse(await f.text())
+          if (!obj || typeof obj !== 'object' || (!obj.contact && !obj.experience)) throw new Error('This file does not look like a resume backup.')
+          replaceData(obj, { keepStyle: false })
+          toast('Backup loaded', 'success')
+        } catch (e) { toast(e instanceof SyntaxError ? 'That file is not valid JSON.' : errorMessage(e), 'error') }
+      } },
+      { label: 'Clear everything', icon: 'eraser', onClick: () => {
+        const yes = button('Clear everything', { variant: 'danger', icon: 'trash-2' })
+        const m = modal({ title: 'Clear this resume?', icon: 'triangle-alert', body: h('p', 'This removes all your details from this device. Tip: use Save backup first if you want to keep a copy.'), actions: [button('Cancel', { onClick: () => m.close() }), yes] })
+        yes.addEventListener('click', () => { m.close(); replaceData(emptyResume()); toast('Cleared') })
+      } },
+    ]))
 
   // ---------- import ----------
   function importPanel({ onDone, compact }) {
