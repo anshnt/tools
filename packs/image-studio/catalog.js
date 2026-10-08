@@ -1,11 +1,11 @@
 // Pack image-studio: creative and analysis image tools. Default category: image.
 export const cat = 'image'
 export default [
-  { id: 'aspect-ratio-calculator', name: 'Aspect ratio calculator', desc: 'Find the ratio of any size, or the missing width/height for a ratio.', icon: 'ratio', also: ['calc'], tags: '16:9 4:3 ratio resize' },
-  { id: 'print-size-calculator', name: 'Print size calculator', module: 'print-size', desc: '1200 x 1800 px at 300 DPI = 4 x 6 in. Work out print sizes and quality.', icon: 'printer', also: ['calc'], tags: 'print dpi inches cm photo size' },
-  { id: 'dpi-calculator', name: 'Image DPI calculator', module: 'print-size', params: { solve: 'dpi' }, desc: 'Work out the DPI an image will print at for a given size.', icon: 'scan', tags: 'dpi ppi print' },
-  { id: 'pixel-converter', name: 'Pixel, inch & cm converter', desc: 'Convert between px, in, cm, mm and pt at any DPI.', icon: 'ruler', also: ['calc'], tags: 'px inch cm mm dpi convert' },
-  { id: 'image-splitter', name: 'Image splitter', desc: 'Split a big image into 2x2, 3x3, custom grids or an Instagram grid.', icon: 'grid-3x3', tags: 'split grid instagram tiles slice' },
+  { id: 'aspect-ratio-calculator', name: 'Aspect ratio calculator', desc: 'Find the ratio of any size, or the missing width/height for a ratio.', icon: 'ratio', also: ['calc'], tags: '16:9 4:3 ratio resize', ready: true },
+  { id: 'print-size-calculator', name: 'Print size calculator', module: 'print-size', desc: '1200 x 1800 px at 300 DPI = 4 x 6 in. Work out print sizes and quality.', icon: 'printer', also: ['calc'], tags: 'print dpi inches cm photo size', ready: true },
+  { id: 'dpi-calculator', name: 'Image DPI calculator', module: 'print-size', params: { solve: 'dpi' }, desc: 'Work out the DPI an image will print at for a given size.', icon: 'scan', tags: 'dpi ppi print', ready: true },
+  { id: 'pixel-converter', name: 'Pixel, inch & cm converter', desc: 'Convert between px, in, cm, mm and pt at any DPI.', icon: 'ruler', also: ['calc'], tags: 'px inch cm mm dpi convert', ready: true },
+  { id: 'image-splitter', name: 'Image splitter', desc: 'Split a big image into 2x2, 3x3, custom grids or an Instagram grid.', icon: 'grid-3x3', tags: 'split grid instagram tiles slice', ready: true },
   { id: 'collage-maker', name: 'Collage & montage maker', desc: 'Arrange photos into grids and collages with spacing and borders.', icon: 'layout-template', tags: 'collage montage grid photos' },
   { id: 'image-tiler', name: 'Image tiler', desc: 'Repeat an image as a seamless pattern or tile it onto a page.', icon: 'grid-2x2', tags: 'pattern tile repeat wallpaper' },
   { id: 'sprite-sheet', name: 'Sprite sheet generator', desc: 'Pack images into a sprite sheet with CSS and JSON coordinates.', icon: 'layout-grid', also: ['dev'], tags: 'sprites css game atlas' },
