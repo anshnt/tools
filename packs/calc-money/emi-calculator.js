@@ -58,7 +58,7 @@ export function mount(root, { params }) {
   const balance = chartBox({ height: 250, ariaLabel: 'Loan balance over time' })
   const yearBars = chartBox({ height: 260, ariaLabel: 'Principal and interest paid each year' })
   const tableHost = h('div', { class: 'emi-table' })
-  const csvBtn = button('Download CSV', { icon: 'download', variant: view === 'schedule' ? 'primary' : 'secondary', size: 'sm', onClick: () => csv() })
+  const csvBtn = button('Export CSV', { icon: 'download', variant: view === 'schedule' ? 'primary' : 'secondary', size: 'sm', onClick: () => csv() })
   const scheduleSw = switcher([['monthly', 'Monthly'], ['yearly', 'Yearly']], tableMode, (m) => { tableMode = m; paintTable() }, 'Schedule view')
   const summary = h('div', { class: 'emi-summary' })
   const results = h('div')
@@ -123,9 +123,10 @@ export function mount(root, { params }) {
     t.set(tl)
 
     // Charts
+    const shown = hasPre ? pre : base
     donut.render({
-      type: 'doughnut', labels: ['Principal', 'Interest'], datasets: [{ data: [P, base.totalInterest], colors: [0, 1] }], format: m,
-      center: { title: pct(interestShare, 1), caption: 'is interest' },
+      type: 'doughnut', labels: ['Principal', 'Interest'], datasets: [{ data: [P, shown.totalInterest], colors: [0, 1] }], format: m,
+      center: { title: pct((shown.totalInterest / (P + shown.totalInterest)) * 100, 1), caption: 'is interest' },
     })
     const step = base.periods <= 36 ? 1 : 12
     const pts = []
@@ -165,6 +166,12 @@ export function mount(root, { params }) {
   function csv() {
     if (!last) return
     const { pre, start } = last
+    if (tableMode === 'yearly') {
+      const ys = yearly(pre.rows, 12)
+      downloadCSV([['Year', 'Paid', 'Principal', 'Interest', 'Prepayment', 'Closing balance'],
+        ...ys.map((y) => [y.year, (y.payment + y.prepay).toFixed(2), (y.principal + y.prepay).toFixed(2), y.interest.toFixed(2), y.prepay.toFixed(2), y.balance.toFixed(2)])], `yearly-summary-${last.n}-months.csv`)
+      return
+    }
     const rows = [['No', 'Month', 'EMI', 'Principal', 'Interest', 'Prepayment', 'Balance'],
       ...pre.rows.map((r) => [r.k, start ? monthName(addMonths(start, r.k - 1)) : `Month ${r.k}`, r.payment.toFixed(2), r.principal.toFixed(2), r.interest.toFixed(2), r.prepay.toFixed(2), r.balance.toFixed(2)]),
       ['Total', '', pre.rows.reduce((s, r) => s + r.payment, 0).toFixed(2), pre.rows.reduce((s, r) => s + r.principal, 0).toFixed(2), pre.totalInterest.toFixed(2), pre.totalPrepaid.toFixed(2), '']]

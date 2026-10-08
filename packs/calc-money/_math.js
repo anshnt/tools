@@ -181,6 +181,8 @@ export function pricing(known) {
     if (!has(cost) && has(margin) && has(price)) cost = price * (1 - margin / 100)
     if (!has(price) && has(markup) && has(cost)) price = cost * (1 + markup / 100)
     if (!has(cost) && has(markup) && has(price)) cost = price / (1 + markup / 100)
+    if (!has(price) && has(profit) && has(margin) && margin !== 0) price = (profit * 100) / margin
+    if (!has(cost) && has(profit) && has(markup) && markup !== 0) cost = (profit * 100) / markup
     if (!has(margin) && has(markup) && markup > -100) margin = (markup / (100 + markup)) * 100
     if (!has(markup) && has(margin) && margin < 100) markup = (margin / (100 - margin)) * 100
   }

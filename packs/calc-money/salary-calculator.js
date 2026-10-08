@@ -28,7 +28,7 @@ export function mount(root) {
   const curSel = currencyPicker((c) => { cur = c; prefix(); showTax(); update() })
   cur = curSel.get()
   const sym = () => money(0, cur).replace(/[\d.,\s]/g, '')
-  const amount = num('My pay', { value: cur === 'INR' ? 60000 : 3500, min: 0, max: 1e12 })
+  const amount = num('I earn', { value: cur === 'INR' ? 60000 : 3500, min: 0, max: 1e12 })
   const periodSel = pick(PERIODS.map((p) => [p, `per ${p === 'fortnight' ? '2 weeks' : p}`]), period, (v) => { period = v; update() }, 'Pay period')
   const hours = num('Hours per week', { value: 40, min: 1, max: 168 })
   const days = num('Days per week', { value: 5, min: 1, max: 7 })
@@ -84,7 +84,7 @@ export function mount(root) {
   showTax()
   update()
   const inputs = card('Your pay', { icon: 'wallet', right: curSel },
-    stack(h('div', { class: 'cm-field' }, h('span', { class: 'cm-label' }, h('span', 'I earn')), h('div', { class: 'cm-grid2' }, amount, periodSel)),
+    stack(h('div', { class: 'cm-grid2' }, amount, block('Per', periodSel)),
       block('Working pattern', h('div', { class: 'cm-grid3 keep' }, hours, days, weeks)),
       taxBox))
   shell(root, layout([inputs], [hr.el, card('Same pay, every way', { icon: 'repeat' }, t), note('Take-home is an estimate: it ignores allowances, bonuses, local levies and anything particular to your payslip.')], card('Where your pay goes', { icon: 'chart-pie' }, split)))

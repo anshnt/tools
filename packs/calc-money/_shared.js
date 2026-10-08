@@ -247,7 +247,11 @@ export function dateField(label, o = {}) {
   const el = h('label', { class: 'cm-field' }, h('span', { class: 'cm-label' }, h('span', label)), h('div', { class: 'cm-adorn' }, inp), hint)
   el.input = inp
   el.val = () => inp.value
-  el.date = () => (inp.value ? new Date(`${inp.value}${(o.type || 'date') === 'month' ? '-01' : ''}T00:00:00`) : null)
+  el.date = () => {
+    if (!inp.value) return null
+    const d = new Date(`${inp.value}${(o.type || 'date') === 'month' && /^\d{4}-\d{2}$/.test(inp.value) ? '-01' : ''}T00:00:00`)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
   el.set = (v) => { inp.value = v }
   el.setHint = (t) => { hint.textContent = t || '' }
   return el

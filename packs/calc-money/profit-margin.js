@@ -27,13 +27,13 @@ export function mount(root, { params }) {
   cur = curSel.get()
   const sym = () => money(0, cur).replace(/[\d.,\s]/g, '')
   const f = {
-    cost: num('Cost price', { value: 80, min: -1e12, max: 1e12, hint: '' }),
+    cost: num('Cost price', { value: 80, min: -1e12, max: 1e12 }),
     price: num('Selling price', { value: 100, min: -1e12, max: 1e12 }),
     profit: num('Profit', { value: '', min: -1e12, max: 1e12 }),
-    margin: num('Margin', { value: '', min: -1e9, max: 99.999999, suffix: '%', hint: 'Profit as a share of the selling price' }),
-    markup: num('Markup', { value: '', min: -99.999999, max: 1e9, suffix: '%', hint: 'Profit as a share of the cost' }),
+    margin: num('Margin', { value: '', min: -1e9, max: 99.999999, suffix: '%' }),
+    markup: num('Markup', { value: '', min: -99.999999, max: 1e9, suffix: '%' }),
   }
-  const units = num('Units sold (optional)', { value: 1, min: 1, max: 1e9, int: true, optional: true, fallback: 1, hint: 'See the totals for a whole batch' })
+  const units = num('Units sold (optional)', { value: 1, min: 1, max: 1e9, int: true, optional: true, fallback: 1 })
   let touched = ['cost', 'price']
   const wrap = {}
   const cells = KEYS.map((k) => { const tag = h('span', { class: 'tag' }); const el = h('div', { class: 'pm-f', 'data-k': k }, f[k], tag); wrap[k] = { el, tag }; return el })
@@ -96,6 +96,6 @@ export function mount(root, { params }) {
       rows: [10, 20, 25, 30, 40, 50, 75, 100].map((x) => [`${x}%`, pct((x / (100 + x)) * 100, 2), `${x}%`, pct((x / (100 - x)) * 100, 2)]) }),
     h('p', { class: 'pm-help' }, 'Left: the margin you get from a markup. Right: the markup you need for a margin. A 25% markup is only a 20% margin.')))
   shell(root, layout(
-    [card('Fill in any two', { icon: 'calculator', right: curSel }, stack(h('p', { class: 'pm-help' }, 'The two boxes you edit most recently are the ones the maths starts from. The dashed boxes are worked out for you. Edit one to change what you know.'), h('div', { class: 'pm-grid' }, cells), units)), cheat],
+    [card('Fill in any two', { icon: 'calculator', right: curSel }, stack(h('p', { class: 'pm-help' }, 'The two boxes you edit most recently are the ones the maths starts from. The dashed boxes are worked out for you. Edit one to change what you know.'), h('div', { class: 'pm-grid' }, cells, units), h('p', { class: 'pm-help' }, 'Margin is profit as a share of the selling price. Markup is profit as a share of the cost. Units sold shows the totals for a whole batch.'))), cheat],
     [hr.el, t, note('Margin is profit divided by the selling price. Markup is profit divided by the cost. They are different numbers for the same deal.')]))
 }
