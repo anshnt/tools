@@ -146,6 +146,7 @@ function makeSource(file, bytes, doc, password) {
   const urls = new Map()
   let sizes = null
   let shared = null
+  const hooks = []
   const s = {
     file, bytes, doc, password, name: file.name, size: file.size, pages: doc.numPages,
     get dead() { return dead },
@@ -186,9 +187,30 @@ function makeSource(file, bytes, doc, password) {
       }
       return urls.get(key)
     },
+    /** Register cleanup that runs when this PDF is replaced or the page is left. */
+    onDestroy: (fn) => hooks.push(fn),
+    /**
+     * Render page n small, run fn(canvas) on it and keep a thumbnail URL for later (same cache as thumbURL).
+     * -> {result, url}
+     */
+    async scan(n, max, fn) {
+      const c = await s.canvas(n, max)
+      let result
+      try { result = await fn(c) } catch (e) { c.width = c.height = 0; throw e }
+      const key = `${n}:${max}`
+      if (!urls.has(key)) {
+        urls.set(key, new Promise((resolve, reject) => c.toBlob((blob) => {
+          c.width = c.height = 0
+          if (dead || !blob) { urls.delete(key); reject(abortError()); return }
+          resolve(URL.createObjectURL(blob))
+        }, 'image/jpeg', 0.86)))
+      } else c.width = c.height = 0
+      return { result, url: await urls.get(key) }
+    },
     destroy() {
       if (dead) return
       dead = true
+      for (const fn of hooks) { try { fn() } catch { /* ignore */ } }
       for (const p of urls.values()) p.then((u) => URL.revokeObjectURL(u), () => {})
       urls.clear()
       try { doc.destroy() } catch { /* already gone */ }
@@ -323,6 +345,21 @@ export function pageThumb(s, n, { max = 260, alt = '' } = {}) {
   return paper
 }
 
+/** Put `items` into `container` in this order, sliding each one from its old position (FLIP). Items keep their identity between calls. */
+export function reorderGrid(container, items) {
+  const before = new Map([...container.children].map((c) => [c, c.getBoundingClientRect()]))
+  container.append(...items)
+  if (reduced()) return
+  for (const c of items) {
+    const a = before.get(c)
+    if (!a) continue
+    const b = c.getBoundingClientRect()
+    const dx = a.left - b.left, dy = a.top - b.top
+    if (!dx && !dy) continue
+    c.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 480, easing: 'cubic-bezier(.2,.8,.2,1)' })
+  }
+}
+
 /** Run fn once when el scrolls near the viewport. */
 export const whenVisible = (el, fn) => { pending.set(el, fn); observer().observe(el) }
 
@@ -438,6 +475,29 @@ export function sheetView(s, { w, h: hh, items, width = 150, title, grid = false
     view.append(cell)
   })
   return h('figure', { class: 'pp-sheetwrap' }, view, title && h('figcaption', title))
+}
+
+/**
+ * Analyse every page: scanAll(source, {max: 200, fn: (canvas, pageNo) => any, onProgress(frac, text), alive: () => bool})
+ * -> [{page, result, url}] in page order. Stops early (returns what it has) when alive() turns false.
+ */
+export async function scanAll(s, { max = 200, fn, onProgress, alive = () => true } = {}) {
+  await s.pageSizes()
+  const out = new Array(s.pages)
+  let done = 0
+  const jobs = Array.from({ length: s.pages }, (_, i) => i + 1)
+  const worker = async () => {
+    while (jobs.length && alive()) {
+      const n = jobs.shift()
+      const r = await s.scan(n, max, (c) => fn(c, n))
+      out[n - 1] = { page: n, ...r }
+      done++
+      onProgress?.(done / s.pages, `Page ${done} of ${s.pages}`)
+      if (done % 8 === 0) await yieldToMain()
+    }
+  }
+  await Promise.all([worker(), worker(), worker()])
+  return out
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
