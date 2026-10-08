@@ -183,7 +183,7 @@ export function inferType(values, { dateOrder, sample = 1000 } = {}) {
   const curs = new Set()
   const order = dateOrder || inferDateOrder(values.slice(0, sample * 2)) || localeDateOrder()
   for (const v of values) {
-    if (isEmpty(v)) continue
+    if (isEmpty(v) || isNullish(v)) continue
     if (++n > sample) { n--; break }
     if (typeof v === 'number') { nums++; if (Number.isInteger(v)) ints++; continue }
     if (typeof v === 'boolean') { bools++; continue }

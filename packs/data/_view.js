@@ -151,7 +151,7 @@ const CSS = `
 .dt-sec { display: flex; flex-direction: column; gap: 10px; }
 .dt-sec > h3 { font-size: 13px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .07em; display: flex; align-items: center; gap: 8px; }
 .dt-sec > h3 .icon { width: 15px; height: 15px; color: var(--accent); }
-.dt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 12px; align-items: end; }
+.dt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 12px; align-items: start; }
 .dt-code { margin: 0; padding: 14px; border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--border); font-family: var(--mono); font-size: 12.5px; line-height: 1.6; white-space: pre; overflow: auto; max-height: 460px; tab-size: 2; }
 .dt-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
 @media (max-width: 900px) { .dt-split { grid-template-columns: minmax(0, 1fr); } }
@@ -699,6 +699,15 @@ export function colSelect({ headers = [], value = 0, onChange, none = null } = {
     el.value = keep && Number(cur) < hs.length ? cur : none ? '-1' : '0'
   }
   return el
+}
+
+/** Read a CSS variable of the page (theme colors for canvas charts). */
+export const cssVar = (name, fallback = '') => (typeof document === 'undefined' ? fallback : getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback)
+/** Run cb whenever the visitor flips light and dark. Cleans up when the tool page is left. */
+export function watchTheme(cb) {
+  const mo = new MutationObserver(cb)
+  mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+  onCleanup(() => mo.disconnect())
 }
 
 /** Rough title for downloads: "sales.csv" -> "sales". */

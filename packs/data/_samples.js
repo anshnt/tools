@@ -53,7 +53,7 @@ Carol  Diaz,carol@example.com,15 Mar 2024,N/A,Inactive,called twice
 bob smith,bob@example.com,03/15/2024,300,active,
 DAN BROWN,dan@example.com,2024/04/02,"2,050.00",Active,VIP
 eve   adams,EVE@EXAMPLE.COM,Apr 9 2024,(45.50),pending,none
-frank o'neil,frank@example.com,2024-05-30,12%,ACTIVE,-
+frank o'neil,frank@example.com,2024-05-30,"1,500",ACTIVE,-
 `,
   },
   duplicates: {
