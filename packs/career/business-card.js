@@ -29,8 +29,8 @@ export async function mount(root, { signal }) {
   const o = { design: d.design || 'gradient', accent: d.accent || '#0d9b8a', font: d.font || 'sans', size: d.size || 'us', qrKind: d.qrKind || 'vcard', paper: d.paper || 'a4', backSheet: d.backSheet !== false, marks: d.marks !== false }
   const saved = saveIndicator('Saved on this device')
   const persist = debounce(() => { save(KEY, { ...d, ...o }); setProfile({ name: d.name, title: d.title, company: d.company, phone: d.phone, email: d.email, website: d.website }); saved.saved() }, 400)
-  const front = h('canvas', { class: 'cr-cardface', 'aria-label': 'Card front preview' })
-  const back = h('canvas', { class: 'cr-cardface', 'aria-label': 'Card back preview' })
+  const front = h('canvas', { class: 'cr-face', 'aria-label': 'Card front preview' })
+  const back = h('canvas', { class: 'cr-face back', 'aria-label': 'Card back preview' })
   const warn = h('div')
   let qr = null, qrKey = ''
   let fontsReady = ''
@@ -49,7 +49,7 @@ export async function mount(root, { signal }) {
       f.clearRect(0, 0, S.w, S.h); b.clearRect(0, 0, S.w, S.h)
       drawFront(f, S.w, S.h, d, o)
       drawBack(b, S.w, S.h, d, o, qr)
-      front.style.aspectRatio = back.style.aspectRatio = `${S.w} / ${S.h}`
+      flip.style.setProperty('--ar', `${S.w} / ${S.h}`)
       clear(warn)
     } catch (e) { console.error(e); clear(warn, alert('error', e.message)) }
   }
@@ -91,10 +91,12 @@ export async function mount(root, { signal }) {
 
   const sheetBtn = mk('Print sheet (PDF)', 'printer', 'primary', async () => { const { blob, count } = await sheetPdf(); saveAs(blob, `${fileBase()}-sheet.pdf`); toast(`${count} cards per sheet${o.backSheet ? ', fronts then backs (flip on the long edge)' : ''}`, 'success', 5000) }, 'lg')
 
-  const stage = h('div', { class: 'cr-cards' },
-    h('div', { class: 'cr-tilt-wrap' }, h('div', { class: 'cr-tilt' }, front), h('div', { class: 'small muted', style: 'text-align:center;margin-top:8px' }, 'Front')),
-    h('div', { class: 'cr-tilt-wrap' }, h('div', { class: 'cr-tilt' }, back), h('div', { class: 'small muted', style: 'text-align:center;margin-top:8px' }, 'Back')))
-  stage.querySelectorAll('.cr-tilt').forEach(tilt)
+  const flip = h('div', { class: 'cr-flip', dataset: { side: 'front' }, title: 'Click to flip the card', onclick: () => setSide(flip.dataset.side === 'front' ? 'back' : 'front') }, h('div', { class: 'cr-flip-in' }, front, back))
+  const sideSeg = segmented([['front', 'Front'], ['back', 'Back']], 'front', (v) => setSide(v), 'Card side')
+  function setSide(v) { flip.dataset.side = v; sideSeg.set(v) }
+  const tiltWrap = h('div', { class: 'cr-tilt' }, flip)
+  tilt(tiltWrap)
+  const stage = h('div', { class: 'stack tight' }, tiltWrap, h('div', { class: 'row', style: 'justify-content:center' }, sideSeg))
 
   root.append(shell(
     banner({ icon: 'contact', text: '<b>Design it, scan it, print it.</b> Six styles, a QR code that saves your contact in one tap, and a print sheet with crop marks. Nothing is uploaded.', steps: ['Your details', 'Pick a design', 'Print or download'] }),
@@ -113,7 +115,7 @@ export async function mount(root, { signal }) {
           h('div', { class: 'grid-2' }, fs(o, 'paper', 'Paper', [['a4', 'A4'], ['letter', 'Letter']], () => { persist() }), h('div', { class: 'stack tight' }, h('label', { class: 'switch' }, h('input', { type: 'checkbox', role: 'switch', checked: o.backSheet, onchange: (e) => { o.backSheet = e.target.checked; persist() } }), h('span', 'Add a back sheet')), h('label', { class: 'switch' }, h('input', { type: 'checkbox', role: 'switch', checked: o.marks, onchange: (e) => { o.marks = e.target.checked; persist() } }), h('span', 'Crop marks')))),
           h('div', { class: 'small muted' }, 'Print at 100% (actual size) on card stock, cut along the marks. For two-sided printing choose "flip on long edge".')))),
       h('div', { class: 'cr-sticky stack' },
-        card('Preview', 'eye', h('div', { class: 'stack' }, stage, warn, h('div', { class: 'small muted' }, 'Move your pointer over a card to tilt it.'), saved.el)),
+        card('Preview', 'eye', h('div', { class: 'stack' }, stage, warn, h('div', { class: 'small muted' }, 'Click the card to flip it. Move your pointer over it to tilt.'), saved.el)),
         card('Download', 'download', h('div', { class: 'stack tight' },
           h('div', { class: 'row' }, sheetBtn),
           h('div', { class: 'row' },

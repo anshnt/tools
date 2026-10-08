@@ -35,7 +35,7 @@ export async function mount(root, { signal }) {
     save(JD_KEY, text)
     count.textContent = text.trim() ? `${(text.match(/\S+/g) || []).length} words` : ''
     if (text.trim().length < 60) { last = null; clear(out, h('div', { class: 'empty' }, icon('file-search'), h('div', 'Paste a job description to see the skills, years, pay and red flags it contains.'), h('div', { class: 'row', style: 'justify-content:center' }, button('Try a sample job', { icon: 'sparkles', variant: 'primary', size: 'sm', onClick: () => { ta.value = SAMPLE_JD; run() } })))); return }
-    const a = analyzeJD(text)
+    const a = analyzeJD(text.slice(0, 60000))
     last = a
     render(a)
   }

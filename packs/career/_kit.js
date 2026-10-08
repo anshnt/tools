@@ -173,6 +173,32 @@ const CSS = String.raw`
 .cr-md h1, .cr-md h2, .cr-md h3 { color: var(--text); margin: 1.1em 0 .4em; font-size: 1.05em; }
 .cr-md p, .cr-md ul, .cr-md ol { margin: 0 0 .75em; } .cr-md ul, .cr-md ol { padding-left: 1.3em; }
 .cr-out { font-size: 14.5px; line-height: 1.6; }
+.cr-statrow { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.7fr); gap: 14px; align-items: stretch; }
+@media (max-width: 900px) { .cr-statrow { grid-template-columns: minmax(0, 1fr); } }
+.cr-board { display: grid; grid-template-columns: repeat(5, minmax(230px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 8px; align-items: start; }
+.cr-col { --k: var(--cr); border-radius: 20px; background: color-mix(in srgb, var(--k) 6%, var(--surface-2)); border: 1px solid color-mix(in srgb, var(--k) 20%, var(--border)); min-height: 140px; transition: box-shadow .2s, border-color .2s; }
+.cr-col.over { border-color: var(--k); box-shadow: 0 0 0 3px color-mix(in srgb, var(--k) 25%, transparent); }
+.cr-col-h { display: flex; align-items: center; gap: 8px; padding: 12px 10px 8px 14px; color: var(--k); }
+.cr-col-h b { color: var(--text); font-size: 14px; }
+.cr-col-h .n { margin-right: auto; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 99px; background: color-mix(in srgb, var(--k) 16%, transparent); color: var(--k); }
+.cr-col-b { display: grid; gap: 10px; padding: 4px 10px 12px; }
+.cr-job { padding: 12px 13px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-sm); cursor: grab; transition: transform .2s var(--spring), box-shadow .2s, border-color .2s; animation: crRise .35s var(--ease) both; }
+.cr-job:hover, .cr-job:focus-visible { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--border-strong); }
+.cr-job.dragging { opacity: .45; }
+.cr-job .co { font-size: 14.5px; letter-spacing: -.01em; overflow-wrap: anywhere; }
+.cr-star { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 2px; display: grid; place-items: center; border-radius: 8px; flex: none; }
+.cr-star:hover { color: #eab308; }
+.cr-star.on { color: #eab308; } .cr-star.on svg { fill: currentColor; }
+.cr-next { display: flex; gap: 6px; align-items: flex-start; margin-top: 8px; font-size: 12.5px; color: var(--text-2); padding: 6px 9px; border-radius: 10px; background: var(--surface-2); }
+.cr-next .icon { width: 14px; height: 14px; margin-top: 2px; }
+.cr-next.today { background: var(--warning-soft); color: var(--warning); }
+.cr-next.bad { background: var(--danger-soft); color: var(--danger); }
+@media (max-width: 900px) { .cr-board { grid-template-columns: minmax(0, 1fr); overflow: visible; } }
+.cr-flip { perspective: 1400px; width: 100%; aspect-ratio: var(--ar, 7 / 4); cursor: pointer; }
+.cr-flip-in { position: relative; width: 100%; height: 100%; transition: transform .75s var(--ease); transform-style: preserve-3d; }
+.cr-flip[data-side="back"] .cr-flip-in { transform: rotateY(180deg); }
+.cr-face { position: absolute; inset: 0; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 14px; box-shadow: 0 2px 4px rgba(0, 0, 0, .12), 0 30px 54px -26px rgba(16, 16, 40, .6); background: #fff; }
+.cr-face.back { transform: rotateY(180deg); }
 .cr-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 22px; padding: 6px 2px; }
 .cr-tilt { transition: transform .25s var(--ease); transform-style: preserve-3d; will-change: transform; }
 .cr-cardface { display: block; width: 100%; height: auto; border-radius: 12px; box-shadow: 0 2px 4px rgba(0, 0, 0, .12), 0 28px 50px -24px rgba(16, 16, 40, .55); background: #fff; }

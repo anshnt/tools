@@ -16,4 +16,6 @@ export default [
   { id: 'invoice-generator', name: 'Invoice generator', desc: 'GST or simple invoices with CGST, SGST and IGST, amount in words, UPI QR and PDF download.', icon: 'receipt', also: ['india'], tags: 'invoice bill gst freelance hsn upi tax', ready: true },
   { id: 'email-signature', name: 'Email signature generator', desc: 'Design an email signature with a live preview and copy it as rich HTML for Gmail and Outlook.', icon: 'pen-tool', tags: 'signature gmail outlook html', ready: true },
   { id: 'business-card', name: 'Business card maker', desc: 'Design a front and back card with a vCard QR code, then print 10 per sheet or export PNG.', icon: 'contact', tags: 'visiting card print qr vcard', ready: true },
+  { id: 'job-tracker', name: 'Job application tracker', desc: 'Track every application on a kanban board with follow-up reminders, a weekly goal and CSV export.', icon: 'kanban', also: ['personal'], tags: 'job search applications kanban tracker follow up offer interview', ready: true },
+  { id: 'interview-prep', name: 'Interview prep', desc: 'Likely questions from your role and the job post, a STAR answer builder, a practice timer and AI coaching.', icon: 'messages-square', also: ['student'], tags: 'interview questions star practice behavioral prepare answers', ready: true },
 ]

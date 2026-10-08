@@ -6,6 +6,7 @@ import * as ai from '../../lib/ai.js'
 import { shell, banner, card, ring, chip, tile, check, burst, renderMarkdown, bandOf } from './_kit.js'
 import { textSource } from './_source.js'
 import { analyzeResume, reportText, verdict } from './_ats.js'
+import { SKILL_COUNT } from './_skills.js'
 import { SAMPLE_JD } from './_jd.js'
 import { normalizeResume, resumeToText, hasContent, sampleResume } from './_resume.js'
 
@@ -29,7 +30,8 @@ export async function mount(root, { signal }) {
   const example = button('Try an example', { icon: 'sparkles', variant: 'ghost', size: 'sm', onClick: () => { src.set(resumeToText(sampleResume()), { pages: 1, info: {} }); jd.value = SAMPLE_JD; upJd(); toast('Example loaded. Press Check my resume.') } })
 
   runBtn.addEventListener('click', () => busy(runBtn, async () => {
-    const text = src.text.trim()
+    let text = src.text.trim()
+    if (text.length > 120000) { text = text.slice(0, 120000); toast('That text is very long, so only the first 120,000 characters were checked.', 'info', 5000) }
     if (text.length < 60) { clear(results, alert('error', 'Upload your resume or paste its text first (at least a few lines).')); return }
     await new Promise((r) => setTimeout(r, 120))
     const a = analyzeResume(text, src.meta || {}, jd.value)
@@ -85,6 +87,7 @@ export async function mount(root, { signal }) {
     const hitTerms = m.terms.filter((t) => t.present)
     const missing = [...missMust, ...missNice].map((s) => s.name).concat(missTerms.map((t) => t.term))
     return h('div', { class: 'stack' },
+      h('div', { class: 'small muted' }, `Matched against a built-in list of ${(Math.floor(SKILL_COUNT / 100) * 100).toLocaleString()}+ skills plus the wording the employer repeats.`),
       !m.skills.length && !m.terms.length ? alert('info', 'No recognizable skills found in the job description. Paste the full text including requirements.') : null,
       group('Missing required skills', 'circle-x', missMust, 'miss', 'Mentioned in the requirements'),
       group('Missing nice to have', 'circle-dashed', missNice, 'warn'),
