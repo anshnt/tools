@@ -79,6 +79,7 @@ export function mount(root, { params }) {
   const toIn = h('input', { class: 'num', type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '0', 'aria-label': 'Converted value', oninput: () => onTo() })
   const fromSel = unitSelect((id) => { fromId = id; saveUnits(); onFrom() })
   const toSel = unitSelect((id) => { toId = id; saveUnits(); showTo(); renderAll() })
+  fromSel.setAttribute('aria-label', 'Unit to convert from'); toSel.setAttribute('aria-label', 'Unit to convert to')
   const swapBtn = h('button', { type: 'button', class: 'ct-swap', 'aria-label': 'Swap the two units', title: 'Swap', onclick: () => {
     swapBtn.classList.toggle('spin')
     ;[fromId, toId] = [toId, fromId]
@@ -122,7 +123,7 @@ export function mount(root, { params }) {
       field('Precision', precSel))
     clear(presets, KINDS[kind].presets.map(([label, v, id]) => h('button', { type: 'button', class: 'ct-chip', onclick: () => { fromId = id; if (toId === id) toId = units.find((u) => u.id !== id).id; fromSel.value = fromId; toSel.value = toId; fromIn.value = String(v); saveUnits(); onFrom() } }, label)))
     const cp = KINDS[kind].compound
-    clear(compound, cp ? cp.map(([id, label], i) => field(`Or in ${label}`, h('input', { class: 'input', type: 'text', inputmode: 'decimal', placeholder: '0', 'aria-label': `${label} part`, dataset: { i }, oninput: () => fromCompound(cp) }))) : null)
+    clear(compound, cp ? cp.map(([id, label], i) => field(i === 0 ? `Or enter ${label.toLowerCase()}` : label, h('input', { class: 'input', type: 'text', inputmode: 'decimal', placeholder: '0', 'aria-label': `${label} part`, dataset: { i }, oninput: () => fromCompound(cp) }))) : null)
     compound.hidden = !cp
     hint.textContent = KINDS[kind].hint
   }
@@ -154,7 +155,7 @@ export function mount(root, { params }) {
     const a = U(fromId), b = U(toId)
     const ok = Number.isFinite(base)
     eq.replaceChildren(ok ? sentence() : 'Type a number to convert.',
-      ok && KINDS[kind].formula && FORMULA[`${a.id}-${b.id}`] ? h('small', FORMULA[`${a.id}-${b.id}`]) : ok && !a.to && !b.to ? h('small', `1 ${a.sym} = ${fmtVal(fromBase(b, toBase(a, 1)), prec === 'auto' ? 'auto' : prec, { group: true })} ${b.sym}`) : '')
+      ok && KINDS[kind].formula && FORMULA[`${a.id}-${b.id}`] ? h('small', FORMULA[`${a.id}-${b.id}`]) : ok && !a.to && !b.to && parseNum(fromIn.value) !== 1 ? h('small', `1 ${a.sym} = ${fmtVal(fromBase(b, toBase(a, 1)), prec, { group: true })} ${b.sym}`) : '')
     const mx = KINDS[kind].mixed
     clear(mixed, ok && mx ? mx.map((ids) => ids.map((id) => U(id))).filter((us) => us.every(Boolean)).map((us) => h('span', mixedText(us, base))) : null)
     mixed.hidden = !ok || !mx

@@ -69,8 +69,8 @@ export function breakdown(n) {
 }
 
 const CSS = `
-.ct-rn-big { display: flex; flex-wrap: wrap; gap: clamp(6px, 1.4vw, 12px); margin-top: 14px; }
-.ct-rn-big .t { min-width: clamp(44px, 9vw, 74px); height: clamp(58px, 11vw, 92px); padding: 0 8px; display: grid; place-items: center; border-radius: clamp(14px, 2.4vw, 22px); font-family: "Cormorant Garamond", "Palatino Linotype", Georgia, "Times New Roman", serif; font-size: clamp(34px, 7.5vw, 62px); font-weight: 700;
+.ct-rn-big { display: flex; flex-wrap: wrap; gap: clamp(5px, 1.4vw, 12px); margin-top: 14px; }
+.ct-rn-big .t { min-width: clamp(36px, 8.4vw, 74px); height: clamp(54px, 11vw, 92px); padding: 0 6px; display: grid; place-items: center; border-radius: clamp(14px, 2.4vw, 22px); font-family: "Cormorant Garamond", "Palatino Linotype", Georgia, "Times New Roman", serif; font-size: clamp(30px, 7.5vw, 62px); font-weight: 700;
   color: var(--text); background: linear-gradient(160deg, color-mix(in srgb, var(--c) 18%, var(--surface)), var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 35%, var(--border)); box-shadow: 0 14px 28px -18px var(--c), inset 0 1px 0 rgba(255, 255, 255, .5);
   animation: ctPop .5s var(--spring) both; animation-delay: calc(var(--i, 0) * 55ms); }
 .ct-rn-big .t.ol { text-decoration: overline; text-decoration-thickness: 3px; text-underline-offset: 6px; }

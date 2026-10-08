@@ -1,5 +1,5 @@
 // Time zone converter: one moment, many cities. All IANA zones, city search, DST aware, draggable day timeline.
-import { h, icon, button, segmented, field, clear, copyText, alert, toast } from '../../lib/ui.js'
+import { h, icon, button, segmented, field, clear, copyText, alert, toast, debounce } from '../../lib/ui.js'
 import { useStyles, addStyles, settleOnce, hashParams, setHashParams } from './_kit.js'
 import { load, save } from '../../lib/store.js'
 import { isoDate, parseISO, toDayNum, ymd } from './_dates.js'
@@ -187,10 +187,15 @@ export function mount(root) {
     })
     clear(warn, note)
     srcNote.textContent = ''
-    save('tz:from', from); save('tz:targets', targets); save('tz:h24', h24)
-    setHashParams({ from: tok(from), to: targets.map(tok).join(','), at: `${isoDate(toDayNum(p.y, p.m, p.d))}T${String(p.hh).padStart(2, '0')}:${String(p.mm).padStart(2, '0')}` })
+    persist()
     settleOnce(root.firstChild)
   }
+  // Saving and updating the address bar is debounced so dragging the slider stays smooth (and Safari does not rate-limit replaceState).
+  const persist = debounce(() => {
+    const p = localParts(from.zone, ms)
+    save('tz:from', from); save('tz:targets', targets); save('tz:h24', h24)
+    setHashParams({ from: tok(from), to: targets.map(tok).join(','), at: `${isoDate(toDayNum(p.y, p.m, p.d))}T${String(p.hh).padStart(2, '0')}:${String(p.mm).padStart(2, '0')}` })
+  }, 250)
   const tok = (e) => (e.label && e.label !== cityOf(e.zone) ? `${e.zone}|${e.label}` : e.zone)
 
   const summary = () => [from, ...targets].map((e) => { const v = zoneView(e.zone, ms, from.zone); return `${e.label} (${v.abbr || fmtOffset(v.offset)}): ${fmtZoneDate(ms, e.zone, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}, ${fmtTime(ms, e.zone, h24)}` }).join('\n')

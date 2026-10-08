@@ -210,7 +210,7 @@ const CSS = `
 .ct-zt-scroll { overflow-x: auto; border-radius: 18px; }
 .ct-zt-in { position: relative; min-width: 640px; }
 .ct-zr { display: grid; grid-template-columns: var(--lw) minmax(0, 1fr); align-items: center; gap: 8px; height: 46px; padding: 0 10px; }
-.ct-zl { min-width: 0; line-height: 1.15; }
+.ct-zl { min-width: 0; line-height: 1.15; position: sticky; left: 0; z-index: 4; background: var(--surface); padding-right: 6px; margin-left: -10px; padding-left: 10px; }
 .ct-zl b { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ct-zl span { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
 .ct-zs { position: relative; display: grid; grid-template-columns: repeat(48, minmax(0, 1fr)); height: 30px; border-radius: 9px; overflow: hidden; cursor: ew-resize; }

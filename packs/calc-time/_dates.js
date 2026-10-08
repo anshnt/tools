@@ -32,8 +32,8 @@ export function isoDate(n) {
 }
 /** 'YYYY-MM-DD' -> day number, or NaN when empty or not a real date (like 2026-02-30). */
 export function parseISO(s) {
-  const m = /^(\d{4,6})-(\d{2})-(\d{2})$/.exec(String(s || '').trim())
-  if (!m) return NaN
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || '').trim())
+  if (!m || +m[1] < 1) return NaN // years 0001 to 9999, like a calendar
   const [y, mo, d] = [+m[1], +m[2], +m[3]]
   if (mo < 1 || mo > 12 || d < 1 || d > daysInMonth(y, mo)) return NaN
   return toDayNum(y, mo, d)
@@ -130,6 +130,7 @@ export function addWorking(start, n, weekend = SAT_SUN, holidays = new Set()) {
 const dateFmt = new Map()
 /** Format a day number with Intl in UTC so the weekday never shifts. fmtDate(n, {weekday:'short', day:'numeric', month:'short', year:'numeric'}). */
 export function fmtDate(n, opts = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }, locale) {
+  if (!Number.isFinite(n) || Math.abs(n) > 99_999_999) return '-' // beyond the range Date can show
   const key = JSON.stringify(opts) + (locale || '')
   if (!dateFmt.has(key)) dateFmt.set(key, new Intl.DateTimeFormat(locale, { ...opts, timeZone: 'UTC' }))
   return dateFmt.get(key).format(new Date(n * DAY_MS))

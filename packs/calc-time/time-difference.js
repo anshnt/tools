@@ -1,5 +1,5 @@
 // Time and duration calculator: hours between times (overnight too), add or subtract a duration, sum a list of durations, convert units.
-import { h, svg, tabs, number, field, segmented, select, toggle, clear, button, copyText, alert, icon, textarea } from '../../lib/ui.js'
+import { h, svg, tabs, number, field, segmented, select, toggle, clear, button, copyText, alert, icon, textarea, debounce } from '../../lib/ui.js'
 import { useStyles, addStyles, hero, liveTiles, chips, counter, settleOnce } from './_kit.js'
 import { load, save } from '../../lib/store.js'
 import { today, parseISO, isoDate, fmtDate } from './_dates.js'
@@ -284,7 +284,8 @@ export function mount(root) {
         x.r.error ? h('b', 'not understood') : h('b', fmtHMS(x.r.sec), h('small', x.r.kind === 'range' ? (x.r.overnight ? 'range, overnight' : 'range') : 'duration')))))
       summary = `Total: ${fmtHMS(total)} (${(total / 3600).toFixed(2)} hours) from ${good.length} entries.`
     }
-    ta.addEventListener('input', render)
+    const slow = debounce(render, 150)
+    ta.addEventListener('input', () => (ta.value.length > 4000 ? slow() : render()))
     const el = h('div', { class: 'stack' }, field('Durations (one per line)', ta, 'Formats: 1:30, 1h 30m, 90 min, 1.5 (hours), 9:00-17:30 (a range), 22:00 to 06:00 (overnight), -0:20 (subtract).'), warn, results)
     render()
     return el

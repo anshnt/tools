@@ -28,7 +28,7 @@ export const KINDS = {
       f('nmi', 'Nautical mile', 'nmi', 1852, 'Other'), f('ly', 'Light-year', 'ly', 9.4607304725808e15, 'Other'),
     ],
     presets: [['1 mile', 1, 'mi'], ['100 m', 100, 'm'], ['6 ft', 6, 'ft'], ['1 marathon', 42.195, 'km']],
-    compound: [['ft', 'ft'], ['in', 'in']], mixed: [['ft', 'in'], ['yd', 'ft', 'in']],
+    compound: [['ft', 'Feet'], ['in', 'Inches']], mixed: [['ft', 'in'], ['yd', 'ft', 'in']],
   },
   weight: {
     name: 'Weight', icon: 'weight', from: 'kg', to: 'lb', hint: 'Mass in kilograms, pounds, tolas, quintals and more.',
@@ -39,7 +39,7 @@ export const KINDS = {
       f('ston', 'US ton (short)', 'ton', 907.18474, 'Imperial and US'), f('lton', 'UK ton (long)', 'long ton', 1016.0469088, 'Imperial and US'),
     ],
     presets: [['1 kg', 1, 'kg'], ['1 lb', 1, 'lb'], ['10 g (gold)', 10, 'g'], ['1 quintal', 1, 'q']],
-    compound: [['st', 'st'], ['lb', 'lb']], mixed: [['st', 'lb'], ['lb', 'oz']],
+    compound: [['st', 'Stones'], ['lb', 'Pounds']], mixed: [['st', 'lb'], ['lb', 'oz']],
   },
   temperature: {
     name: 'Temperature', icon: 'thermometer', from: 'c', to: 'f', hint: 'Celsius, Fahrenheit, Kelvin and Rankine.',
@@ -215,7 +215,7 @@ export function mixedText(units, baseValue) {
   const parts = []
   units.forEach((u, i) => {
     const v = fromBase(u, rest)
-    if (i === units.length - 1) parts.push(`${Number(v.toFixed(2)).toLocaleString('en-US')} ${u.sym}`)
+    if (i === units.length - 1) { const r = Number(v.toFixed(2)); parts.push(r || !parts.some(Boolean) ? `${r.toLocaleString('en-US')} ${u.sym}` : null) }
     else { const whole = Math.floor(v + 1e-9); parts.push(whole ? `${whole.toLocaleString('en-US')} ${u.sym}` : null); rest -= toBase(u, whole) }
   })
   return (neg ? '-' : '') + parts.filter(Boolean).join(' ')

@@ -5,7 +5,7 @@ import { isoDate, parseISO, today, ymd, toDayNum, weekday, daysInMonth, MONTHS }
 
 const CSS = `
 .ct { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.ct * { min-width: 0; }
+.ct > * { min-width: 0; }
 .ct-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 12px; align-items: start; }
 .ct-fields.f3 { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); }
 @media (max-width: 720px) { .ct-fields.f3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ct-fields.f3 > :first-child { grid-column: 1 / -1; } }
