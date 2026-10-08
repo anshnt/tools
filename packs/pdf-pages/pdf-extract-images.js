@@ -2,7 +2,7 @@
 // decodes each unique image, shows thumbnails with sizes and pages, and exports PNG / JPG files or a ZIP.
 import { h, icon, button, busy, progress, field, select, segmented, stats, empty, clear, formatBytes, download, toast, yieldToMain } from '../../lib/ui.js'
 import { zip, baseName, safeName } from '../../lib/files.js'
-import { pdfjs } from '../../lib/libs.js'
+import { pdfjs, pdfLib } from '../../lib/libs.js'
 import { toBlob } from '../../lib/image.js'
 import { pdfSource, ppRoot, useStyle, whenVisible, compressRanges, countUp, doneCard } from './_shared.js'
 
@@ -166,8 +166,32 @@ export function mount(root, { signal }) {
       return safeName(`${stem}-img${String(r.n).padStart(2, '0')}-p${pg}.${state.fmt === 'png' || r.alpha ? 'png' : 'jpg'}`)
     }
 
+    // The JPEG bytes exactly as stored in the PDF (no recompression), when the image is a plain DCT-encoded RGB or grey JPEG.
+    async function originalJpeg(r) {
+      if (!r.ref) return null
+      try {
+        const m = String(r.ref).match(/^(\d+)R(\d*)$/)
+        if (!m) return null
+        const { PDFRef, PDFName, PDFArray, PDFStream } = await pdfLib()
+        const doc = await source.inspect()
+        const obj = doc.context.lookup(PDFRef.of(+m[1], m[2] ? +m[2] : 0))
+        if (!(obj instanceof PDFStream)) return null
+        const d = obj.dict
+        const f = d.lookup(PDFName.of('Filter'))
+        const names = f instanceof PDFArray ? f.asArray().map((x) => String(doc.context.lookup(x))) : f ? [String(f)] : []
+        if (names.length !== 1 || names[0] !== '/DCTDecode') return null
+        const cs = d.lookup(PDFName.of('ColorSpace'))
+        if (String(cs) === '/DeviceCMYK' || d.get(PDFName.of('Decode')) || d.get(PDFName.of('SMask')) || d.get(PDFName.of('Mask'))) return null
+        const bytes = obj.contents || obj.getContents?.()
+        if (!bytes || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null
+        return new Blob([bytes], { type: 'image/jpeg' })
+      } catch { return null }
+    }
+
     async function encode(r) {
       if (state.fmt === 'png' || r.alpha) return r.blob
+      const orig = await originalJpeg(r)
+      if (orig) return orig
       // JPG: flatten on white
       const bmp = await createImageBitmap(r.blob)
       const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height
@@ -201,13 +225,13 @@ export function mount(root, { signal }) {
 
     function renderCards() {
       clear(cards, visible().map((r, i) => {
-        const card = h('div', { class: 'pp-card pp-in', role: 'button', tabindex: 0, 'data-state': r.selected ? 'on' : 'off', style: { '--i': Math.min(i, 24) }, 'aria-label': `Image ${r.n}, ${r.w} by ${r.h}` },
+        const card = h('div', { class: 'pp-card pp-in', role: 'button', tabindex: 0, 'data-state': r.selected ? 'on' : 'off', 'aria-pressed': String(r.selected), style: { '--i': Math.min(i, 24) }, 'aria-label': `Image ${r.n}, ${r.w} by ${r.h}` },
           h('div', { class: 'pp-paper pp-imgpaper', style: { aspectRatio: `${r.w} / ${r.h}` } }, h('img', { src: r.thumbURL, alt: '', draggable: false })),
           h('span', { class: 'pp-num' }, r.n), h('span', { class: 'pp-tick' }, icon('check')),
           h('div', { class: 'pp-foot' }, h('span', `${r.w} x ${r.h}`), h('span', formatBytes(r.blob.size))),
           h('div', { class: 'pp-foot' }, h('span', `p. ${compressRanges([...r.pages])}`), h('span', r.dpi ? `${r.dpi} dpi` : (r.alpha ? 'transparent' : ''))),
           oneBtn(r))
-        const flip = () => { r.selected = !r.selected; card.dataset.state = r.selected ? 'on' : 'off'; updateInfo() }
+        const flip = () => { r.selected = !r.selected; card.dataset.state = r.selected ? 'on' : 'off'; card.setAttribute('aria-pressed', String(r.selected)); updateInfo() }
         card.addEventListener('click', flip)
         card.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip() } })
         return card
@@ -230,13 +254,13 @@ export function mount(root, { signal }) {
     }, { label: 'Packing', errorTo: result, progress: prog }))
 
     const minEl = select([[0, 'All sizes'], [32, 'Hide under 32 px'], [64, 'Hide under 64 px'], [128, 'Hide under 128 px'], [256, 'Hide under 256 px'], [512, 'Hide under 512 px']], state.min, (v) => { state.min = +v; renderCards(); updateInfo() })
-    const fmtEl = segmented([['png', 'PNG (lossless)'], ['jpg', 'JPG']], 'png', (v) => { state.fmt = v }, 'Format')
+    const fmtEl = segmented([['png', 'PNG (lossless)'], ['jpg', 'JPG (original when possible)']], 'png', (v) => { state.fmt = v }, 'Format')
     clear(body, info,
       h('div', { class: 'pp-toolbar' },
         field('Size filter', minEl), field('Save as', fmtEl), h('span', { class: 'grow' }),
         button('Select all', { variant: 'ghost', size: 'sm', onClick: () => { visible().forEach((r) => { r.selected = true }); renderCards(); updateInfo() } }),
         button('None', { variant: 'ghost', size: 'sm', onClick: () => { visible().forEach((r) => { r.selected = false }); renderCards(); updateInfo() } })),
-      h('div', { class: 'pp-hint' }, 'Click an image to select it. JPG puts transparent images on white and keeps transparent ones as PNG. dpi is how sharp the image is at its printed size.'),
+      h('div', { class: 'pp-hint' }, 'Click an image to select it. JPG saves photos exactly as they are stored in the PDF when possible (no quality loss); other images are re-encoded on white, and transparent ones stay PNG. dpi is how sharp the image is at its printed size.'),
       cards, h('div', { class: 'row' }, dlBtn), prog.el, result)
     renderCards(); updateInfo()
     source.onDestroy(() => { for (const r of images) URL.revokeObjectURL(r.thumbURL) })

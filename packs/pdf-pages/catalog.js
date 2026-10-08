@@ -6,7 +6,7 @@ export default [
   { id: 'pdf-fix-orientation', name: 'PDF orientation fixer', desc: 'Automatically turn landscape pages to portrait (or the reverse).', icon: 'rectangle-vertical', tags: 'landscape portrait rotate auto', ready: true },
   { id: 'pdf-booklet', name: 'PDF booklet maker', desc: 'Reorder and impose pages for fold-and-staple booklet printing.', icon: 'book-open', tags: 'imposition saddle stitch print', ready: true },
   { id: 'pdf-poster', name: 'PDF poster printer', desc: 'Tile one big page across several A4 sheets to print a poster.', icon: 'grid-2x2', tags: 'tile poster enlarge print', ready: true },
-  { id: 'pdf-n-up', name: 'N-up pages per sheet', desc: 'Put 2, 4, 6 or 9 pages on each sheet to save paper.', icon: 'columns-2', tags: '2up 4up handout pages per sheet', ready: true },
+  { id: 'pdf-n-up', name: 'N-up pages per sheet', desc: 'Put 2, 4, 6, 9 or more pages on each sheet to save paper.', icon: 'columns-2', tags: '2up 4up handout pages per sheet', ready: true },
   { id: 'pdf-contact-sheet', name: 'PDF contact sheet', desc: 'One overview image or page with thumbnails of every page.', icon: 'layout-dashboard', tags: 'thumbnails overview', ready: true },
   { id: 'pdf-extract-images', name: 'Extract images from PDF', desc: 'Save every embedded image in a PDF as files or a ZIP.', icon: 'images', tags: 'images pictures extract', ready: true },
   { id: 'pdf-extract-links', name: 'Extract links from PDF', desc: 'List every URL and email link in a PDF, with page numbers.', icon: 'link', tags: 'urls hyperlinks', ready: true },
@@ -20,5 +20,5 @@ export default [
   { id: 'pdf-chapter-split', name: 'Split PDF by chapters', desc: 'Split a PDF into one file per bookmark or chapter.', icon: 'book-marked', tags: 'bookmarks outline chapters split', ready: true },
   { id: 'pdf-size-analyzer', name: 'PDF size analyzer', desc: 'See what makes a PDF big: images, fonts, text and metadata.', icon: 'chart-pie', tags: 'analyze breakdown why big', ready: true },
   { id: 'pdf-info', name: 'PDF info viewer', desc: 'Pages, version, fonts, encryption, metadata and more at a glance.', icon: 'info', tags: 'properties details metadata', ready: true },
-  { id: 'pdf-bookmarks', name: 'PDF bookmark editor', desc: 'Add, rename and nest bookmarks (outline) in a PDF.', icon: 'bookmark', tags: 'outline toc table of contents', ready: true },
+  { id: 'pdf-bookmarks', name: 'PDF bookmark editor', desc: 'Add, rename and nest bookmarks in a PDF, or paste a table of contents.', icon: 'bookmark', tags: 'outline toc table of contents', ready: true },
 ]

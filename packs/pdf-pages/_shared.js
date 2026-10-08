@@ -250,7 +250,8 @@ export function pdfSource({ onLoad, onClear, label, hint, paste = true } = {}) {
         h('div', { class: 'pp-file-name', title: s.name }, s.name),
         h('div', { class: 'pp-file-sub' },
           h('span', { class: 'pp-chip' }, `${s.pages} ${s.pages === 1 ? 'page' : 'pages'}`),
-          h('span', { class: 'pp-chip' }, formatBytes(s.size)))),
+          h('span', { class: 'pp-chip' }, formatBytes(s.size)),
+          s.password ? h('span', { class: 'pp-chip ok', title: 'Results are saved without a password' }, icon('lock-open'), 'Unlocked') : null)),
       button('Change', { icon: 'refresh-cw', variant: 'ghost', size: 'sm', onClick: () => zone.open() }))
     return el
   }

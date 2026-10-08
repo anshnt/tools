@@ -120,7 +120,7 @@ export function mount(root) {
       for (const el of st.querySelectorAll('[data-n]')) countUp(el, +el.dataset.n, { ms: 350 })
       clear(info, st)
       clear(list, hits.length ? hits.map((x, i) => {
-        const card = h('div', { class: 'pp-hit-row pp-in', role: 'button', tabindex: 0, 'data-state': 'on', style: { '--i': Math.min(i, 20) }, 'aria-label': `Page ${x.page}` },
+        const card = h('div', { class: 'pp-hit-row pp-in', role: 'button', tabindex: 0, 'data-state': 'on', 'aria-pressed': 'true', style: { '--i': Math.min(i, 20) }, 'aria-label': `Page ${x.page}` },
           h('div', { class: 'pp-hit-thumb' }, pageThumb(s, x.page, { max: 160 })),
           h('div', { class: 'pp-hit-body' },
             h('div', { class: 'pp-hit-head' }, h('strong', `Page ${x.page}`), o.invert ? null : h('span', { class: 'pp-chip' }, `${x.count} ${x.count === 1 ? 'match' : 'matches'}`)),
@@ -130,6 +130,7 @@ export function mount(root) {
         const flip = () => {
           if (selected.has(x.page)) selected.delete(x.page); else selected.add(x.page)
           card.dataset.state = selected.has(x.page) ? 'on' : 'off'
+          card.setAttribute('aria-pressed', String(selected.has(x.page)))
           card.querySelector('.pp-tick').style.transform = selected.has(x.page) ? 'scale(1)' : 'scale(0)'
           sync()
         }

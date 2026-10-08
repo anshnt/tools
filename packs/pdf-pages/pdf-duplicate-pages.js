@@ -153,13 +153,13 @@ export function mount(root, { signal }) {
             const p = pages[pn - 1]
             const card = h('div', { class: 'pp-card', role: 'button', tabindex: 0, 'aria-label': `Page ${pn}` },
               h('div', { class: 'pp-paper', style: { aspectRatio: `${s.sizeOf(pn).w} / ${s.sizeOf(pn).h}` } }, h('img', { src: p.url, alt: '', draggable: false })),
-              h('span', { class: 'pp-num' }, pn), h('span', { class: 'pp-tick' }, icon('x')),
+              h('span', { class: 'pp-num' }, pn), h('span', { class: 'pp-tick' }, icon('check'), icon('x')),
               h('div', { class: 'pp-foot' }, h('span', { 'data-role': 'v' })))
-            const sync = () => { const r = removed.has(pn); card.dataset.state = r ? 'bad' : 'good'; card.querySelector('[data-role=v]').textContent = r ? 'Remove' : 'Keep' }
+            const sync = () => { const r = removed.has(pn); card.dataset.state = r ? 'bad' : 'good'; card.setAttribute('aria-pressed', String(!r)); card.querySelector('[data-role=v]').textContent = r ? 'Remove' : 'Keep' }
             const flip = () => {
               if (!removed.has(pn) && g.pages.filter((x) => !removed.has(x)).length === 1) return toast('Keep at least one copy of each page.')
               if (removed.has(pn)) removed.delete(pn); else removed.add(pn)
-              row.querySelectorAll('.pp-card').forEach((c, i) => { const q = g.pages[i]; c.dataset.state = removed.has(q) ? 'bad' : 'good'; c.querySelector('[data-role=v]').textContent = removed.has(q) ? 'Remove' : 'Keep' })
+              row.querySelectorAll('.pp-card').forEach((c, i) => { const q = g.pages[i]; c.dataset.state = removed.has(q) ? 'bad' : 'good'; c.setAttribute('aria-pressed', String(!removed.has(q))); c.querySelector('[data-role=v]').textContent = removed.has(q) ? 'Remove' : 'Keep' })
               paint()
             }
             card.addEventListener('click', flip)
@@ -202,4 +202,5 @@ const CSS = `
 .pp .pp-dup-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
 .pp .pp-dup-row { display: flex; gap: 12px; overflow-x: auto; padding: 4px 4px 8px; }
 .pp .pp-dup-row .pp-card { width: 112px; flex: none; }
+.pp .pp-dup-row .pp-card[data-state="good"] .pp-tick .icon:last-child, .pp .pp-dup-row .pp-card[data-state="bad"] .pp-tick .icon:first-child { display: none; }
 `

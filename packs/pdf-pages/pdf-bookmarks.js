@@ -280,13 +280,13 @@ export function mount(root, { signal }) {
 
 const CSS = `
 .pp .pp-tree { display: flex; flex-direction: column; gap: 6px; max-height: 620px; overflow: auto; padding: 2px; }
-.pp .pp-tree-row { display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px calc(6px + var(--d, 0) * 22px); border-radius: 12px; border: 1px solid transparent; background: var(--surface-2); transition: background .2s, border-color .2s; animation: pp-pop .35s var(--ease) both; }
+.pp .pp-tree-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 5px 6px 5px calc(6px + var(--d, 0) * 22px); border-radius: 12px; border: 1px solid transparent; background: var(--surface-2); transition: background .2s, border-color .2s; animation: pp-pop .35s var(--ease) both; }
 .pp .pp-tree-row:hover { border-color: var(--border-strong); }
 .pp .pp-tree-row.sel { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 3px var(--ring); }
 .pp .pp-tree-row.nopage .pp-tree-page input { border-color: var(--danger); }
 .pp .pp-tree-dot { width: 34px; height: 34px; flex: none; display: grid; place-items: center; }
 .pp .pp-tree-dot::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); }
-.pp .pp-tree-title { flex: 1; min-width: 120px; }
+.pp .pp-tree-title { flex: 1 1 150px; min-width: 0; }
 .pp .pp-tree-title input { height: 34px; }
 .pp .pp-tree-page { width: 78px; flex: none; }
 .pp .pp-tree-page input { height: 34px; padding: 0 8px; }
@@ -301,5 +301,6 @@ const CSS = `
 .pp .pp-paste { border: 1px solid var(--border); border-radius: 18px; padding: 14px 18px; background: var(--surface); }
 .pp .pp-paste summary { cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; list-style: none; min-height: 32px; }
 .pp .pp-paste summary::-webkit-details-marker { display: none; }
-@media (max-width: 900px) { .pp .pp-bm-side { position: static; } .pp .pp-tree-actions { width: 100%; justify-content: flex-end; } .pp .pp-tree-title { flex-basis: 50%; } }
+@media (max-width: 900px) { .pp .pp-bm-side { position: static; } }
+@media (max-width: 560px) { .pp .pp-tree-actions { flex-basis: 100%; justify-content: flex-end; } .pp .pp-tree-row { padding-left: calc(6px + var(--d, 0) * 12px); } }
 `
