@@ -32,6 +32,18 @@ const SALES_HEAD = ['order_id', 'order_date', 'region', 'product', 'category', '
 
 export const SAMPLES = {
   sales: { file: 'sales-sample.csv', make: () => toCsv(SALES_HEAD, salesRows()) },
+  salesnew: {
+    file: 'sales-updated.csv',
+    make: () => {
+      const rows = salesRows().map((r) => [...r])
+      const drop = new Set([5, 17, 33])
+      for (const i of [2, 9, 20, 41]) { rows[i][5] += 2; rows[i][7] = rows[i][5] * rows[i][6] }
+      rows[12][2] = rows[12][2] === 'North' ? 'South' : 'North'
+      const kept = rows.filter((_, i) => !drop.has(i))
+      kept.push([1100, '2025-06-27', 'East', 'Laptop', 'Computers', 3, 899, 2697, 'C004'], [1101, '2025-06-28', 'West', 'Dock', 'Computers', 2, 149, 298, 'C011'], [1102, '2025-06-29', 'North', 'Mouse', 'Accessories', 10, 25, 250, 'C002'])
+      return toCsv(SALES_HEAD, kept)
+    },
+  },
   customers: {
     file: 'customers-sample.csv',
     make: () => {
@@ -86,6 +98,24 @@ Zoe Chen,zoe.chen@example.com,Taipei,Free
       return toCsv(['student_id', 'hours_studied', 'attendance_pct', 'math', 'science', 'english'], rows)
     },
   },
+  htmltable: {
+    file: 'price-list.html',
+    make: () => `<h2>Price list</h2>
+<table>
+  <caption>Spring catalogue</caption>
+  <thead><tr><th>Product</th><th>Category</th><th>Price (USD)</th><th>In stock</th></tr></thead>
+  <tbody>
+    <tr><td>Laptop 14"</td><td rowspan="2">Computers</td><td>899.00</td><td>Yes</td></tr>
+    <tr><td>Dock</td><td>149.00</td><td>No</td></tr>
+    <tr><td>Keyboard</td><td>Accessories</td><td>49.00</td><td>Yes</td></tr>
+    <tr><td>Mouse &amp; pad</td><td>Accessories</td><td>25.50</td><td>Yes</td></tr>
+    <tr><td colspan="4"><em>Prices exclude tax</em></td></tr>
+  </tbody>
+</table>
+<p>Second table</p>
+<table><tr><th>Region</th><th>Manager</th></tr><tr><td>North</td><td>Asha</td></tr><tr><td>South</td><td>Ben</td></tr></table>
+`,
+  },
   products: {
     file: 'products.json',
     make: () => JSON.stringify({
@@ -105,5 +135,5 @@ export async function sampleFile(key) {
     }
     return new File([await buildXlsx(sheets)], 'sample-workbook.xlsx')
   }
-  return new File([SAMPLES[key].make()], SAMPLES[key].file, { type: SAMPLES[key].file.endsWith('.json') ? 'application/json' : 'text/csv' })
+  return new File([SAMPLES[key].make()], SAMPLES[key].file, { type: SAMPLES[key].file.endsWith('.json') ? 'application/json' : SAMPLES[key].file.endsWith('.html') ? 'text/html' : 'text/csv' })
 }

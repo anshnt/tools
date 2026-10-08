@@ -11,7 +11,7 @@ const DATE_FORMATS = {
   mdy: (d) => `${p2(d.m)}/${p2(d.d)}/${d.y}${d.hasTime ? ` ${p2(d.H)}:${p2(d.M)}:${p2(d.S)}` : ''}`,
   mon: (d) => `${p2(d.d)} ${MONTHS[d.m - 1]} ${d.y}${d.hasTime ? ` ${p2(d.H)}:${p2(d.M)}` : ''}`,
 }
-const NOT_NAME = /mail|url|link|id$|code|sku|phone|zip|postal|ref|uuid|hash/i
+const NOT_NAME = /mail|url|link|id$|code|sku|phone|zip|postal|ref|uuid|hash|note|comment|desc|remark|memo|message|detail|address/i
 const INVISIBLE = new RegExp('[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F\\u200B-\\u200D\\u2060\\uFEFF]', 'g')
 const NBSP = new RegExp('[\\u00A0\\u2007\\u202F]', 'g')
 const CURLY_S = new RegExp('[\\u2018\\u2019\\u201B]', 'g')

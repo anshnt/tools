@@ -1,7 +1,7 @@
 // Chart maker: Chart.js charts from table data with live preview, aggregation, palettes and PNG / SVG / data export.
 import { h, icon, clear, field, input, select, toggle, tabs, number, toast, alert, onCleanup } from '../../lib/ui.js'
 import { chartjs } from '../../lib/libs.js'
-import { aggregate, inferTypes, isNumericType, num, parseDate, localeDateOrder, inferDateOrder, collator, isEmpty, str, plural, toCsv } from './_table.js'
+import { aggregate, inferTypes, isNumericType, num, groupDate, localeDateOrder, inferDateOrder, collator, isEmpty, str, plural, toCsv } from './_table.js'
 import { toolFlow, exportBar, statTiles, nameBase, colSelect, chipSelect, cssVar, watchTheme } from './_view.js'
 
 const SVGCANVAS = 'https://cdn.jsdelivr.net/npm/svgcanvas@2.6.0/dist/svgcanvas.esm.js'
@@ -18,22 +18,9 @@ const TYPES = [['bar', 'Bar', 'chart-column'], ['barh', 'Horizontal', 'chart-bar
 const SIZES = [['1200x675', 'Wide 1200 x 675'], ['1080x1080', 'Square 1080 x 1080'], ['1000x700', 'Classic 1000 x 700'], ['800x500', 'Small 800 x 500'], ['1600x900', 'Large 1600 x 900']]
 const AGGS = [['sum', 'Add them up (sum)'], ['avg', 'Average'], ['count', 'Count rows'], ['min', 'Smallest'], ['max', 'Largest'], ['median', 'Median'], ['none', 'Plot every row as it is']]
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
-const WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const p2 = (n) => String(n).padStart(2, '0')
 const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 })
 const full = new Intl.NumberFormat('en', { maximumFractionDigits: 2 })
 const MAX_CATS = 400, MAX_POINTS = 20000
-
-function dateKey(s, mode, order) {
-  const p = typeof s === 'string' ? parseDate(s, order) : null
-  if (!p) return null
-  if (mode === 'year') return { label: String(p.y), sort: p.y }
-  if (mode === 'quarter') return { label: `${p.y} Q${Math.ceil(p.m / 3)}`, sort: p.y * 10 + Math.ceil(p.m / 3) }
-  if (mode === 'month') return { label: `${MON[p.m - 1]} ${p.y}`, sort: p.y * 100 + p.m }
-  if (mode === 'weekday') { const wd = (new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay() + 6) % 7; return { label: WEEK[wd], sort: wd } }
-  return { label: `${p.y}-${p2(p.m)}-${p2(p.d)}`, sort: p.y * 10000 + p.m * 100 + p.d }
-}
 
 /** Turn table + options into plotted data. Returns { labels, series: [{ name, data }], points, note, tableOut }. */
 export function prepareData(t, o, types) {
@@ -53,7 +40,7 @@ export function prepareData(t, o, types) {
   t.rows.forEach((r, i) => {
     let label, sort
     const raw = o.xCol >= 0 ? r[o.xCol] : i + 1
-    if (o.dateGroup !== 'none') { const k = dateKey(raw, o.dateGroup, order); if (!k) return; label = k.label; sort = k.sort }
+    if (o.dateGroup !== 'none') { const k = groupDate(raw, o.dateGroup, order); if (!k) return; label = k.label; sort = k.sort }
     else { label = isEmpty(raw) ? '(blank)' : str(raw).trim(); sort = null }
     const key = o.agg === 'none' ? `${label}\u0000${i}` : label
     let g = groups.get(key)
@@ -272,7 +259,7 @@ export async function mount(root) {
     cfg.options.responsive = false
     const bg = o.bg === 'transparent' ? null : theme.bgSolid
     if (kind === 'png') {
-      const c = h('canvas', { width: w * 2, height: hgt * 2 })
+      const c = h('canvas', { width: w, height: hgt })
       c.style.width = `${w}px`; c.style.height = `${hgt}px`
       const ch = new Chart(c, { ...cfg, plugins: [labelsPlugin, bgPlugin(bg)] })
       const blob = await new Promise((res) => c.toBlob(res, 'image/png'))

@@ -145,6 +145,19 @@ export function parseDate(input, order = 'mdy') {
   return { y, m: mo, d, ...t }
 }
 const p2 = (n) => String(n).padStart(2, '0')
+const MON_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const WEEK_ABBR = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+/** Bucket a date cell: mode 'year' | 'quarter' | 'month' | 'day' | 'weekday'. Returns { label, sort } or null when it is not a date. */
+export function groupDate(raw, mode, order = 'mdy') {
+  const p = typeof raw === 'string' ? parseDate(raw, order) : null
+  if (!p) return null
+  const p2 = (n) => String(n).padStart(2, '0')
+  if (mode === 'year') return { label: String(p.y), sort: p.y }
+  if (mode === 'quarter') return { label: `${p.y} Q${Math.ceil(p.m / 3)}`, sort: p.y * 10 + Math.ceil(p.m / 3) }
+  if (mode === 'month') return { label: `${MON_ABBR[p.m - 1]} ${p.y}`, sort: p.y * 100 + p.m }
+  if (mode === 'weekday') { const wd = (new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay() + 6) % 7; return { label: WEEK_ABBR[wd], sort: wd } }
+  return { label: `${p.y}-${p2(p.m)}-${p2(p.d)}`, sort: p.y * 10000 + p.m * 100 + p.d }
+}
 export const fmtDate = (p, withTime = p.hasTime) => `${String(p.y).padStart(4, '0')}-${p2(p.m)}-${p2(p.d)}${withTime ? ` ${p2(p.H)}:${p2(p.M)}:${p2(p.S)}` : ''}`
 /** Excel serial number (days since 1899-12-30, with the time as the fraction). */
 export const dateSerial = (p) => Date.UTC(p.y, p.m - 1, p.d, p.H, p.M, p.S) / 864e5 + 25569
@@ -712,6 +725,7 @@ export async function sniffKind(file) {
   const e = fileExt(file.name)
   if (EXCEL_EXT.has(e)) return 'excel'
   if (e === 'json' || e === 'ndjson' || e === 'jsonl') return 'json'
+  if (e === 'html' || e === 'htm' || e === 'xhtml' || e === 'md' || e === 'markdown') return 'markup'
   const head = new Uint8Array(await file.slice(0, 8).arrayBuffer())
   if ((head[0] === 0x50 && head[1] === 0x4B) || (head[0] === 0xD0 && head[1] === 0xCF)) return 'excel'
   if (e === 'csv' || e === 'tsv' || e === 'txt' || e === 'tab') return 'text'
@@ -726,6 +740,12 @@ export async function sniffKind(file) {
 export async function entryFromFile(file, opts = {}) {
   if (file.size > MAX_FILE_BYTES) throw new Error(`${file.name} is ${(file.size / 1048576).toFixed(0)} MB. Files over ${MAX_FILE_BYTES / 1048576} MB are too big for the browser. Split it first.`)
   const kind = await sniffKind(file)
+  if (kind === 'markup') {
+    const d = decodeBuffer(await file.arrayBuffer(), 'auto')
+    const e = await entryFromText(d.text, file.name)
+    e.size = file.size; e.file = file
+    return e
+  }
   const entry = { name: file.name, size: file.size, kind: kind === 'text' ? 'csv' : kind, file, opts: { header: 'auto', delimiter: 'auto', encoding: 'auto', ...opts } }
   const buf = await file.arrayBuffer()
   if (kind === 'excel') {
@@ -769,6 +789,8 @@ export async function reparse(entry) {
     if (!r) { entry.table = emptyTable(); return entry }
     entry.table = r.table; entry.hasHeader = r.hasHeader; entry.delimiter = r.delimiter; entry.pasteKind = r.kind; entry.root = r.root; entry.warnings = r.warnings || []
     entry.found = r.tables
+    const ti = o.tableIndex || 0
+    if (r.tables?.[ti]) { entry.table = r.tables[ti].table; entry.hasHeader = r.tables[ti].hasHeader }
     if (r.kind === 'json') {
       const j = jsonToTable(r.root, { path: o.path || 'auto', arrays: o.arrays || 'join', flatten: o.flatten !== false, sep: o.sep || '.' })
       entry.table = j.table; entry.candidates = j.candidates; entry.path = j.path

@@ -113,7 +113,16 @@ const CSS = `
 .dt-actions .dt-note { font-size: 12.5px; color: var(--muted); margin-left: auto; }
 .dt-actions .btn.dt-saved { background: var(--success); border-color: transparent; color: #fff; }
 .dt-actions .btn.dt-saved::after { display: none; }
-@media (max-width: 640px) { .dt-actions.sticky { position: sticky; bottom: calc(10px + var(--safe-b)); z-index: 20; } .dt-actions .dt-note { display: none; } }
+@media (max-width: 640px) {
+  .dt-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 10px; }
+  .dt-actions .btn-lg { grid-column: 1 / -1; }
+  .dt-actions .btn { width: 100%; padding: 0 10px; font-size: 13px; gap: 6px; }
+  .dt-actions .dt-note { display: none; }
+  .dt-actions.sticky { position: sticky; bottom: calc(10px + var(--safe-b)); z-index: 20; }
+  .dt-flow .stats { grid-template-columns: repeat(auto-fill, minmax(min(100%, 118px), 1fr)); }
+  .dt-flow .stat { padding: 12px; }
+  .dt-flow .stat .value { font-size: 21px; }
+}
 
 .dt-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .dt-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font-size: 13.5px; cursor: pointer; transition: background .2s, border-color .2s, color .2s, transform .25s var(--spring), box-shadow .2s; max-width: 100%; }
@@ -252,7 +261,7 @@ export function step(n, title, { state = 'ready', sub, lockText = 'Add data firs
 export const flow = (...steps) => { injectStyles(); return h('div', { class: 'dt-flow' }, steps) }
 
 // ---------- Data source ----------
-const SAMPLE_LABEL = { workbook: 'a two-sheet workbook', sales: 'sales orders', customers: 'customers', missing: 'data with gaps', messy: 'messy contacts', duplicates: 'contacts with duplicates', students: 'student scores', products: 'products (JSON)' }
+const SAMPLE_LABEL = { salesnew: 'an updated copy', htmltable: 'an HTML table', workbook: 'a two-sheet workbook', sales: 'sales orders', customers: 'customers', missing: 'data with gaps', messy: 'messy contacts', duplicates: 'contacts with duplicates', students: 'student scores', products: 'products (JSON)' }
 
 /**
  * tableSource({ multiple, sample: 'sales' | ['sales','customers'], accept, onChange, formatted, jsonOptions, excelOptions, pasteOpen })
@@ -388,6 +397,9 @@ export function tableSource(opts = {}) {
         o.push(field('Nested lists', select([['join', 'Join into one cell'], ['index', 'Separate columns'], ['explode', 'One row per item'], ['json', 'Keep as JSON text']], entry.opts.arrays || 'join', (v) => change({ arrays: v }))))
         o.push(toggle('Flatten nested objects', entry.opts.flatten !== false, (v) => change({ flatten: v })))
         if (entry.opts.flatten !== false) o.push(field('Key joiner', select([['.', 'a.b (dot)'], ['_', 'a_b (underscore)'], ['/', 'a/b (slash)']], entry.opts.sep || '.', (v) => change({ sep: v }))))
+      }
+      if (entry.found?.length > 1) {
+        o.unshift(field('Table on the page', select(entry.found.map((x, i) => [String(i), `Table ${i + 1} (${x.table.rows.length} rows, ${x.table.headers.length} columns)${x.label ? `: ${x.label}` : ''}`]), String(entry.opts.tableIndex || 0), (v) => change({ tableIndex: +v }))))
       }
       if (!isJson && headerToggle) {
         const hdr = toggle('First row is a header', entry.hasHeader, (v) => change({ header: v }))
@@ -565,7 +577,7 @@ export function virtualTable(opts = {}) {
     setTable(t, o = {}) {
       table = t
       order = o.order || null
-      types = opts.types === false ? [] : o.types || inferTypes(t)
+      types = o.types || (opts.types === false ? [] : inferTypes(t))
       numCols = types.map(isNumericType)
       widths = sizes()
       sort = o.sort || null
@@ -646,7 +658,8 @@ export function exportBar(o) {
     return btn
   })
   const copy = o.copy === false || !o.getTable ? null : button('Copy', { icon: 'copy', variant: 'ghost', title: 'Copy as tab-separated text (pastes into Excel and Google Sheets)', onClick: async () => { const t = await o.getTable(); if (t) copyText(toTsv(t)) } })
-  const el = h('div', { class: ['dt-actions', o.sticky !== false && 'sticky'] }, btns, copy, o.extra, o.note && h('span', { class: 'dt-note' }, o.note))
+  const few = btns.length + (copy ? 1 : 0) + (o.extra?.length || 0) <= 2
+  const el = h('div', { class: ['dt-actions', o.sticky !== false && few && 'sticky'] }, btns, copy, o.extra, o.note && h('span', { class: 'dt-note' }, o.note))
   el.setDisabled = (b) => { for (const x of [...btns, copy]) if (x) x.disabled = !!b }
   return el
 }
@@ -689,9 +702,9 @@ export function chipSelect(o) {
 }
 
 /** Column dropdown. colSelect({ headers, value: 0, onChange(index), none: 'No column' }) -> <select> with .setHeaders(headers, keepValue). */
-export function colSelect({ headers = [], value = 0, onChange, none = null } = {}) {
+export function colSelect({ headers = [], value = 0, onChange, none = null, label = null } = {}) {
   const build = (hs) => [...(none ? [h('option', { value: '-1' }, none)] : []), ...hs.map((n, i) => h('option', { value: String(i) }, n))]
-  const el = h('select', { class: 'select', onchange: () => onChange?.(+el.value), 'aria-label': 'Column' }, build(headers))
+  const el = h('select', { class: 'select', onchange: () => onChange?.(+el.value), 'aria-label': label }, build(headers))
   el.value = String(none && value < 0 ? -1 : Math.min(value, Math.max(0, headers.length - 1)))
   el.setHeaders = (hs, keep = true) => {
     const cur = el.value

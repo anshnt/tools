@@ -158,4 +158,4 @@ export async function buildXlsx(sheets, { typed = true, onProgress, dateOrder } 
 }
 
 /** One table to an .xlsx Blob. */
-export const tableToXlsx = (table, opts = {}) => buildXlsx([{ name: opts.name || 'Sheet1', headers: table.headers, rows: table.rows, types: opts.types, freeze: opts.freeze, filter: opts.filter }], opts)
+export const tableToXlsx = (table, opts = {}) => buildXlsx([{ name: opts.name || 'Sheet1', headers: table.headers, rows: table.rows, types: opts.types, freeze: opts.freeze, filter: opts.filter, header: opts.header }], opts)

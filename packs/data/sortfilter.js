@@ -36,7 +36,7 @@ export function mount(root, { params }) {
       const [asc, desc] = dirLabels(s.col)
       return h('div', { class: 'dt-rule' },
         h('span', { class: 'dt-rule-n' }, i === 0 ? 'Sort by' : 'Then by'),
-        colSelect({ headers: t.headers, value: s.col, onChange: (c) => { s.col = c; renderSorts(); run() } }),
+        colSelect({ headers: t.headers, value: s.col, label: 'Sort column', onChange: (c) => { s.col = c; renderSorts(); run() } }),
         segmented([['asc', asc], ['desc', desc]], s.dir, (v) => { s.dir = v; run() }, 'Direction'),
         select(AS, s.as, (v) => { s.as = v; run() }),
         button('', { icon: 'chevron-up', variant: 'ghost', size: 'sm', ariaLabel: 'Move up', disabled: i === 0, onClick: () => { [o.sorts[i - 1], o.sorts[i]] = [o.sorts[i], o.sorts[i - 1]]; renderSorts(); run() } }),
@@ -50,7 +50,7 @@ export function mount(root, { params }) {
       const v2 = input({ value: r.value2 ?? '', placeholder: 'and', 'aria-label': 'Second value', oninput: (e) => { r.value2 = e.target.value; run() } })
       return h('div', { class: 'dt-rule' },
         h('span', { class: 'dt-rule-n' }, i === 0 ? 'Where' : o.match === 'all' ? 'And' : 'Or'),
-        colSelect({ headers: t.headers, value: r.col, onChange: (c) => { r.col = c; run() } }),
+        colSelect({ headers: t.headers, value: r.col, label: 'Filter column', onChange: (c) => { r.col = c; run() } }),
         select(FILTER_OPS, r.op, (v) => { r.op = v; renderRules(); run() }),
         opNeedsValue(r.op) ? v1 : null, r.op === 'between' ? v2 : null,
         button('', { icon: 'x', variant: 'ghost', size: 'sm', ariaLabel: 'Remove this filter', onClick: () => { o.rules.splice(i, 1); renderRules(); run() } }))
