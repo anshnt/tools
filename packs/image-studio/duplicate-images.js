@@ -145,6 +145,7 @@ export function mount(root, { signal }) {
     prog.hide(); clear(status)
     if (running === ctl) running = null
     if (failed) toast(`${failed} file${failed === 1 ? '' : 's'} could not be read and ${failed === 1 ? 'was' : 'were'} skipped.`, 'error')
+    if (!all.length) { work.hidden = true; drop.setCompact(false); sampleBtn.hidden = false; return }
     regroup()
   }
 
