@@ -32,6 +32,22 @@ for (const t of TOOLS) {
 }
 for (const id of POPULAR) if (!seen.has(id)) fail(`POPULAR: unknown tool "${id}"`)
 
+// --- Raw catalog entries: only known keys, strict types ---
+const KEYS = new Set(['id', 'name', 'desc', 'icon', 'cat', 'also', 'module', 'params', 'mode', 'tags', 'ready'])
+for (const pack of readdirSync(join(root, 'packs'))) {
+  const file = join(root, 'packs', pack, 'catalog.js')
+  if (!existsSync(file)) { fail(`packs/${pack}: missing catalog.js`); continue }
+  const mod = await import(new URL(`../packs/${pack}/catalog.js`, import.meta.url))
+  if (!Array.isArray(mod.default)) { fail(`packs/${pack}/catalog.js: default export must be an array`); continue }
+  if (!mod.cat) fail(`packs/${pack}/catalog.js: missing export const cat`)
+  for (const e of mod.default) {
+    for (const k of Object.keys(e)) if (!KEYS.has(k)) fail(`packs/${pack}/${e.id}: unknown key "${k}"`)
+    if ('ready' in e && typeof e.ready !== 'boolean') fail(`packs/${pack}/${e.id}: ready must be true or false`)
+    if ('also' in e && !Array.isArray(e.also)) fail(`packs/${pack}/${e.id}: also must be an array`)
+    if ('tags' in e && typeof e.tags !== 'string') fail(`packs/${pack}/${e.id}: tags must be a string`)
+  }
+}
+
 // --- Files: syntax, icons, house rules ---
 const walk = (dir) => readdirSync(dir).flatMap((f) => {
   if (f === '.git' || f === 'node_modules') return []
@@ -42,6 +58,38 @@ const all = walk(root)
 const jsFiles = all.filter((f) => f.endsWith('.js') || f.endsWith('.mjs'))
 for (const f of jsFiles) {
   try { execFileSync(process.execPath, ['--check', f], { stdio: 'pipe' }) } catch (e) { fail(`${relative(root, f)}: syntax error\n${e.stderr}`) }
+}
+
+// --- Static import check: relative imports resolve, and named imports from lib/ exist ---
+const exportsOf = new Map()
+function namedExports(file) {
+  if (!exportsOf.has(file)) {
+    const src = readFileSync(file, 'utf8')
+    const names = new Set()
+    for (const m of src.matchAll(/export\s+(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Za-z_$][\w$]*)/g)) names.add(m[1])
+    for (const m of src.matchAll(/export\s*\{([^}]*)\}/g)) for (const part of m[1].split(',')) { const n = part.trim().split(/\s+as\s+/).pop(); if (n) names.add(n) }
+    if (/export\s+default/.test(src)) names.add('default')
+    exportsOf.set(file, names)
+  }
+  return exportsOf.get(file)
+}
+const posix = (p) => relative(root, p).split(/[\\/]/).join('/')
+for (const f of jsFiles.filter((x) => posix(x).startsWith('packs/'))) {
+  const src = readFileSync(f, 'utf8')
+  const rel = posix(f)
+  for (const m of src.matchAll(/import\s+(?:([\w$]+)\s*,?\s*)?(?:\{([^}]*)\}|\*\s+as\s+[\w$]+)?\s*from\s*['"](\.{1,2}\/[^'"]+)['"]/g)) {
+    const target = join(f, '..', m[3])
+    if (!existsSync(target)) { fail(`${rel}: imports missing file ${m[3]}`); continue }
+    const have = namedExports(target)
+    if (m[1] && !have.has('default')) fail(`${rel}: ${m[3]} has no default export`)
+    for (const part of (m[2] || '').split(',')) {
+      const n = part.trim().split(/\s+as\s+/)[0]
+      if (n && !have.has(n)) fail(`${rel}: ${m[3]} does not export "${n}"`)
+    }
+  }
+  if (/import\s*\(\s*['"]https?:/.test(src) || /from\s*['"]https?:/.test(src)) {
+    for (const m of src.matchAll(/['"](https?:\/\/[^'"]+)['"]/g)) if (/cdn\.jsdelivr\.net\/npm\/(?:@[^/]+\/)?[^/@]+\//.test(m[1])) fail(`${rel}: unpinned CDN URL ${m[1]}`)
+  }
 }
 
 const lucideVersion = readFileSync(join(root, 'index.html'), 'utf8').match(/lucide@([\d.]+)/)?.[1]

@@ -15,6 +15,6 @@ export default [
   { id: 'text-summarizer', name: 'Text summarizer', desc: 'Summarize long text into key points, on-device or with AI.', icon: 'list-collapse', tags: 'summary tldr key points' },
   { id: 'text-translator', name: 'Text translator', desc: 'Translate text between 100+ languages.', icon: 'languages', mode: 'online', tags: 'translate language hindi english' },
   { id: 'readability-checker', name: 'Readability checker', desc: 'Flesch reading ease, grade level, long sentences and passive voice.', icon: 'gauge', tags: 'flesch grade level reading' },
-  { id: 'plagiarism-checker', name: 'Plagiarism checker', desc: 'Compare texts for overlap and search the web for copied sentences.', icon: 'shield-check', tags: 'similarity duplicate copied' },
+  { id: 'plagiarism-checker', name: 'Plagiarism checker', desc: 'Find overlap between texts and run exact-phrase web searches for suspect sentences.', icon: 'shield-check', tags: 'similarity duplicate copied' },
   { id: 'text-editor', name: 'Online notepad', desc: 'A distraction-free notepad that autosaves on this device.', icon: 'notebook-pen', tags: 'notes notepad write autosave' },
 ]

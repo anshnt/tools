@@ -88,7 +88,8 @@ export const MODES = {
 export function search(query, list = TOOLS) {
   const q = query.toLowerCase().trim()
   if (!q) return list
-  const terms = q.split(/\s+/).map((s) => s.replace(/[^a-z0-9.+#-]/g, '')).filter(Boolean)
+  const terms = q.split(/[\s/]+/).map((s) => s.replace(/[^\p{L}\p{N}.+#-]/gu, '')).filter(Boolean)
+  if (!terms.length) return []
   const scored = []
   for (const t of list) {
     const name = t.name.toLowerCase()

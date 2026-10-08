@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Tools · Every everyday tool, in your browser</title>
   <meta name="description" content="Free, private online tools for PDFs, images, video, data, text, calculators and more. Most run entirely in your browser.">
-  <meta name="theme-color" content="#fafafa">
+  <meta name="theme-color" content="#fbfbfd">
   <meta property="og:title" content="Tools · Every everyday tool, in your browser">
-  <meta property="og:description" content="400+ free tools for PDFs, images, video, data, text, calculators, India forms and AI. Files stay on your device.">
+  <meta property="og:description" content="Hundreds of free tools for PDFs, images, video, data, text, calculators, India forms and AI. Files stay on your device.">
   <meta property="og:type" content="website">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,7 +20,8 @@
   <script type="module" src="assets/app.js"></script>
 </head>
 <body>
-  <a class="sr-only" href="#app">Skip to content</a>
+  <a class="skip-link" href="#app">Skip to content</a>
+  <div id="scroll-progress" aria-hidden="true"></div>
   <header class="site-header">
     <div class="header-inner">
       <a class="brand" href="#/" aria-label="Tools home">
@@ -37,6 +38,7 @@
     </div>
   </header>
   <main id="app" tabindex="-1"></main>
+  <div id="route-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   <footer class="site-footer">
     <div class="footer-inner">
       <span><strong>Tools</strong> · <span id="footer-count"></span> · Most tools run entirely in your browser; files never leave your device.</span>
