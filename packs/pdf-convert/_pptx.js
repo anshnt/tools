@@ -786,9 +786,7 @@ async function paintText(tb, box, o) {
     const lw = real.reduce((a, t) => a + t.w, 0)
     if (ln.algn === 'ctr') x += (avail - lw) / 2
     else if (ln.algn === 'r') x += avail - lw
-    const base = y + ln.h * 0.5 + ln.size * 0.35 + (ln.h - ln.size * 1.2) * 0.0
     const baseline = y + (ln.h - ln.size * 1.2) + ln.size * 1.0
-    void base
     if (ln.bullet) {
       const b = ln.bullet
       ctx.save()
@@ -1054,10 +1052,6 @@ async function paintDiagram(node, box, m, env) {
   const tree = deep(d, 'spTree')[0]
   const child = { sx: m.sx, sy: m.sy, tx: box.x, ty: box.y }
   for (const sp of kids(tree, 'sp')) {
-    const spPr = kid(sp, 'spPr')
-    const tx = kid(sp, 'txXfrm')
     await paintShape(sp, child, { ...env, skipPh: false })
-    void tx
-    void spPr
   }
 }

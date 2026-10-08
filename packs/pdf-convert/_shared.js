@@ -34,6 +34,7 @@ const CSS = `
 .cv-link::after { content: ""; position: absolute; top: 0; bottom: 0; width: 46px; border-radius: 99px; background: linear-gradient(90deg, transparent, var(--fa), var(--fb), transparent); animation: cv-run 3.4s linear infinite; }
 .cv-flow[data-state="working"] .cv-link::after { animation-duration: .8s; width: 70px; } .cv-flow[data-state="done"] .cv-link::after { animation: none; left: 0; right: 0; width: auto; background: linear-gradient(90deg, var(--fa), var(--fb)); }
 @keyframes cv-run { from { left: -60px; } to { left: 100%; } }
+.cv-flow:has(.cv-flow-cap) { padding-bottom: 32px; }
 .cv-flow-cap { position: absolute; left: 14px; bottom: 9px; font-size: 11.5px; color: var(--muted); letter-spacing: .02em; }
 .cv-step { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 4px 14px; transition: opacity .4s, filter .4s; }
 .cv-step[data-locked="true"] { opacity: .42; filter: saturate(.5); pointer-events: none; user-select: none; }

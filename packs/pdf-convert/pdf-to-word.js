@@ -88,7 +88,7 @@ export function mount(root, { signal }) {
       const blob = await blocksToDocx({ pages: a.pages, body: a.body, bodyFont: a.bodyFont, bodySerif: !!bf?.serif, sizes: a.sizes, pageBreaks: S.layout === 'pages', fonts: S.fonts, title: baseName(src.file.name) })
       const name = `${baseName(src.file.name)}.docx`
       prog.hide()
-      const stats = [plural(list.length, 'page'), `${all.filter((b) => b.type === 'heading').length} headings`, `${all.filter((b) => b.type === 'table').length} tables`, formatBytes(blob.size), secs(performance.now() - t0)]
+      const stats = [plural(list.length, 'page'), plural(all.filter((b) => b.type === 'heading').length, 'heading'), plural(all.filter((b) => b.type === 'table').length, 'table'), formatBytes(blob.size), secs(performance.now() - t0)]
       if (pictureCount) stats.splice(3, 0, plural(pictureCount, 'picture'))
       if (ocrPages) stats.splice(1, 0, `${ocrPages} scanned ${ocrPages === 1 ? 'page' : 'pages'} read`)
       done(result, {

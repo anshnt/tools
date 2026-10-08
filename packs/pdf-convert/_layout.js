@@ -184,9 +184,23 @@ function columnBands(rows) {
  * -> {tables: [{rows: [[string]], bold: bool[] (first row), x0, x1, y0, y1, merges: [{r, c, span}], cols}], used: Set(line)}
  */
 export function detectTables(lines, { cellGap = 1.0, minRows = 3, minCols = 2 } = {}) {
-  const rows = lines.map((l) => ({ line: l, segs: l.mono ? [{ x0: l.x0, x1: l.x1, items: l.items, text: l.text, runs: l.runs, fs: l.fs, bold: false }] : segmentLine(l, Math.max(3, l.fs * cellGap)) }))
+  const segsOf = (l) => (l.mono ? [{ x0: l.x0, x1: l.x1, items: l.items, text: l.text, runs: l.runs, fs: l.fs, bold: false }] : segmentLine(l, Math.max(3, l.fs * cellGap)))
+  // cells that are vertically centred against a taller neighbour sit half a line apart; join such single-cell lines on different columns into one row
+  const rows = []
+  for (let k = 0; k < lines.length; k++) {
+    const l = lines[k], segs = segsOf(l), nx = lines[k + 1]
+    if (nx && segs.length === 1 && !l.mono && !nx.mono) {
+      const ns = segsOf(nx), dy = nx.y - l.y, fs = Math.max(l.fs, nx.fs), gap = fs * cellGap
+      if (ns.length === 1 && dy > fs * 0.3 && dy <= fs * 0.8 && (ns[0].x0 > segs[0].x1 + gap || ns[0].x1 < segs[0].x0 - gap)) {
+        rows.push({ line: l, extra: nx, segs: [...segs, ...ns].sort((x, y) => x.x0 - y.x0) })
+        k++
+        continue
+      }
+    }
+    rows.push({ line: l, segs })
+  }
   const tables = [], used = new Set()
-  let i = 0
+  let i = 0, floor = 0
   while (i < rows.length) {
     if (rows[i].segs.length < 2) { i++; continue }
     let j = i + 1
@@ -202,13 +216,19 @@ export function detectTables(lines, { cellGap = 1.0, minRows = 3, minCols = 2 } 
       break
     }
     while (j - 1 > i && rows[j - 1].segs.length < 2) j--
-    const run = rows.slice(i, j)
+    // one lone cell right above the first row (a column heading, or a taller neighbouring cell) belongs to the table
+    let from = i
+    const prev = rows[i - 1]
+    if (prev && i - 1 >= floor && prev.segs.length === 1 && rows[i].line.y - prev.line.y <= 1.7 * Math.max(prev.line.fs, rows[i].line.fs) * 1.2
+      && Math.abs(prev.line.fs - rows[i].line.fs) < 0.6 && rows[i].segs.slice(1).some((sg) => Math.abs(sg.x0 - prev.segs[0].x0) < prev.line.fs * 0.9)) from = i - 1
+    const run = rows.slice(from, j)
     const multi = run.filter((r) => r.segs.length >= 2).length
     const bands = run.length >= 2 ? columnBands(run) : []
     if (run.length >= minRows && multi >= 2 && bands.length >= minCols && bands.length <= 24 && multi / run.length >= 0.55) {
       const t = buildTable(run, bands)
-      if (!rejectTable(t)) { tables.push(t); for (const r of run) used.add(r.line) }
+      if (!rejectTable(t)) { tables.push(t); for (const r of run) { used.add(r.line); if (r.extra) used.add(r.extra) } }
       i = j
+      floor = j
     } else i++
   }
   return { tables, used }
@@ -219,7 +239,7 @@ const BULLET_ONLY = new RegExp(`^[-•◦▪●○■⁃·${String.fromCharCode(
 function rejectTable(t) {
   const first = t.rows.map((r) => r[0].trim()).filter(Boolean)
   if (first.length >= Math.max(2, t.rows.length * 0.7)) {
-    if (first.every((c) => BULLET_ONLY.test(c))) return true
+    if (first.filter((c) => BULLET_ONLY.test(c)).length >= Math.max(2, first.length - 1)) return true
     const nums = first.map((c) => (/^\(?(\d{1,2})[.)]?$/.exec(c) || [])[1]).map(Number)
     if (nums.length >= 2 && nums.every((n, k) => n && (k === 0 || n === nums[k - 1] + 1))) return true
   }
@@ -398,10 +418,10 @@ const normKey = (t) => t.toLowerCase().replace(/\d+/g, '#').replace(/\s+/g, ' ')
 const PAGE_NUM = /^(page\s*)?[-\u2013]?\s*\d{1,4}\s*([-\u2013]|(of|\/)\s*\d{1,4})?$/i
 
 /** Flag lines that repeat at the top or bottom of many pages (running headers, footers, page numbers). Returns how many were removed. */
-function stripHeadersFooters(pages) {
+function stripHeadersFooters(pages, body = 0) {
   if (pages.length < 2) return 0
   const counts = new Map()
-  const edge = (p, l) => l.y < p.height * 0.1 || l.y > p.height * 0.92
+  const edge = (p, l) => (l.y < p.height * 0.1 || l.y > p.height * 0.92) && !(body && l.fs >= body * 1.15 && l.bold)
   for (const p of pages) {
     const seen = new Set()
     for (const l of p.lines) if (edge(p, l)) { const k = normKey(l.text); if (k && !seen.has(k)) { seen.add(k); counts.set(k, (counts.get(k) || 0) + 1) } }
@@ -439,7 +459,7 @@ export function analyze(pageData, opts = {}) {
   for (const [s, w] of weight) if (w > bw) { bw = w; body = s }
   let bodyFont = '', fw = 0
   for (const [f, w] of fontWeight) if (w > fw) { fw = w; bodyFont = f }
-  const removed = o.removeHeaders ? stripHeadersFooters(pages) : 0
+  const removed = o.removeHeaders ? stripHeadersFooters(pages, body) : 0
   // heading sizes -> levels
   const headingSizes = new Map()
   const sizeSet = new Set()
@@ -676,7 +696,7 @@ export function runsToMarkdown(runs, { lead: escapeLead = false } = {}) {
 /** Document blocks -> Markdown. */
 export function blocksToMarkdown(pages, { pageBreaks = false } = {}) {
   const out = []
-  pages.forEach((p, pi) => {
+  pages.forEach((p) => {
     const parts = []
     p.blocks.forEach((b, k) => {
       const prev = p.blocks[k - 1]
@@ -695,7 +715,6 @@ export function blocksToMarkdown(pages, { pageBreaks = false } = {}) {
       parts.push((k === 0 ? '' : prev?.type === 'li' && b.type === 'li' ? '\n' : '\n\n') + piece)
     })
     out.push(parts.join(''))
-    void pi
   })
   return out.join(pageBreaks ? '\n\n---\n\n' : '\n\n').replace(/\n{3,}/g, '\n\n').trim() + '\n'
 }
@@ -715,6 +734,7 @@ export function runsToHtml(runs) {
   }).join('')
 }
 
+const bytesToB64 = (u8) => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s) }
 export function blocksToHtml(pages) {
   const out = []
   for (const p of pages) {
@@ -731,6 +751,7 @@ export function blocksToHtml(pages) {
       closeList()
       if (b.type === 'heading') out.push(`<h${Math.min(6, b.level)}>${runsToHtml(b.runs)}</h${Math.min(6, b.level)}>`)
       else if (b.type === 'code') out.push(`<pre><code>${esc(b.text)}</code></pre>`)
+      else if (b.type === 'image') out.push(`<p><img alt="" width="${Math.round(b.width)}" src="data:image/png;base64,${bytesToB64(b.data)}"></p>`)
       else if (b.type === 'table') {
         out.push('<table>', ...b.rows.map((r, i) => `<tr>${r.map((c) => `<${i === 0 && b.boldRows[0] ? 'th' : 'td'}>${esc(c || '')}</${i === 0 && b.boldRows[0] ? 'th' : 'td'}>`).join('')}</tr>`), '</table>')
       } else out.push(`<p${b.align !== 'left' ? ` style="text-align:${b.align}"` : ''}>${runsToHtml(b.runs)}</p>`)

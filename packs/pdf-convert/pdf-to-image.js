@@ -62,6 +62,7 @@ export function mount(root, { params, signal }) {
       if (token !== prevToken) return
       if (prevUrl) URL.revokeObjectURL(prevUrl)
       prevUrl = URL.createObjectURL(blob)
+      prevBox.style.background = S.transparent && S.fmt !== 'jpg' ? '' : 'var(--surface-2)'
       prevImg.src = prevUrl
       prevImg.hidden = false
       prevBox.firstChild.hidden = true

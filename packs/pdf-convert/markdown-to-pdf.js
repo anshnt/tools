@@ -14,7 +14,7 @@ const INDIC = { devanagari: 'noto-sans-devanagari', bengali: 'noto-sans-bengali'
 
 const CSS = `
 .t-mdp .editor { min-height: 360px; font-size: 13px; }
-.t-mdp .themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 10px; }
+.t-mdp .themes { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 10px; }
 .t-mdp .theme { border: 1.5px solid var(--border); border-radius: 14px; background: var(--surface); padding: 10px 8px 8px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; font: inherit; color: var(--text-2); font-size: 12px; transition: transform .3s var(--spring), border-color .2s, box-shadow .25s; }
 .t-mdp .theme:hover { transform: translateY(-3px); border-color: var(--border-strong); }
 .t-mdp .theme[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 10px 22px -12px var(--accent); color: var(--accent); font-weight: 600; }
@@ -181,6 +181,7 @@ export function mount(root, { signal }) {
   const pageSel = select([['A4', 'A4'], ['Letter', 'US Letter'], ['Legal', 'US Legal'], ['A5', 'A5'], ['A3', 'A3']], S.page, (v) => { S.page = v; updatePreview() })
   const orientSeg = segmented([['portrait', 'Portrait'], ['landscape', 'Landscape']], S.orient, (v) => { S.orient = v; updatePreview() }, 'Orientation')
   const marginR = rangeField('Margins', { min: 8, max: 35, step: 1, value: S.margin, format: (v) => `${v} mm`, onInput: (v) => { S.margin = v; updatePreview() } })
+  const qualSeg = segmented([[2, 'Standard'], [3, 'Sharp']], S.scale, (v) => { S.scale = +v }, 'Quality')
   const tog = (key, label) => toggle(label, S[key], (v) => { S[key] = v; updatePreview() })
 
   // ----- live preview
@@ -249,9 +250,9 @@ export function mount(root, { signal }) {
   }
 
   const s1 = step(1, 'Your Markdown', h('div', { class: 'stack' }, ta, h('div', { class: 'row between' }, h('div', { class: 'row' }, sampleBtn, clearBtn), h('span', { class: 'cv-sub' }, 'Saved in this browser only')), zone))
-  const s2 = step(2, 'Theme and page', split(h('div', { class: 'stack' }, field('Theme', h('div', { class: 'themes' }, themeBtns)), options(sizeR, field('Page size', pageSel), field('Orientation', orientSeg), marginR),
+  const s2 = step(2, 'Theme and page', split(h('div', { class: 'stack' }, field('Theme', h('div', { class: 'themes' }, themeBtns)), options(sizeR, field('Page size', pageSel), field('Orientation', orientSeg), marginR, field('Quality', qualSeg, 'Sharp makes bigger files with crisper text.')),
     h('div', { class: 'stack tight' }, tog('highlight', 'Highlight code'), tog('toc', 'Table of contents'), tog('numbers', 'Page numbers'), tog('breakH1', 'Start each top-level heading on a new page'))), h('div', pvInfo, wrap), 'wide-left'))
-  const s3 = step(3, 'Create the PDF', h('div', { class: 'stack' }, h('div', { class: 'row' }, downloadBtn, printBtn), note('Runs on your device. Images from other websites may be blocked by those sites, so use embedded images if they do not show.', 'shield-check'), prog.el, result))
+  const s3 = step(3, 'Create the PDF', h('div', { class: 'stack' }, h('div', { class: 'row' }, downloadBtn, printBtn), note('Runs on your device. Pictures that link to other websites are fetched from those sites and may be blocked, so embedded images are the safest.', 'shield-check'), prog.el, result))
   root.append(h('div', { class: 'cv t-mdp' }, fl, s1, s2, s3))
   onChange()
 }

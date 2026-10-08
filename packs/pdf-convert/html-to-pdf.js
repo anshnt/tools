@@ -148,7 +148,7 @@ export function mount(root, { signal }) {
   const s1 = step(1, 'Your HTML', h('div', { class: 'stack' }, ta, h('div', { class: 'row between' }, h('div', { class: 'row' }, sampleBtn, clearBtn), h('span', { class: 'cv-sub' }, 'Saved in this browser only')), zone))
   const s2 = step(2, 'Page and preview', split(h('div', { class: 'stack' }, options(field('Page size', sizeSel), field('Orientation', orientSeg), marginR, field('Layout width', layoutSel, 'Desktop widths are scaled down to fit the page.'), field('Quality', qualSeg), field('Title', titleIn)), numTog),
     h('div', pvInfo, wrap), 'wide-left'))
-  const s3 = step(3, 'Create the PDF', h('div', { class: 'stack' }, h('div', { class: 'row' }, downloadBtn, printBtn), note('Everything stays on your device. Images from other websites may be blocked by those sites, so embed them if they are missing.', 'shield-check'), prog.el, result))
+  const s3 = step(3, 'Create the PDF', h('div', { class: 'stack' }, h('div', { class: 'row' }, downloadBtn, printBtn), note('Your HTML is not uploaded and scripts in it never run. Anything it links to (images, fonts, styles) is fetched from that site and may be blocked, so embedded resources work best.', 'shield-check'), prog.el, result))
   sync()
   root.append(h('div', { class: 'cv t-htp' }, fl, s1, s2, s3))
   onChange()
