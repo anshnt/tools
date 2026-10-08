@@ -39,7 +39,7 @@ const CSS = `
 .tw-tile .tw-bubble .icon { width: 16px; height: 16px; }
 .tw-tile[aria-pressed="true"] { border-color: color-mix(in srgb, var(--tw-accent) 60%, var(--border));
   background: linear-gradient(150deg, color-mix(in srgb, var(--tw-accent) 13%, var(--surface)), var(--surface) 70%); box-shadow: 0 14px 30px -20px var(--tw-accent); }
-.tw-tiles.sm { grid-template-columns: repeat(auto-fill, minmax(min(100%, 112px), 1fr)); gap: 8px; }
+.tw-tiles.sm { grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--tw-min, 112px)), 1fr)); gap: 8px; }
 .tw-tiles.sm .tw-tile { display: grid; grid-template-columns: 28px minmax(0, 1fr); column-gap: 9px; align-items: center; padding: 8px 10px; border-radius: 14px; }
 .tw-tiles.sm .tw-tile .tw-bubble { grid-row: span 2; margin: 0; width: 28px; height: 28px; border-radius: 9px; }
 .tw-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
@@ -143,8 +143,8 @@ export function chips(options, value, onChange, { multi = false, ariaLabel } = {
 }
 
 /** tiles([{id, title, sub, icon}], value, onChange) -> grid of selectable cards. */
-export function tiles(options, value, onChange, { ariaLabel, compact = false } = {}) {
-  const el = h('div', { class: ['tw-tiles', compact && 'sm'], role: 'group', 'aria-label': ariaLabel || null })
+export function tiles(options, value, onChange, { ariaLabel, compact = false, min } = {}) {
+  const el = h('div', { class: ['tw-tiles', compact && 'sm'], role: 'group', 'aria-label': ariaLabel || null, style: min ? { '--tw-min': `${min}px` } : null })
   el.value = value
   const btns = options.map((o) => {
     const b = h('button', { type: 'button', class: 'tw-tile', 'aria-pressed': String(o.id === value), onclick: () => { el.set(o.id); onChange?.(o.id) } },
@@ -349,7 +349,7 @@ const SYL_EXC = {
   already: 3, always: 2, answer: 2, almost: 2, around: 2, because: 2, before: 2, begin: 2, between: 2, build: 1, built: 1, caught: 1, chosen: 2, coming: 2, cover: 2, early: 2, earth: 1,
   enough: 2, friend: 1, friends: 1, great: 1, heard: 1, heart: 1, house: 1, human: 2, important: 3, increase: 2, language: 2, machine: 2, minute: 2, money: 2, mother: 2, number: 2,
   often: 2, only: 2, other: 2, over: 2, paper: 2, person: 2, place: 1, point: 1, power: 2, process: 2, product: 2, program: 2, question: 2, reason: 2, remember: 3, research: 2, school: 1,
-  second: 2, should: 1, sentence: 3, special: 2, story: 2, strong: 1, system: 2, today: 2, though: 1, thought: 1, through: 1, toward: 2, understand: 3, until: 2, usual: 3, water: 2, whole: 1, world: 1, would: 1, write: 1, written: 2, young: 1,
+  second: 2, should: 1, sentence: 2, queue: 1, special: 2, story: 2, strong: 1, system: 2, today: 2, though: 1, thought: 1, through: 1, toward: 2, understand: 3, until: 2, usual: 3, water: 2, whole: 1, world: 1, would: 1, write: 1, written: 2, young: 1,
 }
 
 /** Rough English syllable counter (a regex heuristic plus a table of common exceptions). */
