@@ -42,7 +42,7 @@ export function mount(root, { params, signal }) {
     name: 'mc-model', value: m.id, icon: m.key === 'tiny' ? 'zap' : m.key === 'base' ? 'scale' : 'brain', title: `${m.name} · ${m.size}`, desc: m.note, checked: prefs.model === m.id, bars: m.bars,
     onSelect: (v) => { prefs.model = v; keep() },
   }))
-  const langSel = K.optSelect({ icon: 'languages', title: 'Spoken language', desc: 'Auto-detect listens to the first 30 seconds', options: [['auto', 'Auto-detect'], ...WHISPER_LANGS.filter(([v]) => v)], value: prefs.language, onChange: (v) => { prefs.language = v; keep() } })
+  const langSel = K.optSelect({ icon: 'languages', title: 'Spoken language', desc: 'Auto-detect checks the first 30 seconds', options: [['auto', 'Auto-detect'], ...WHISPER_LANGS.filter(([v]) => v)], value: prefs.language, onChange: (v) => { prefs.language = v; keep() } })
   const translate = K.optToggle({ icon: 'arrow-right-left', title: 'Translate to English', desc: 'Get English text from any language', checked: prefs.translate, onChange: (v) => { prefs.translate = v; keep() } })
   const words = K.optToggle({ icon: 'text-cursor-input', title: 'Word-level timing', desc: subMode ? 'Sharper subtitle timing (extra download)' : 'More exact SRT and VTT timing', checked: prefs.words, onChange: (v) => { prefs.words = v; keep() } })
   const tiles = [langSel, translate, words]
@@ -154,6 +154,10 @@ export function mount(root, { params, signal }) {
         const { audio, duration } = await T.getAudio(file, { duration: info?.duration, signal: ctl.signal, onProgress: (f, l) => wc.set('read', f, l) })
         if (duration > 4 * 3600) throw new Error('That is longer than 4 hours. Split the file or extract a shorter section first.')
         if (ctl.signal.aborted) throw Object.assign(new Error('Cancelled'), { code: 'ABORT' })
+        if (T.isSilent(audio)) {
+          clear(resultHost, alert('info', h('strong', 'No sound found. '), 'This file is silent, so there is nothing to transcribe. Check that the right file has a soundtrack.'))
+          return
+        }
         let lang = prefs.language === 'auto' ? '' : prefs.language
         let langName = lang ? (WHISPER_LANGS.find(([v]) => v === lang)?.[1] || lang) : ''
         if (!lang) {

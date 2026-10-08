@@ -22,7 +22,7 @@ export const MODELS = WHISPER_MODELS.map(([id, label]) => {
   }
 })
 
-/** Read duration and kind with a media element. Resolves null when the browser cannot play the file (MKV, AVI ...). */
+/** Read duration and kind with a media element. Resolves with unplayable: true when the browser cannot play the file (WMA, some MKV or AVI). */
 export function probeMedia(file) {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file)
@@ -55,9 +55,22 @@ export async function getAudio(file, { duration, onProgress, signal } = {}) {
     onProgress: (f, label) => onProgress?.(f, /Processing/.test(label) ? 'Extracting the audio' : label),
   }).catch((e) => {
     if (isAbort(e)) throw e
-    throw new Error(`Could not read audio from this file (${e.message.replace(/^Processing failed:\s*/, '')}). Try MP3, WAV, M4A, MP4 or WebM.`)
+    console.warn('ffmpeg could not read the file', e)
+    throw new Error('Could not read audio from this file. It may be damaged or have no sound track. Try MP3, WAV, M4A, MP4 or WebM.')
   })
   return decodeAudio(wav)
+}
+
+/** True when nothing in the audio rises above about -50 dB, so there is no speech to find (and Whisper would only make some up). */
+export function isSilent(audio, sr = RATE, thresholdDb = -50) {
+  const win = Math.round(sr * 0.02)
+  const limit = Math.pow(10, thresholdDb / 20)
+  for (let s = 0; s + win <= audio.length; s += win) {
+    let sum = 0
+    for (let i = s; i < s + win; i++) sum += audio[i] * audio[i]
+    if (Math.sqrt(sum / win) > limit) return false
+  }
+  return true
 }
 
 /** Cut points (in samples) about every `slice` seconds, each moved to the quietest 100 ms nearby so words are not split. */

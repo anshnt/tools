@@ -7,6 +7,25 @@ import * as K from './_kit.js'
 import { SUB_ACCEPT, parseSubtitles, toPlain, decodeText, formatTime } from './_subs.js'
 
 const GAPS = [['1', '1 second'], ['2.5', '2.5 seconds'], ['4', '4 seconds'], ['8', '8 seconds']]
+const SAMPLE = `WEBVTT
+
+00:00:01.000 --> 00:00:03.000
+[Music]
+
+00:00:03.500 --> 00:00:06.000
+JOHN: Welcome back to the show.
+Today we are <i>cleaning up</i> subtitles.
+
+00:00:06.000 --> 00:00:08.000
+Today we are <i>cleaning up</i> subtitles.
+
+00:00:08.200 --> 00:00:10.500
+- Is it that easy?
+- Yes, it is.
+
+00:00:20.000 --> 00:00:22.500
+Ten seconds later, a new paragraph begins.
+`
 const FORMAT_NAME = { srt: 'SRT', vtt: 'WebVTT', ass: 'ASS', unknown: 'Unknown' }
 
 export function mount(root) {
@@ -96,7 +115,7 @@ export function mount(root) {
   root.append(h('div', { class: 'mc stack' },
     zone,
     split(
-      panel(h('h2', 'Subtitles in'), h('div', { class: 'stack tight' }, pickerWrap, input, h('div', { class: 'row' }, button('Clear', { icon: 'eraser', variant: 'ghost', size: 'sm', onClick: () => { docs = []; active = 0; input.value = ''; fillPicker(); render(); input.focus() } })))),
+      panel(h('h2', 'Subtitles in'), h('div', { class: 'stack tight' }, pickerWrap, input, h('div', { class: 'row' }, button('Try an example', { icon: 'sparkles', variant: 'ghost', size: 'sm', onClick: () => { docs = []; active = 0; input.value = SAMPLE; fillPicker(); render() } }), button('Clear', { icon: 'eraser', variant: 'ghost', size: 'sm', onClick: () => { docs = []; active = 0; input.value = ''; fillPicker(); render(); input.focus() } })))),
       panel(h('h2', 'Clean text'), h('div', { class: 'stack tight' }, output,
         h('div', { class: 'row' }, copyButton(() => output.value, 'Copy text'), button('Download TXT', { icon: 'download', variant: 'primary', size: 'sm', onClick: () => (output.value ? dlOne() : toast('Nothing to download yet.', 'info')) }), dlAllBtn)))),
     info, opts, statsHost,
