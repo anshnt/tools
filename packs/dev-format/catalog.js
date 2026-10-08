@@ -1,0 +1,25 @@
+// Pack dev-format: formatters, validators, viewers and diffing. Default category: dev.
+export const cat = 'dev'
+export default [
+  { id: 'json-formatter', name: 'JSON formatter', desc: 'Pretty-print, minify and fix JSON with syntax errors pointed out.', icon: 'braces', also: ['data'], tags: 'json pretty beautify format' },
+  { id: 'json-validator', name: 'JSON validator', module: 'json-formatter', params: { mode: 'validate' }, desc: 'Validate JSON and see exactly where it breaks.', icon: 'circle-check', tags: 'json lint validate' },
+  { id: 'json-tree-viewer', name: 'JSON tree viewer', desc: 'Explore large JSON as a collapsible tree with search and paths.', icon: 'list-tree', tags: 'json viewer explorer' },
+  { id: 'json-diff', name: 'JSON diff', desc: 'Compare two JSON documents structurally, ignoring key order.', icon: 'git-compare', tags: 'json compare difference' },
+  { id: 'json-schema-generator', name: 'JSON schema generator', desc: 'Infer a JSON Schema from sample JSON.', icon: 'file-json', tags: 'schema infer json' },
+  { id: 'json-to-typescript', name: 'JSON to TypeScript', desc: 'Generate TypeScript interfaces from JSON.', icon: 'file-code', tags: 'typescript types interface' },
+  { id: 'xml-formatter', name: 'XML formatter', desc: 'Pretty-print, minify and validate XML.', icon: 'code-xml', tags: 'xml pretty' },
+  { id: 'yaml-formatter', name: 'YAML formatter', desc: 'Format and validate YAML.', icon: 'file-cog', tags: 'yaml yml lint' },
+  { id: 'yaml-to-json', name: 'YAML to JSON', module: 'yaml-formatter', params: { convert: true }, desc: 'Convert YAML to JSON and JSON to YAML.', icon: 'arrow-left-right', tags: 'yaml json convert' },
+  { id: 'html-formatter', name: 'HTML formatter', module: 'code-formatter', params: { lang: 'html' }, desc: 'Beautify messy HTML with Prettier.', icon: 'code', tags: 'html beautify prettier' },
+  { id: 'css-formatter', name: 'CSS formatter', module: 'code-formatter', params: { lang: 'css' }, desc: 'Beautify CSS, SCSS and Less with Prettier.', icon: 'paintbrush', tags: 'css scss beautify' },
+  { id: 'js-formatter', name: 'JavaScript formatter', module: 'code-formatter', params: { lang: 'js' }, desc: 'Beautify JavaScript and TypeScript with Prettier.', icon: 'file-code-2', tags: 'javascript typescript prettier' },
+  { id: 'code-beautifier', name: 'Code beautifier', module: 'code-formatter', desc: 'Format JS, TS, JSON, CSS, HTML, Markdown, YAML and GraphQL.', icon: 'wand-sparkles', tags: 'beautify prettier format code' },
+  { id: 'code-minifier', name: 'Code minifier', desc: 'Minify JavaScript, CSS, HTML and JSON.', icon: 'minimize', tags: 'minify compress terser' },
+  { id: 'sql-formatter', name: 'SQL formatter', desc: 'Format SQL for MySQL, PostgreSQL, SQL Server, BigQuery and more.', icon: 'database', also: ['data'], tags: 'sql pretty format' },
+  { id: 'sql-minifier', name: 'SQL minifier', module: 'sql-formatter', params: { minify: true }, desc: 'Collapse SQL to a single compact line.', icon: 'minimize', tags: 'sql minify' },
+  { id: 'markdown-editor', name: 'Markdown editor', desc: 'Write Markdown with live preview; export HTML or PDF.', icon: 'file-pen', also: ['text'], tags: 'markdown md editor preview' },
+  { id: 'markdown-to-html', name: 'Markdown to HTML', module: 'markdown-editor', params: { output: 'html' }, desc: 'Convert Markdown to clean HTML.', icon: 'file-code', tags: 'md html convert' },
+  { id: 'diff-checker', name: 'Diff checker', desc: 'Compare two texts or files side by side with highlighted changes.', icon: 'diff', also: ['text', 'files'], tags: 'diff compare difference text files' },
+  { id: 'html-entities', name: 'HTML entity encoder', desc: 'Encode and decode HTML entities like &amp; and &#x1F600;.', icon: 'ampersand', tags: 'html entities escape' },
+  { id: 'string-escape', name: 'String escaper', desc: 'Escape and unescape strings for JSON, JavaScript, CSV, SQL and regex.', icon: 'quote', tags: 'escape unescape string' },
+]
