@@ -18,7 +18,7 @@ export default [
   { id: 'pdf-interleave-scans', name: 'Merge front and back scans', desc: 'Combine fronts and backs from a one-sided scanner into reading order.', icon: 'arrow-left-right', tags: 'interleave duplex odd even scan adf backs', module: 'pdf-page-sorter', params: { mode: 'interleave' }, ready: true },
   { id: 'pdf-sort-by-page-number', name: 'Sort pages by printed number', desc: 'Put scrambled pages back in order using the page numbers printed on them.', icon: 'list-ordered', tags: 'order scrambled page numbers roman', module: 'pdf-page-sorter', params: { mode: 'number' }, ready: true },
   { id: 'pdf-chapter-split', name: 'Split PDF by chapters', desc: 'Split a PDF into one file per bookmark or chapter.', icon: 'book-marked', tags: 'bookmarks outline chapters split', ready: true },
-  { id: 'pdf-size-analyzer', name: 'PDF size analyzer', desc: 'See what makes a PDF big: images, fonts, text and metadata.', icon: 'chart-pie', tags: 'analyze breakdown why big' },
-  { id: 'pdf-info', name: 'PDF info viewer', desc: 'Pages, version, fonts, encryption, metadata and more at a glance.', icon: 'info', tags: 'properties details metadata' },
-  { id: 'pdf-bookmarks', name: 'PDF bookmark editor', desc: 'Add, rename and nest bookmarks (outline) in a PDF.', icon: 'bookmark', tags: 'outline toc table of contents' },
+  { id: 'pdf-size-analyzer', name: 'PDF size analyzer', desc: 'See what makes a PDF big: images, fonts, text and metadata.', icon: 'chart-pie', tags: 'analyze breakdown why big', ready: true },
+  { id: 'pdf-info', name: 'PDF info viewer', desc: 'Pages, version, fonts, encryption, metadata and more at a glance.', icon: 'info', tags: 'properties details metadata', ready: true },
+  { id: 'pdf-bookmarks', name: 'PDF bookmark editor', desc: 'Add, rename and nest bookmarks (outline) in a PDF.', icon: 'bookmark', tags: 'outline toc table of contents', ready: true },
 ]
