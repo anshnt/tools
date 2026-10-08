@@ -299,7 +299,7 @@ export function formatRanges(pages) {
 export function pageSelector(src, { thumbs = true, onChange, maxThumbs = 400 } = {}) {
   const sel = new Set()
   let n = 0, last = null, observer = null, renderToken = 0
-  const range = input({ placeholder: 'All pages, or e.g. 1-3, 5, 8-', 'aria-label': 'Pages to include', spellcheck: false, autocomplete: 'off' })
+  const range = input({ placeholder: `All ${(src.unit || 'Page').toLowerCase()}s, or e.g. 1-3, 5, 8-`, 'aria-label': `${src.unit || 'Pages'} to include`, spellcheck: false, autocomplete: 'off' })
   const count = h('span', { class: 'cv-pick-count', 'aria-live': 'polite' })
   const msg = h('div', { class: 'cv-sub', style: 'color:var(--danger)', hidden: true })
   const grid = h('div', { class: 'cv-pages', hidden: !thumbs })
@@ -312,7 +312,7 @@ export function pageSelector(src, { thumbs = true, onChange, maxThumbs = 400 } =
     const arr = [...sel].sort((a, b) => a - b)
     if (writeRange) { range.value = arr.length === n ? '' : formatRanges(arr); range.classList.remove('invalid'); msg.hidden = true }
     for (const b of btns) b.setAttribute('aria-pressed', String(sel.has(b._p)))
-    count.textContent = n ? `${arr.length} of ${n} page${n === 1 ? '' : 's'}` : ''
+    count.textContent = n ? `${arr.length} of ${n} ${(src.unit || 'Page').toLowerCase()}${n === 1 ? '' : 's'}` : ''
     onChange?.(arr)
   }
   range.addEventListener('input', () => {
@@ -331,10 +331,11 @@ export function pageSelector(src, { thumbs = true, onChange, maxThumbs = 400 } =
     observer?.disconnect()
     btns.length = 0
     clear(grid)
-    if (!thumbs || !src.doc || n > maxThumbs) { grid.hidden = true; return }
+    if (!thumbs || !(src.doc || src.thumb) || n > maxThumbs) { grid.hidden = true; return }
     grid.hidden = false
     const token = renderToken
     const doc = src.doc
+    const makeThumb = src.thumb || ((nn) => thumbnail(doc, nn, 150))
     let chain = Promise.resolve()
     observer = new IntersectionObserver((entries) => {
       for (const en of entries) {
@@ -344,7 +345,7 @@ export function pageSelector(src, { thumbs = true, onChange, maxThumbs = 400 } =
         chain = chain.then(async () => {
           if (token !== renderToken) return
           try {
-            const c = await thumbnail(doc, b._p, 150)
+            const c = await makeThumb(b._p)
             if (token !== renderToken) return
             const box = b.querySelector('.cv-pg-box')
             box.classList.remove('loading')
@@ -354,13 +355,13 @@ export function pageSelector(src, { thumbs = true, onChange, maxThumbs = 400 } =
         })
       }
     }, { root: grid, rootMargin: '200px' })
-    doc.getPage(1).then((p) => {
+    const aspectP = src.aspect ? Promise.resolve(src.aspect) : doc.getPage(1).then((p) => { const vp = p.getViewport({ scale: 1 }); return vp.width / vp.height })
+    aspectP.then((aspect) => {
       if (token !== renderToken) return
-      const vp = p.getViewport({ scale: 1 })
       for (let i = 1; i <= n; i++) {
         const ck = h('span', { class: 'cv-ck' }, icon('check'))
-        const box = h('span', { class: 'cv-pg-box loading', style: { aspectRatio: `${vp.width} / ${vp.height}` } }, ck)
-        const b = h('button', { type: 'button', class: 'cv-page', 'aria-pressed': String(sel.has(i)), 'aria-label': `Page ${i}`, onclick: (e) => toggle(i, e.shiftKey) }, box, h('span', String(i)))
+        const box = h('span', { class: 'cv-pg-box loading', style: { aspectRatio: `${aspect}` } }, ck)
+        const b = h('button', { type: 'button', class: 'cv-page', 'aria-pressed': String(sel.has(i)), 'aria-label': `${src.unit || 'Page'} ${i}`, onclick: (e) => toggle(i, e.shiftKey) }, box, h('span', String(i)))
         b._p = i
         b._ck = ck
         btns.push(b)
