@@ -1,12 +1,12 @@
 // Pack data: spreadsheets, CSV/JSON/XML and quick analysis. Default category: data.
 export const cat = 'data'
 export default [
-  { id: 'csv-to-excel', name: 'CSV to Excel', desc: 'Convert CSV files to .xlsx with proper columns and types.', icon: 'sheet', tags: 'csv xlsx convert' },
-  { id: 'excel-to-csv', name: 'Excel to CSV', desc: 'Export any sheet of an .xlsx/.xls/.ods file to CSV.', icon: 'file-spreadsheet', tags: 'xlsx xls csv export' },
+  { id: 'csv-to-excel', name: 'CSV to Excel', module: 'convert', params: { mode: 'csv-to-excel' }, desc: 'Convert CSV files to .xlsx with proper columns and types.', icon: 'sheet', tags: 'csv xlsx convert', ready: true },
+  { id: 'excel-to-csv', name: 'Excel to CSV', module: 'convert', params: { mode: 'excel-to-csv' }, desc: 'Export any sheet of an .xlsx/.xls/.ods file to CSV.', icon: 'file-spreadsheet', tags: 'xlsx xls csv export', ready: true },
   { id: 'excel-to-pdf', name: 'Excel to PDF', desc: 'Turn spreadsheets into printable PDF tables.', icon: 'file-output', also: ['pdf'], tags: 'xlsx pdf print' },
-  { id: 'json-to-csv', name: 'JSON to CSV', desc: 'Flatten JSON arrays into CSV columns.', icon: 'braces', also: ['dev'], tags: 'json csv flatten' },
-  { id: 'csv-to-json', name: 'CSV to JSON', desc: 'Convert CSV rows into JSON objects or arrays.', icon: 'braces', also: ['dev'], tags: 'csv json convert' },
-  { id: 'json-to-excel', name: 'JSON to Excel', desc: 'Convert JSON data into an .xlsx spreadsheet.', icon: 'sheet', also: ['dev'], tags: 'json xlsx' },
+  { id: 'json-to-csv', name: 'JSON to CSV', module: 'convert', params: { mode: 'json-to-csv' }, desc: 'Flatten JSON arrays into CSV columns.', icon: 'braces', also: ['dev'], tags: 'json csv flatten', ready: true },
+  { id: 'csv-to-json', name: 'CSV to JSON', module: 'convert', params: { mode: 'csv-to-json' }, desc: 'Convert CSV rows into JSON objects or arrays.', icon: 'braces', also: ['dev'], tags: 'csv json convert', ready: true },
+  { id: 'json-to-excel', name: 'JSON to Excel', module: 'convert', params: { mode: 'json-to-excel' }, desc: 'Convert JSON data into an .xlsx spreadsheet.', icon: 'sheet', also: ['dev'], tags: 'json xlsx', ready: true },
   { id: 'xml-to-json', name: 'XML to JSON', desc: 'Convert XML documents to JSON (and back).', icon: 'code-xml', also: ['dev'], tags: 'xml json convert' },
   { id: 'csv-viewer', name: 'CSV & Excel viewer', desc: 'Open CSV or spreadsheet files in a fast, searchable table.', icon: 'table', tags: 'view open spreadsheet table' },
   { id: 'csv-cleaner', name: 'CSV cleaner', desc: 'Trim spaces, fix headers, remove empty rows and normalize values.', icon: 'brush-cleaning', tags: 'clean tidy normalize' },
