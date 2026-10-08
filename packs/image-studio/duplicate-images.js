@@ -170,7 +170,7 @@ export function mount(root, { signal }) {
       const top = g[0]
       const minSim = Math.min(...g.slice(1).map((it) => (it.sha === top.sha ? 1 : sim(top, it))))
       return h('section', { class: 'grp', style: { '--i': Math.min(gi, 10) } },
-        h('h3', `Group ${gi + 1}`, h('span', { class: 'badge' }, `${g.length} pictures`), h('span', { class: 'badge' }, minSim >= 0.9999 ? 'Identical' : `${Math.round(minSim * 100)}%+ alike`)),
+        h('h3', `Group ${gi + 1}`, h('span', { class: 'badge' }, `${g.length} pictures`), h('span', { class: 'badge' }, g.every((it) => it.sha === top.sha) ? 'Identical files' : minSim >= 0.9999 ? '100% alike' : `${Math.round(minSim * 100)}%+ alike`)),
         h('div', { class: 'gl' }, g.map((it) => {
           const el = h('button', { type: 'button', class: ['it', keep.get(it) ? 'keep' : 'drop'], 'aria-pressed': String(keep.get(it)), title: it.path,
             onclick: () => { keep.set(it, !keep.get(it)); el.className = `it ${keep.get(it) ? 'keep' : 'drop'}`; el.setAttribute('aria-pressed', String(keep.get(it))); el.querySelector('.tag').textContent = keep.get(it) ? 'Keep' : 'Extra'; refreshStats() } },

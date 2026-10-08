@@ -74,12 +74,11 @@ const CSS = `
 .is-sample { display: inline-flex; align-items: center; gap: 6px; }
 
 /* Sliding pills */
-.is-pills { position: relative; display: inline-flex; flex-wrap: nowrap; max-width: 100%; overflow-x: auto; scrollbar-width: none; border-radius: 14px; padding: 4px; gap: 2px; }
-.is-pills::-webkit-scrollbar { display: none; }
-.is-pills button { position: relative; z-index: 1; flex: none; white-space: nowrap; }
+.is-pills { position: relative; display: inline-flex; flex-wrap: wrap; max-width: 100%; border-radius: 14px; padding: 4px; gap: 2px; }
+.is-pills button { position: relative; z-index: 1; white-space: nowrap; }
 .is-pills button[aria-pressed="true"], :root[data-theme="dark"] .is-pills button[aria-pressed="true"] { background: transparent; box-shadow: none; color: var(--text); }
-.is-pills .thumb { position: absolute; z-index: 0; left: 0; top: 4px; bottom: 4px; width: var(--w, 0); transform: translateX(var(--x, 0)); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow-sm), 0 0 0 1px var(--border);
-  transition: transform .38s var(--spring), width .3s var(--ease); pointer-events: none; }
+.is-pills .thumb { position: absolute; z-index: 0; left: 0; top: 0; width: var(--w, 0); height: var(--h, 0); transform: translate(var(--x, 0), var(--y, 0)); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow-sm), 0 0 0 1px var(--border);
+  transition: transform .38s var(--spring), width .3s var(--ease), height .3s var(--ease); pointer-events: none; }
 :root[data-theme="dark"] .is-pills .thumb { background: var(--surface-3); }
 .is-pills.block { display: flex; width: 100%; }
 .field > .is-pills:not(.block), .stack > .is-pills:not(.block) { align-self: flex-start; }
@@ -267,7 +266,9 @@ export function pills(options, value, onChange, ariaLabel, { block = false } = {
     const on = el.querySelector('button[aria-pressed="true"]')
     if (!on || !el.offsetWidth) return
     thumb.style.setProperty('--x', `${on.offsetLeft}px`)
+    thumb.style.setProperty('--y', `${on.offsetTop}px`)
     thumb.style.setProperty('--w', `${on.offsetWidth}px`)
+    thumb.style.setProperty('--h', `${on.offsetHeight}px`)
   }
   const baseSet = el.set
   el.set = (v) => { baseSet(v); place() }

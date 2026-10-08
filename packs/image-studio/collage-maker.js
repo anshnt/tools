@@ -8,7 +8,7 @@ const BGS = [
   { id: 'sunset', name: 'Sunset', grad: ['#fb923c', '#ec4899', '#6366f1'] }, { id: 'ocean', name: 'Ocean', grad: ['#22d3ee', '#3b82f6', '#7c3aed'] }, { id: 'mint', name: 'Mint', grad: ['#a7f3d0', '#fde68a'] },
   { id: 'clear', name: 'Transparent (PNG)', css: null },
 ]
-const EDGES = [['1080', '1080 px'], ['2048', '2048 px'], ['3000', '3000 px'], ['4096', '4096 px']]
+const EDGES = [['1080', '1080'], ['2048', '2048'], ['3000', '3000'], ['4096', '4096']]
 
 // ---------- Layout (pure) ----------
 /** Split the unit square into n rectangles. aspect = canvas width / height. Returns [{x,y,w,h}] with every value in 0..1. */
@@ -129,7 +129,7 @@ export function mount(root, { signal }) {
   }
   const controls = panel(h('div', { class: 'stack' },
     field('Layout', kindSeg), kindOpts, field('Canvas shape', ratioChips),
-    h('div', { class: 'row2' }, gapF, padF), radF, field('Background', bgBox), field('Export size (long edge)', edgeSeg), fmt.el, dlBtn, result))
+    h('div', { class: 'row2' }, gapF, padF), radF, field('Background', bgBox), field('Export size (long edge, px)', edgeSeg), fmt.el, dlBtn, h('div', { class: 'row' }, randomBtn, clearBtn), result))
 
   const soon = frame(() => update())
 
@@ -292,6 +292,6 @@ export function mount(root, { signal }) {
     refreshWork()
   }
 
-  work.append(split(h('div', { class: 'stack' }, stage(wrap, caption), strip), h('div', { class: 'stack' }, controls, panel(h('div', { class: 'panel-title' }, h('span', 'Selected photo'), h('div', { class: 'row' }, randomBtn, clearBtn)), cellPanel)), 'wide-left'))
+  work.append(split(h('div', { class: 'stack' }, stage(wrap, caption), strip), h('div', { class: 'stack' }, controls, panel(h('h2', 'Selected photo'), cellPanel)), 'wide-left'))
   root.append(h('div', { class: 't-col stack' }, drop, work))
 }

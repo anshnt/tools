@@ -150,7 +150,7 @@ export function mount(root, { signal }) {
   const pvHost = h('div'); const caption = h('div', { class: 'is-cap' })
   const outBox = h('div'); const animBox = h('div'); const result = h('div')
 
-  const algoSeg = pills([['maxrects', 'MaxRects (tightest)'], ['shelf', 'Shelf (rows)'], ['grid', 'Grid (equal cells)']], s.algo, (v) => { s.algo = v; rebuild() }, 'Packing')
+  const algoSeg = pills([['maxrects', 'Tightest'], ['shelf', 'Rows'], ['grid', 'Equal cells']], s.algo, (v) => { s.algo = v; rebuild() }, 'Packing')
   const padF = rangeField('Space between sprites', { min: 0, max: 32, value: s.pad, format: (v) => `${v} px`, onInput: (v) => { s.pad = v; soon() } })
   const borderF = rangeField('Sheet border', { min: 0, max: 32, value: 0, format: (v) => `${v} px`, onInput: (v) => { s.border = v; soon() } })
   const maxChips = chipPicker([['0', 'Auto'], ['512', '512'], ['1024', '1024'], ['2048', '2048'], ['4096', '4096']], '0', (v) => { s.maxW = +v; rebuild() }, 'Maximum sheet width')
@@ -160,11 +160,11 @@ export function mount(root, { signal }) {
   const linesT = toggle('Show outlines', false, (v) => { s.lines = v; pvHost.firstChild?.classList.toggle('lines', v) })
   const nameIn = input({ value: s.name, 'aria-label': 'Sheet file name', oninput: () => { s.name = nameIn.value.trim() || 'spritesheet'; renderOutputs() } })
   const prefIn = input({ value: s.prefix, 'aria-label': 'CSS class prefix', oninput: () => { s.prefix = slug(prefIn.value) || 'sprite'; renderOutputs() } })
-  const zipBtn = button('Download ZIP (PNG + CSS + JSON)', { icon: 'archive', variant: 'primary', size: 'lg', block: true })
+  const zipBtn = button('Download ZIP', { icon: 'archive', variant: 'primary', size: 'lg', block: true })
   const pngBtn = button('PNG only', { icon: 'image-down', size: 'sm' })
   const gridBlock = h('div', { class: 'stack' }, colsF)
   const controls = panel(h('div', { class: 'stack' }, field('Packing', algoSeg), padF, borderF, field('Maximum sheet width (px)', maxChips), gridBlock, h('div', { class: 'row' }, powT), trimT, linesT,
-    h('div', { class: 'row2' }, field('Sheet name', nameIn), field('CSS class prefix', prefIn)), zipBtn, h('div', { class: 'row' }, pngBtn), result))
+    h('div', { class: 'row2' }, field('Sheet name', nameIn), field('CSS class prefix', prefIn)), zipBtn, h('p', { class: 'small muted' }, 'The ZIP holds the PNG sheet, a CSS file and a JSON file with every sprite position.'), h('div', { class: 'row' }, pngBtn), result))
   const soon = frame(() => rebuild())
 
   function rebuild() {
