@@ -224,7 +224,7 @@ function makeSource(file, bytes, doc, password) {
  * pdfSource({onLoad(source), onClear(), label, hint, paste}) -> {el, current, clear()}
  * source: {file, name, size, pages, bytes, doc (pdf.js), edit(), inspect(), pageSizes(), sizeOf(n), thumbURL(n), canvas(n), queue(fn), destroy()}
  */
-export function pdfSource({ onLoad, onClear, label, hint, paste = true } = {}) {
+export function pdfSource({ onLoad, onClear, label, hint, paste = true, sample = true, sampleKind = 'general' } = {}) {
   injectStyles()
   const root = h('div', { class: 'pp-source' })
   const msg = h('div')
@@ -234,8 +234,15 @@ export function pdfSource({ onLoad, onClear, label, hint, paste = true } = {}) {
     accept: '.pdf,application/pdf', label: label || 'Drop a PDF here or click to choose', hint: hint || 'Your file stays on this device', paste,
     onFiles: ([f]) => open(f),
   })
+  const sampleRow = sample === false ? null : h('div', { class: 'pp-sample' }, h('span', 'No file handy?'),
+    button('Try a sample PDF', { icon: 'sparkles', variant: 'secondary', size: 'sm', onClick: async (e) => {
+      const btn = e.currentTarget
+      btn.disabled = true
+      try { const { samplePdf } = await import('./_sample.js'); await open(await samplePdf(sampleKind)) } catch (err) { console.error(err); toast('Could not build the sample PDF.', 'error') } finally { btn.disabled = false }
+    } }))
+  const showZone = (v) => { zone.hidden = !v; if (sampleRow) sampleRow.hidden = !v }
   const api = { el: root, zone, get current() { return current } }
-  root.append(zone, msg)
+  root.append(zone, sampleRow, msg)
   onCleanup(() => current?.destroy())
 
   function drop(files) {
@@ -262,7 +269,7 @@ export function pdfSource({ onLoad, onClear, label, hint, paste = true } = {}) {
     clear(msg)
     current = s
     root.querySelector('.pp-file, .pp-pw')?.remove()
-    zone.hidden = true
+    showZone(false)
     root.insertBefore(chip(s), zone)
     Promise.resolve().then(() => onLoad?.(s)).catch((e) => {
       console.error(e)
@@ -272,7 +279,7 @@ export function pdfSource({ onLoad, onClear, label, hint, paste = true } = {}) {
 
   function askPassword(file, wrong) {
     root.querySelector('.pp-file, .pp-pw')?.remove()
-    zone.hidden = true
+    showZone(false)
     const pw = input({ type: 'password', placeholder: 'Password', 'aria-label': 'PDF password', autocomplete: 'off' })
     const go = () => { if (pw.value) open(file, pw.value) }
     pw.addEventListener('keydown', (e) => { if (e.key === 'Enter') go() })
@@ -282,7 +289,7 @@ export function pdfSource({ onLoad, onClear, label, hint, paste = true } = {}) {
         h('strong', `${file.name} is password-protected`),
         h('div', { class: 'small muted' }, wrong ? 'That password did not work. Try again.' : 'Enter the password to open it. It is only used on this device.'),
         h('div', { class: 'row', style: 'margin-top:10px' }, h('div', { class: 'grow' }, pw), button('Unlock', { icon: 'unlock', variant: 'primary', onClick: go }),
-          button('Other file', { variant: 'ghost', onClick: () => { box.remove(); zone.hidden = !!current; if (current) root.insertBefore(chip(current), zone); zone.open() } }))))
+          button('Other file', { variant: 'ghost', onClick: () => { box.remove(); showZone(!current); if (current) root.insertBefore(chip(current), zone); zone.open() } }))))
     root.insertBefore(box, zone)
     pw.focus()
   }
@@ -300,11 +307,11 @@ export function pdfSource({ onLoad, onClear, label, hint, paste = true } = {}) {
       if (my !== token) return
       if (e.code === 'PASSWORD') return askPassword(file, password != null)
       console.error(e)
-      zone.hidden = false
+      showZone(!current)
       clear(msg, alert('error', e.message || 'Could not open this PDF.'))
     }
   }
-  api.clear = () => { current?.destroy(); current = null; onClear?.(); root.querySelector('.pp-file, .pp-pw')?.remove(); zone.hidden = false }
+  api.clear = () => { current?.destroy(); current = null; onClear?.(); root.querySelector('.pp-file, .pp-pw')?.remove(); showZone(true) }
   return api
 }
 
@@ -568,6 +575,7 @@ const CSS = `
 .pp .pp-in { animation: pp-pop .55s var(--spring) both; animation-delay: calc(var(--i, 0) * 28ms); }
 
 .pp .pp-source { display: flex; flex-direction: column; gap: 12px; }
+.pp .pp-sample { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; font-size: 13.5px; color: var(--muted); }
 .pp .pp-file, .pp .pp-pw {
   position: relative; display: flex; align-items: center; gap: 16px; padding: 14px 16px 14px 18px; border-radius: 20px; border: 1.5px solid transparent; overflow: hidden; isolation: isolate;
   background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--brand) border-box; box-shadow: var(--shadow); animation: pp-pop .5s var(--spring) both;

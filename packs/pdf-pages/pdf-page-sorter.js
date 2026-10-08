@@ -142,7 +142,7 @@ function interleavePanel(s) {
   const info = h('div'), second = h('div'), prog = progress(), result = h('div')
   let s2 = null
   const go = button('Interleave pages', { icon: 'arrow-left-right', variant: 'primary', size: 'lg' })
-  const src2 = pdfSource({ label: 'Drop the PDF with the back sides', hint: 'Scanned when you flipped the stack over', paste: false, onLoad: (x) => { s2 = x; return x.pageSizes().then(paint) }, onClear: () => { s2 = null; paint() } })
+  const src2 = pdfSource({ label: 'Drop the PDF with the back sides', hint: 'Scanned when you flipped the stack over', paste: false, sample: false, onLoad: (x) => { s2 = x; return x.pageSizes().then(paint) }, onClear: () => { s2 = null; paint() } })
   second.append(src2.el); second.hidden = true
 
   const sides = () => {
@@ -265,6 +265,7 @@ export function mount(root, { params, signal }) {
   const labels = { reverse: 'Drop the PDF to reverse', interleave: 'Drop the PDF with the front sides (or both sides in one file)', number: 'Drop the PDF to sort' }
   const src = pdfSource({
     label: labels[mode],
+    sampleKind: { interleave: 'duplex', number: 'scrambled' }[mode] || 'general',
     onLoad: async (source) => {
       s = source
       await s.pageSizes()
