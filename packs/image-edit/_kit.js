@@ -193,6 +193,7 @@ const CSS = `
 .ie-dock-sum b { font-size: 16px; font-variant-numeric: tabular-nums; }
 .ie-dock-sum .sub { display: block; font-size: 12.5px; color: var(--muted); }
 .ie-dock .btn { flex: none; }
+@media (max-width: 480px) { .ie-dock .btn { padding: 0 16px; height: 46px; } .ie-dock-sum b { font-size: 14.5px; } }
 .ie-ring { --ie-p: 0; position: relative; flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text);
   background: conic-gradient(var(--success) calc(var(--ie-p) * 1%), var(--surface-3) 0); transition: --ie-p 1s var(--ease); -webkit-mask: radial-gradient(circle, transparent 17px, #000 18px); mask: radial-gradient(circle, transparent 17px, #000 18px); }
 .ie-ring-wrap { position: relative; flex: none; width: 52px; height: 52px; display: grid; place-items: center; }
@@ -660,7 +661,7 @@ export function results({ zipName = 'images.zip', compare: showSavings = true, n
   const grid = h('div', { class: 'ie-masonry' })
   const sum = h('div', { class: 'ie-dock-sum' })
   const gauge = ring(0)
-  const zipBtn = button('Download all (ZIP)', { icon: 'archive', variant: 'primary', size: 'lg' })
+  const zipBtn = button('Download ZIP', { icon: 'archive', variant: 'primary', size: 'lg' })
   const dock = h('div', { class: 'ie-dock', hidden: true }, gauge.el, sum, zipBtn)
   const el = h('section', { class: 'ie-results', hidden: true, 'aria-live': 'polite', 'aria-label': 'Results' }, grid, dock)
   const api = { el, items: [] }
@@ -716,11 +717,11 @@ export function results({ zipName = 'images.zip', compare: showSavings = true, n
     const saved = cmp ? pctChange(before, total) : null
     const b1 = h('b')
     const label = `${noun}${n === 1 ? '' : 's'}`
-    clear(sum, h('b', `${n} ${label} ready`), h('span', { class: 'sub' }, cmp ? ['Total ', b1, ' (was ', formatBytes(before), ')'] : ['Total ', b1]))
+    clear(sum, h('b', `${n} ${label} ready`), h('span', { class: 'sub' }, cmp ? [b1, `, was ${formatBytes(before)}`] : [b1]))
     countUp(b1, total, { format: formatBytes })
     if (cmp && saved > 0) gauge.set(saved, `-${saved}%`)
     else gauge.set(100, `${n}`)
-    clear(zipBtn, icon(n === 1 ? 'download' : 'archive'), h('span', n === 1 ? 'Download' : 'Download all (ZIP)'))
+    clear(zipBtn, icon(n === 1 ? 'download' : 'archive'), h('span', n === 1 ? 'Download' : 'Download ZIP'))
     zipBtn.onclick = () => busy(zipBtn, async () => {
       if (n === 1) return download(api.items[0].blob, api.items[0].name)
       download(await zip(api.items.map((it) => ({ name: it.name, data: it.blob }))), zipName)
