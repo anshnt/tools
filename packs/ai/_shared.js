@@ -143,13 +143,14 @@ export function resultView({ emptyIcon = 'sparkles', emptyTitle = 'Your result a
 }
 
 /** Streams ai.ask() into a resultView. Keeps partial text when stopped. Returns the final text. */
-export async function streamAsk(view, opts, signal) {
+export async function streamAsk(view, opts, signal, post = (t) => t) {
   let last = ''
   view.stream('')
   try {
     const text = await ai.ask({ ...opts, signal, onText: (t) => { last = t; view.stream(t) } })
-    await view.done(text)
-    return text
+    const final = post(text)
+    await view.done(final)
+    return final
   } catch (e) {
     await view.done(last, { stopped: isAbort(e) })
     throw e
