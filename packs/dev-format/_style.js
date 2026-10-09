@@ -224,6 +224,7 @@ export const CSS = `
 .df-chg-row .val.rem { color: var(--danger); } .df-chg-row .val.add { color: var(--success); }
 .df-chg-row .val.none { color: var(--muted); }
 @media (max-width: 720px) { .df-chg-row { grid-template-columns: minmax(0, 1fr); } }
+.df-chg-row .df-tag { justify-self: start; }
 .df-tag { display: inline-flex; align-items: center; justify-content: center; height: 22px; padding: 0 9px; border-radius: 999px; font: 700 11px var(--font); letter-spacing: .03em; text-transform: uppercase; }
 .df-tag.add { background: var(--df-add); color: var(--success); } .df-tag.rem { background: var(--df-rem); color: var(--danger); } .df-tag.chg { background: var(--df-chg); color: var(--warning); }
 

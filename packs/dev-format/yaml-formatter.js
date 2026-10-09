@@ -94,7 +94,7 @@ export function mount(root, { params }) {
   const s = studio({
     inputTitle: convert ? 'YAML or JSON' : 'YAML input', outputTitle: convert ? 'Converted' : validate ? 'Formatted YAML' : 'Formatted YAML', inputIcon: 'file-cog', outputIcon: 'sparkles',
     runLabel: convert ? 'Convert' : validate ? 'Validate' : 'Format', runIcon: convert ? 'arrow-left-right' : validate ? 'circle-check' : 'wand-sparkles',
-    accept: '.yml,.yaml,.json,text/yaml,application/json,text/plain',
+    maxBytes: 3_000_000, accept: '.yml,.yaml,.json,text/yaml,application/json,text/plain',
     placeholder: convert ? 'Paste YAML or JSON. The direction is detected for you, or pick one above.' : 'Paste YAML here, drop a .yml file, or pick an example below...',
     empty: ['file-cog', convert ? 'The converted result shows up here' : validate ? 'Paste YAML to check it' : 'Your formatted YAML shows up here'],
     mime: 'text/yaml', outLang: (r) => r.lang,

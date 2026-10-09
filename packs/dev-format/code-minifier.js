@@ -119,7 +119,7 @@ export function mount(root, { params }) {
 
   const s = studio({
     inputTitle: fixed ? `${LANGS[fixed]} to minify` : 'Code to minify', outputTitle: 'Minified code', inputIcon: fixed ? SAMPLE_ICON[fixed] : 'minimize', outputIcon: 'sparkles', runLabel: 'Minify', runIcon: 'minimize',
-    accept: fixed ? ACCEPT[fixed] : Object.values(ACCEPT).join(','), placeholder: fixed ? `Paste ${LANGS[fixed]} here, drop a file, or pick an example below...` : 'Paste JavaScript, CSS, HTML or JSON. The language is detected, or pick one above.',
+    maxBytes: 3_000_000, accept: fixed ? ACCEPT[fixed] : Object.values(ACCEPT).join(','), placeholder: fixed ? `Paste ${LANGS[fixed]} here, drop a file, or pick an example below...` : 'Paste JavaScript, CSS, HTML or JSON. The language is detected, or pick one above.',
     empty: ['minimize', 'Your minified code shows up here'], mime: 'text/plain', outLang: (r) => OUT[r.lang] || 'plain',
     filename: (name) => `${name ? baseName(name) : 'code'}.min.${EXT[current] || 'txt'}`,
     samples: (fixed ? [fixed] : ['js', 'css', 'html', 'json']).map((k) => ({ label: LANGS[k], icon: SAMPLE_ICON[k], text: SAMPLES[k], lang: k })),

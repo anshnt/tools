@@ -158,7 +158,7 @@ export function mount(root, { params }) {
   const s = studio({
     inputTitle: 'SQL input', outputTitle: minify ? 'Minified SQL' : 'Formatted SQL', inputIcon: 'database', outputIcon: 'sparkles',
     runLabel: minify ? 'Minify' : 'Format', runIcon: minify ? 'minimize' : 'wand-sparkles',
-    accept: '.sql,.ddl,.txt,text/plain,application/sql', placeholder: minify ? 'Paste SQL with comments and line breaks, drop a .sql file, or pick an example below...' : 'Paste SQL here, drop a .sql file, or pick an example below...',
+    maxBytes: 2_000_000, accept: '.sql,.ddl,.txt,text/plain,application/sql', placeholder: minify ? 'Paste SQL with comments and line breaks, drop a .sql file, or pick an example below...' : 'Paste SQL here, drop a .sql file, or pick an example below...',
     empty: ['database', minify ? 'Your one-line SQL shows up here' : 'Your formatted SQL shows up here'], mime: 'application/sql', outLang: 'sql',
     filename: (name) => (name ? `${baseName(name)}${minify ? '.min' : '.formatted'}.sql` : minify ? 'query.min.sql' : 'formatted.sql'),
     indent: () => (state.indent === 'tab' ? '\t' : ' '.repeat(Number(state.indent))),

@@ -432,6 +432,8 @@ export function studio(c) {
     const text = ed.value
     const my = ++seq
     if (!text.trim()) return reset()
+    const limit = cfg.maxBytes || 8_000_000
+    if (text.length > limit) return fail(new DevError(`That text is ${formatBytes(text.length)}. This tool handles up to ${formatBytes(limit)} in the browser.`, { hint: 'Split it into smaller parts, or use a command-line tool for files this large.' }), manual)
     try {
       const r = await cfg.process(text, { manual })
       if (my !== seq) return

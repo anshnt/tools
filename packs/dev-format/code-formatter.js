@@ -81,7 +81,7 @@ export function mount(root, { params }) {
 
   const s = studio({
     inputTitle: F.inputTitle, outputTitle: F.outputTitle, inputIcon: F.ic, outputIcon: 'sparkles', runLabel: 'Format', runIcon: 'wand-sparkles',
-    accept: F.accept, placeholder: F.ph, empty: F.empty, mime: 'text/plain',
+    maxBytes: 2_500_000, accept: F.accept, placeholder: F.ph, empty: F.empty, mime: 'text/plain',
     outLang: (r) => LANGS[r.lang]?.out || 'plain',
     filename: (name) => {
       const l = s.lastLang || state.lang
