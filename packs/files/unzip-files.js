@@ -3,7 +3,7 @@
 import { h, icon, clear, dropzone, button, busy, alert, stats, input, field, progress, download, formatBytes, toast, errorMessage, onCleanup, modal, yieldToMain } from '../../lib/ui.js'
 import { jszip } from '../../lib/libs.js'
 import { readZipEntries, extractEntry, METHOD_NAMES, safeEntryPath, canPickDirectory, ensurePermission, fmtDateTime, naturalCompare, extOf, KINDS, kindOfName, throwIfAborted } from './_core.js'
-import { useFx, card, chip, chips, tile, openPreview, injectStyle, celebrate, docGlyph, countUp } from './_ui.js'
+import { useFx, card, chip, chips, tile, openPreview, injectStyle, celebrate, docGlyph, countUp, hit } from './_ui.js'
 
 const PREVIEW_MAX = 60 * 1024 * 1024
 const CSS = `
@@ -33,10 +33,12 @@ const CSS = `
 // ---------- Pure helpers ----------
 /** Build a folder tree from ZIP entries. Node: {name, path, dir, children: Map, entry?, size, csize, count}. */
 export function buildZipTree(entries) {
-  const root = { name: '', path: '', dir: true, children: new Map(), size: 0, csize: 0, count: 0, files: 0 }
+  const root = { name: '', path: '', dir: true, children: new Map(), size: 0, csize: 0, count: 0, files: 0, unsafe: 0 }
   entries.forEach((entry, index) => {
-    const clean = entry.name.replace(/\\/g, '/').replace(/^\/+/, '')
-    const parts = clean.split('/').filter(Boolean)
+    const raw = entry.name.replace(/\\/g, '/').split('/').filter(Boolean)
+    const parts = raw.filter((x) => x !== '.' && x !== '..')
+    if (parts.length && /^[A-Za-z]:$/.test(parts[0])) parts.shift()
+    if (parts.length !== raw.length || entry.name.startsWith('/')) root.unsafe++
     if (!parts.length) return
     let node = root
     const chain = [root]
@@ -93,7 +95,7 @@ export function mount(root, { signal }) {
     const symlinks = files.filter((e) => e.symlink).length
     const bomb = total > 5 * 1024 ** 3 || (packed > 0 && total / packed > 1000 && total > 500 * 1024 * 1024)
     const sizeEl = h('div', { class: 'value' }, formatBytes(total))
-    const st = stats([{ label: 'Files', value: files.length.toLocaleString(), hint: `${entries.length - files.length} folder entries` }, { label: 'Unpacked size', value: '', accent: true, hint: `${formatBytes(packed)} in the ZIP` }, { label: 'Compression', value: total ? `${Math.max(0, Math.round((1 - packed / total) * 100))}%` : '-', hint: 'space saved' }])
+    const st = stats([{ label: 'Files', value: files.length.toLocaleString(), hint: `${entries.length - files.length} folder entr${entries.length - files.length === 1 ? 'y' : 'ies'}` }, { label: 'Unpacked size', value: '', accent: true, hint: `${formatBytes(packed)} in the ZIP` }, { label: 'Compression', value: total ? `${Math.max(0, Math.round((1 - packed / total) * 100))}%` : '-', hint: 'space saved' }])
     st.querySelector('.stat.accent .value').replaceWith(sizeEl)
     countUp(sizeEl, total, formatBytes, 600)
     const toolbar = h('div')
@@ -103,7 +105,7 @@ export function mount(root, { signal }) {
     clear(out,
       h('div', { class: 'fx-hero fx-in', style: { '--k': '#d99a1e' } }, docGlyph(f.name, 'archive'), h('div', { class: 'fx-body' }, h('div', { class: 'fx-title' }, f.name),
         h('div', { class: 'fx-sub' }, `${formatBytes(f.size)} · ${entries.length.toLocaleString()} entries`),
-        chips(chip('Opened on this device', 'ok', 'shield-check'), enc ? chip(`${enc} encrypted`, 'bad', 'lock') : null, unsupported ? chip(`${unsupported} with unsupported compression`, 'warn', 'triangle-alert') : null, symlinks ? chip(`${symlinks} symbolic links`, '', 'link') : null))),
+        chips(chip('Opened on this device', 'ok', 'shield-check'), enc ? chip(`${enc} encrypted`, 'bad', 'lock') : null, unsupported ? chip(`${unsupported} with unsupported compression`, 'warn', 'triangle-alert') : null, symlinks ? chip(`${symlinks} symbolic links`, '', 'link') : null, tree.unsafe ? chip(`${tree.unsafe} unsafe paths cleaned`, 'warn', 'shield-alert') : null))),
       enc ? alert('warn', h('strong', 'Password-protected files. '), `${enc} file${enc === 1 ? ' is' : 's are'} encrypted. Encrypted ZIPs are not supported here, so those files are greyed out. Use a desktop tool such as 7-Zip for them.`) : null,
       unsupported ? alert('warn', `${unsupported} file${unsupported === 1 ? ' uses' : 's use'} a compression method browsers cannot unpack (not Store or Deflate). Those are greyed out.`) : null,
       bomb ? alert('warn', 'This archive unpacks to a very large size compared with the ZIP itself. Only extract files you trust, and pick just the ones you need.') : null,
@@ -137,7 +139,7 @@ export function mount(root, { signal }) {
           nSel ? button('Clear selection', { variant: 'ghost', size: 'sm', onClick: () => { selected.clear(); syncChecks() } }) : null),
         !canPickDirectory() ? h('div', { class: 'small muted' }, 'Your browser cannot write to folders, so extracted files come as downloads. Chrome and Edge can extract straight to a folder.') : null)))
     }
-    function rowFor(node, depth, openState) {
+    function rowFor(node, depth, openState, label = node.name) {
       const dir = node.dir
       const e = node.entry
       const lockd = !dir && !usable(node)
@@ -150,9 +152,9 @@ export function mount(root, { signal }) {
       } })
       row._cb = cb
       const tg = dir && node.children.size ? h('button', { class: 'tg', type: 'button', 'aria-expanded': String(!!openState), 'aria-label': `Expand ${node.name}` }, icon('chevron-right')) : h('span', { class: 'sp' })
-      row.append(h('div', { class: 'nm', style: { paddingLeft: `${depth * 18}px` } }, cb, tg, tile(node.name, { size: 'sm', kind: dir ? 'folder' : undefined }),
-        h('span', { class: ['t', dir && 'dir'], title: node.path }, node.name, lockd && e.encrypted ? ' (encrypted)' : '')),
-      h('div', { class: 'n' }, dir ? `${node.files.toLocaleString()} files` : formatBytes(e.size)),
+      row.append(h('div', { class: 'nm', style: { paddingLeft: `${depth * 18}px` } }, hit(cb), tg, tile(node.name, { size: 'sm', kind: dir ? 'folder' : undefined }),
+        h('span', { class: ['t', dir && 'dir'], title: node.path }, label, lockd && e.encrypted ? ' (encrypted)' : '')),
+      h('div', { class: 'n' }, dir ? `${node.files.toLocaleString()} file${node.files === 1 ? '' : 's'}` : formatBytes(e.size)),
       h('div', { class: 'n p' }, formatBytes(dir ? node.csize : e.csize)),
       h('div', { class: 'acts' }, dir ? null : [
         h('button', { type: 'button', disabled: lockd || e.size > PREVIEW_MAX, 'aria-label': `Preview ${node.name}`, title: e && e.size > PREVIEW_MAX ? 'Too big to preview' : 'Preview', onclick: () => previewOne(node) }, icon('eye')),
@@ -193,7 +195,7 @@ export function mount(root, { signal }) {
       if (q) {
         const hits = filesUnder(tree).filter((n) => n.path.toLowerCase().includes(q))
         if (!hits.length) box.append(h('div', { style: 'padding:14px' }, 'No file names match that filter.'))
-        for (const n of hits.slice(0, 300)) { const r = rowFor({ ...n, name: n.path }, 0); r._node = n; box.append(r) }
+        for (const n of hits.slice(0, 300)) { box.append(rowFor(n, 0, false, n.path)) }
         if (hits.length > 300) box.append(h('div', { class: 'small muted', style: 'padding:8px 12px' }, `Showing 300 of ${hits.length} matches.`))
       } else {
         const top = sortKids(tree)

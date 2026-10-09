@@ -4,7 +4,7 @@
 import { h, icon, clear, button, busy, progress, alert, stats, toggle, toast, modal, download, formatBytes, debounce, errorMessage, onCleanup, yieldToMain } from '../../lib/ui.js'
 import { jszip } from '../../lib/libs.js'
 import { canPickDirectory, ensurePermission, fmtDate, extOf } from './_core.js'
-import { sourceZone, injectStyle, celebrate, chip } from './_ui.js'
+import { sourceZone, injectStyle, celebrate, chip, hit } from './_ui.js'
 
 // ---------- Name helpers ----------
 /** 'photo.final.jpg' -> ['photo.final', '.jpg']; '.gitignore' -> ['.gitignore', '']. */
@@ -139,8 +139,8 @@ const CSS = `
 .fx-rn-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .fx-rn-list { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--surface); }
 .fx-rn-scroll { max-height: 520px; overflow: auto; }
-.fx-rn-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr) 150px; gap: 8px 12px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 13.5px; transition: background .2s; }
-.fx-rn-row.has-thumb { grid-template-columns: 34px 46px minmax(0, 1fr) minmax(0, 1fr) 150px; }
+.fx-rn-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) minmax(0, 1fr) 150px; gap: 8px 12px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 13.5px; transition: background .2s; }
+.fx-rn-row.has-thumb { grid-template-columns: 32px 46px minmax(0, 1fr) minmax(0, 1fr) 150px; }
 .fx-rn-row.head { position: sticky; top: 0; z-index: 2; background: var(--surface-2); border-top: 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .fx-rn-row > * { min-width: 0; }
 .fx-rn-row .old { color: var(--muted); overflow-wrap: anywhere; }
@@ -168,7 +168,7 @@ const CSS = `
   .fx-rn-row .c-st { grid-column: 2 / -1; }
   .fx-rn-row.has-thumb .c-st { grid-column: 3 / -1; }
   .fx-rn-row .th { grid-row: span 3; }
-  .fx-rn-row > input[type=checkbox] { grid-row: span 3; align-self: start; margin-top: 3px; }
+  .fx-rn-row > .fx-hit { grid-row: span 3; align-self: start; }
 }
 `
 
@@ -302,7 +302,7 @@ export function renameWorkbench(opts) {
     const MAXROWS = 1000
     const allChecked = st.items.every((i) => i.include)
     const master = h('input', { type: 'checkbox', checked: allChecked, 'aria-label': 'Include all files', onchange: (e) => { st.items.forEach((i) => { i.include = e.target.checked }); refresh() } })
-    rowsEl.append(h('div', { class: ['fx-rn-row head', thumbs && 'has-thumb'] }, master, thumbs && h('span'), h('span', { class: 'c-old' }, 'Original'), h('span', { class: 'c-new' }, 'New name'), h('span', { class: 'c-st' }, 'Status')))
+    rowsEl.append(h('div', { class: ['fx-rn-row head', thumbs && 'has-thumb'] }, hit(master), thumbs && h('span'), h('span', { class: 'c-old' }, 'Original'), h('span', { class: 'c-new' }, 'New name'), h('span', { class: 'c-st' }, 'Status')))
     for (const r of rows.slice(0, MAXROWS)) {
       const { it } = r
       const cb = h('input', { type: 'checkbox', checked: it.include, 'aria-label': `Include ${it.name}`, onchange: (e) => { it.include = e.target.checked; refresh() } })
@@ -311,7 +311,7 @@ export function renameWorkbench(opts) {
         : r.status === 'same' ? h('span', { class: 'st' }, icon('equal'), 'No change')
           : r.status === 'skipped' ? h('span', { class: 'st' }, icon('minus'), 'Left out')
             : h('span', { class: 'st', title: r.msg }, icon('triangle-alert'), r.msg)
-      rowsEl.append(h('div', { class: ['fx-rn-row', r.status, thumbs && 'has-thumb'] }, cb,
+      rowsEl.append(h('div', { class: ['fx-rn-row', r.status, thumbs && 'has-thumb'] }, hit(cb),
         thumbs && (/^image\/(jpeg|png|gif|webp|bmp|avif|svg)/.test(it.file.type) ? h('img', { class: 'th', src: thumbUrl(it), alt: '', loading: 'lazy', decoding: 'async' }) : h('span', { class: 'th' })),
         h('div', { class: 'c-old old' }, dirp(), it.name, opts.detail?.(it) ? h('div', { class: 'small', style: 'margin-top:2px' }, opts.detail(it)) : null),
         h('div', { class: ['c-new new', r.status !== 'ok' && r.status !== 'bad' && 'same'] }, dirp(), r.next),

@@ -317,13 +317,15 @@ export function mount(root, { signal }) {
       ['Unsigned 32', sig(() => dv.getUint32(0, le), 4)], ['Signed 32', sig(() => dv.getInt32(0, le), 4)],
       ['Unsigned 64', sig(() => dv.getBigUint64(0, le).toString(), 8)], ['Signed 64', sig(() => dv.getBigInt64(0, le).toString(), 8)],
       ['Float 32', sig(() => fmtFloat(dv.getFloat32(0, le)), 4)], ['Float 64', sig(() => fmtFloat(dv.getFloat64(0, le)), 8)],
-      have(4) ? ['As Unix time', (() => { const t = dv.getUint32(0, le); return t > 315532800 && t < 4102444800 ? new Date(t * 1000).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : '' })()] : null,
+      have(4) ? ['As Unix time', (() => { const t = dv.getUint32(0, le); return t >= 946684800 && t <= 2145916800 ? new Date(t * 1000).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : '' })()] : null,
     ].filter((r) => r && r[1] !== '' && r[1] !== undefined)
     const selBytes = await readRange(file, sel.a, sel.a + Math.min(take, 1 << 20))
-    const asText = new TextDecoder('utf-8', { fatal: false }).decode(selBytes.subarray(0, 4000)).replace(/[\u0000-\u0008\u000b-\u001f]/g, '·')
+    let asText, textLabel = selBytes.length > 1 ? 'Selection as text' : 'As text'
+    try { asText = new TextDecoder('utf-8', { fatal: true }).decode(selBytes.subarray(0, 4000)) } catch { asText = new TextDecoder('windows-1252').decode(selBytes.subarray(0, 4000)); textLabel += ' (Latin-1)' }
+    asText = asText.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '\u00b7')
     clear(inspector, kv(rowsKv.map(([k, v]) => [k, h('span', { class: 'fx-mono' }, v)])),
       h('div', { class: 'stack tight', style: 'margin-top:10px' },
-        h('div', { class: 'small muted', style: 'font-weight:600' }, selBytes.length > 1 ? 'Selection as text' : 'As text'), h('div', { class: 'fx-mono', style: 'max-height:96px;overflow:auto' }, asText),
+        h('div', { class: 'small muted', style: 'font-weight:600' }, textLabel), h('div', { class: 'fx-mono', style: 'max-height:96px;overflow:auto' }, asText),
         h('div', { class: 'row' }, button('Copy hex', { size: 'sm', icon: 'copy', onClick: () => copyText(hexBytes(selBytes.subarray(0, 1 << 16))) }), button('Copy text', { size: 'sm', icon: 'copy', variant: 'ghost', onClick: () => copyText(new TextDecoder().decode(selBytes)) }))))
   }
   let inspToken = 0

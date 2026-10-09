@@ -12,6 +12,7 @@ export default [
   { id: 'extension-changer', name: 'Bulk extension changer', desc: 'Change the extension of many files at once.', icon: 'file-pen-line', tags: 'extension rename', ready: true },
   { id: 'filename-cleaner', name: 'Filename cleaner', desc: 'Remove spaces, accents and odd characters from filenames.', icon: 'brush', tags: 'clean filenames sanitize', ready: true },
   { id: 'local-file-search', name: 'Local file search', desc: 'Pick a folder and search file names and text contents, locally.', icon: 'folder-search', tags: 'search grep folder contents', ready: true },
+  { id: 'folder-file-list', name: 'Folder to file list', desc: 'List every file in a folder as CSV, JSON, Markdown or a text tree, with sizes and checksums.', icon: 'list-tree', tags: 'directory listing export csv tree files inventory', ready: true },
   { id: 'hex-viewer', name: 'Hex viewer', desc: 'View any file as hex and ASCII, with offsets and search.', icon: 'binary', also: ['dev'], tags: 'hex dump binary', ready: true },
   { id: 'zip-files', name: 'Create ZIP', desc: 'Compress files and folders into a ZIP archive.', icon: 'file-archive', tags: 'zip compress archive', ready: true },
   { id: 'unzip-files', name: 'Unzip / extract ZIP', desc: 'Open ZIP files, browse contents and extract single files.', icon: 'package-open', tags: 'unzip extract archive', ready: true },

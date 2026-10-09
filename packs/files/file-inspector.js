@@ -67,6 +67,15 @@ const nice = (v) => {
   return String(v)
 }
 
+const EXIF_FMT = {
+  ExposureTime: (v) => (typeof v === 'number' ? (v >= 1 ? `${+v.toFixed(1)} s` : `1/${Math.round(1 / v)} s`) : v),
+  FNumber: (v) => (typeof v === 'number' ? `f/${+v.toFixed(1)}` : v),
+  FocalLength: (v) => (typeof v === 'number' ? `${+v.toFixed(1)} mm` : v),
+  FocalLengthIn35mmFormat: (v) => (typeof v === 'number' ? `${v} mm` : v),
+  ExposureBiasValue: (v) => (typeof v === 'number' ? `${v > 0 ? '+' : ''}${+v.toFixed(2)} EV` : v),
+}
+const fmtExif = (k, v) => (EXIF_FMT[k] ? String(EXIF_FMT[k](v)) : nice(v))
+
 const EXIF_GROUPS = [
   ['Camera', ['Make', 'Model', 'LensModel', 'LensMake', 'Software', 'BodySerialNumber']],
   ['Exposure', ['DateTimeOriginal', 'CreateDate', 'ExposureTime', 'FNumber', 'ISO', 'FocalLength', 'FocalLengthIn35mmFormat', 'ExposureProgram', 'ExposureMode', 'MeteringMode', 'WhiteBalance', 'Flash', 'ExposureBiasValue']],
@@ -219,7 +228,7 @@ export function mount(root, { signal }) {
           rowsOut.push(['Bytes per pixel', (file.size / (dim.w * dim.h)).toFixed(2)])
         }
         if (exif?.Orientation) rowsOut.push(['Orientation', nice(exif.Orientation)])
-        if (exif?.XResolution) rowsOut.push(['Resolution', `${nice(exif.XResolution)} x ${nice(exif.YResolution ?? exif.XResolution)} ${nice(exif.ResolutionUnit || 'dpi')}`])
+        if (exif?.XResolution > 1) rowsOut.push(['Resolution', `${nice(exif.XResolution)} x ${nice(exif.YResolution ?? exif.XResolution)} ${nice(exif.ResolutionUnit || 'dpi')}`])
         return rowsOut.length ? kv(rowsOut) : h('div', { class: 'small muted' }, 'The browser could not read this image (the format may need a desktop app).')
       })
       lazy('Photo metadata', 'camera', '#f76b15', async () => {
@@ -235,7 +244,7 @@ export function mount(root, { signal }) {
         }
         const used = new Set(['latitude', 'longitude'])
         for (const [title, keys] of EXIF_GROUPS) {
-          const r = keys.filter((k) => exif[k] != null && exif[k] !== '').map((k) => { used.add(k); return [k.replace(/([a-z])([A-Z])/g, '$1 $2'), nice(exif[k])] })
+          const r = keys.filter((k) => exif[k] != null && exif[k] !== '').map((k) => { used.add(k); return [k.replace(/([a-z])([A-Z])/g, '$1 $2'), fmtExif(k, exif[k])] })
           if (r.length) frag.append(h('div', h('div', { class: 'small muted', style: 'margin-bottom:2px;font-weight:600' }, title), kv(r)))
         }
         const rest = Object.entries(exif).filter(([k]) => !used.has(k)).map(([k, v]) => [k, nice(v)]).filter(([, v]) => v !== '')

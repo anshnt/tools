@@ -147,8 +147,8 @@ export function mount(root) {
     tabs([
       { id: 'tree', label: 'Folders', render: () => treeView() },
       { id: 'map', label: 'Treemap', render: () => treemapView() },
-      { id: 'big', label: 'Largest files', render: () => bigView() },
-      { id: 'types', label: 'File types', render: () => typesView() },
+      { id: 'big', label: 'Largest', render: () => bigView() },
+      { id: 'types', label: 'Types', render: () => typesView() },
     ], 'tree'),
     exportRow())
   }

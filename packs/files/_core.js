@@ -64,9 +64,9 @@ const KIND_EXTS = {
   slides: 'ppt pptx pptm odp key',
   archive: 'zip rar 7z tar gz tgz bz2 xz zst lz4 cab iso dmg z lzh deb rpm jar war apk ipa nupkg',
   code: 'js mjs cjs jsx ts tsx py rb php java kt kts c h cpp cc cxx hpp cs go rs swift sh bash zsh bat cmd ps1 html htm css scss sass less vue svelte sql lua pl r dart scala ex exs hs clj',
-  data: 'json csv tsv xml yaml yml toml ini cfg conf env log sqlite sqlite3 db mdb parquet avro ndjson jsonl npy hdf5 h5 pickle pkl',
+  data: 'json csv tsv xml yaml yml toml ini cfg conf env log sqlite sqlite3 db mdb parquet avro ndjson jsonl npy hdf5 h5 pickle pkl bin dat',
   font: 'ttf otf woff woff2 ttc eot',
-  exec: 'exe dll msi sys so dylib bin elf macho class dex wasm o a lib com scr',
+  exec: 'exe dll msi sys so dylib elf macho class dex wasm o a lib com scr',
   text: 'txt md markdown rst nfo readme license srt vtt ass lrc',
 }
 const EXT_KIND = {}
@@ -427,13 +427,14 @@ async function refineZip(file, base) {
 }
 
 const BINARY_KINDS = new Set(['image', 'video', 'audio', 'archive', 'exec', 'font', 'sheet', 'slides'])
+const GENERIC_EXTS = new Set(['bin', 'dat', 'tmp', 'temp', 'part', 'crdownload', 'download', 'dump', 'raw'])
 const BINARY_DOC_EXTS = new Set(['pdf', 'doc', 'docx', 'odt', 'epub', 'rtf', 'pages'])
 /** Is the declared extension consistent with what the bytes say? {ok:false} only when we are fairly sure it is not. */
 export function extensionVerdict(det, name) {
   const e = extOf(name)
   if (!det || !e || det.exts.includes(e)) return { ok: true }
   const k = kindOfExt(e)
-  if (k === 'other') return { ok: true }
+  if (k === 'other' || GENERIC_EXTS.has(e)) return { ok: true }
   if (det.zip && ZIP_FAMILY.includes(e)) return { ok: true }
   if (det.text) {
     const binaryExt = (BINARY_KINDS.has(k) && e !== 'svg') || BINARY_DOC_EXTS.has(e)
@@ -495,6 +496,16 @@ export function imageDimensions(b) {
     if (t === 'VP8X') return { w: 1 + (b[24] | (b[25] << 8) | (b[26] << 16)), h: 1 + (b[27] | (b[28] << 8) | (b[29] << 16)), note: 'WebP' }
     if (t === 'VP8L') { const v = dv.getUint32(21, true); return { w: 1 + (v & 0x3FFF), h: 1 + ((v >> 14) & 0x3FFF), note: 'WebP' } }
     if (t === 'VP8 ') return { w: dv.getUint16(26, true) & 0x3FFF, h: dv.getUint16(28, true) & 0x3FFF, note: 'WebP' }
+  }
+  if (b.length > 24 && ascii(b, 4, 8) === 'ftyp') {
+    // HEIC and AVIF keep the size in 'ispe' boxes (one per image); the biggest one is the main picture
+    let best = null
+    for (let i = 8; i + 16 <= b.length; i++) {
+      if (b[i] !== 0x69 || b[i + 1] !== 0x73 || b[i + 2] !== 0x70 || b[i + 3] !== 0x65) continue
+      const w = dv.getUint32(i + 8), hh = dv.getUint32(i + 12)
+      if (w > 0 && hh > 0 && w < 65536 && hh < 65536 && (!best || w * hh > best.w * best.h)) best = { w, h: hh, note: 'HEIF' }
+    }
+    if (best) return best
   }
   if (b[0] === 0xFF && b[1] === 0xD8) {
     let i = 2

@@ -75,7 +75,7 @@ const BASE_CSS = `
 .fx-hash > code { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; word-break: break-all; line-height: 1.45; }
 .fx-hash.match { border-color: var(--success); background: var(--success-soft); }
 .fx-skel { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--surface-3) 30%, var(--surface-2) 50%, var(--surface-3) 70%); background-size: 200% 100%; animation: fx-sheen 1.4s linear infinite; }
-.fx-check { width: 74px; height: 74px; flex: none; }
+.fx-check { width: 74px; height: 74px; flex: none; color: var(--k, var(--success)); }
 .fx-check circle, .fx-check path { fill: none; stroke: currentColor; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 200; stroke-dashoffset: 200; animation: fx-draw .75s var(--ease) .1s forwards; }
 .fx-check path { animation-delay: .5s; animation-duration: .45s; }
 .fx-burst { position: fixed; z-index: 500; pointer-events: none; width: 0; height: 0; }
@@ -90,6 +90,8 @@ const BASE_CSS = `
 .fx-code .ln.hit { background: color-mix(in srgb, var(--warning) 14%, transparent); }
 .fx-code mark { background: color-mix(in srgb, var(--accent) 30%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
 .fx-media { max-width: 100%; max-height: 56vh; border-radius: 12px; display: block; margin: 0 auto; }
+.fx-hit { display: inline-grid; place-items: center; width: 32px; height: 32px; flex: none; cursor: pointer; border-radius: 8px; }
+.fx-hit:hover { background: var(--surface-3); }
 .fx-seg-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .fx-num { font-variant-numeric: tabular-nums; }
 .fx-link { color: var(--accent); font-weight: 550; cursor: pointer; background: none; border: 0; padding: 0; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
@@ -135,6 +137,9 @@ export function card(title, ic, color, ...kids) {
 }
 /** Stagger helper: call on a list of nodes to set --i. */
 export const stagger = (nodes, cap = 14) => { nodes.forEach((n, i) => n.style?.setProperty('--i', Math.min(i, cap))); return nodes }
+
+/** Wrap a checkbox or radio in a 32px tap target. */
+export const hit = (input) => h('label', { class: 'fx-hit' }, input)
 
 /** Count a number up inside el. fmt defaults to toLocaleString. */
 export function countUp(el, to, fmt = (n) => Math.round(n).toLocaleString(), ms = 900) {
