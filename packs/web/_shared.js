@@ -339,3 +339,53 @@ export function textWidth(text, font = '20px Arial, sans-serif') {
   measureCtx.font = font
   return measureCtx.measureText(text).width
 }
+
+// ---------- Microlink (screenshots, PDFs, metadata) ----------
+/**
+ * Call api.microlink.io. params is an object of query parameters (nested keys use dots, e.g. {'viewport.width': 1280}).
+ * Resolves to {data, quota: {limit, remaining, reset}} or throws a friendly Error (rate limit, unreachable site, bad URL).
+ */
+export async function microlink(params, { signal, timeout = 60000 } = {}) {
+  const q = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== '') q.set(k, String(v))
+  const ctl = new AbortController()
+  let timedOut = false
+  const timer = setTimeout(() => { timedOut = true; ctl.abort() }, timeout)
+  const onAbort = () => ctl.abort()
+  signal?.addEventListener('abort', onAbort, { once: true })
+  try {
+    let res
+    try { res = await fetch(`https://api.microlink.io/?${q}`, { signal: ctl.signal }) } catch (e) {
+      if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { code: 'ABORT' })
+      if (timedOut) throw new ApiError('Microlink took too long (60s). The page may be very heavy or slow. Try again.', { timeout: true })
+      throw new ApiError('Could not reach Microlink. Check your connection (an ad blocker can also block it) and try again.', { network: true })
+    }
+    const quota = { limit: +res.headers.get('x-rate-limit-limit') || null, remaining: res.headers.get('x-rate-limit-remaining') != null ? +res.headers.get('x-rate-limit-remaining') : null, reset: +res.headers.get('x-rate-limit-reset') || null }
+    let body = null
+    try { body = await res.json() } catch { /* not JSON */ }
+    if (res.status === 429) {
+      const when = quota.reset ? ` It resets around ${new Date(quota.reset * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.` : ''
+      throw new ApiError(`The free daily limit of the screenshot and metadata service (Microlink) was reached.${when} Try again later.`, { status: 429, quota })
+    }
+    if (!res.ok || body?.status === 'fail' || body?.status === 'error') {
+      const msg = String(body?.message || '').replace(/\s+/g, ' ').trim()
+      const code = body?.code
+      const friendly = code === 'ENOTFOUND' || /ENOTFOUND|getaddrinfo|resolve/i.test(msg) ? 'That address could not be found. Check the spelling.'
+        : code === 'EFATAL' || /timeout|timed out/i.test(msg) ? 'The service could not load that page in time. It may be slow, blocking automated visitors, or down.'
+        : /protected|blocked|403|forbidden/i.test(msg) ? 'The site blocked the request (it may need a login or block automated visitors).'
+        : msg ? `The service said: ${msg.slice(0, 180)}` : `The service answered HTTP ${res.status}.`
+      throw new ApiError(friendly, { status: res.status, code, quota })
+    }
+    return { data: body?.data || {}, body, quota }
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', onAbort)
+  }
+}
+
+/** Small "N of M free calls left today" pill for Microlink tools. */
+export function quotaNote(quota) {
+  if (!quota || quota.remaining == null) return null
+  const low = quota.remaining <= 3
+  return pill(`${quota.remaining}${quota.limit ? ` of ${quota.limit}` : ''} free calls left today`, low ? 'warn' : '', 'gauge')
+}
