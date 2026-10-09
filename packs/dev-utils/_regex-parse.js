@@ -236,7 +236,18 @@ export function describe(n, flags = '') {
 export function explain(parsed) {
   const { ast, source, flags } = parsed
   const rows = (n) => {
-    if (n.type === 'seq') return n.items.flatMap(rows)
+    if (n.type === 'seq') {
+      const out = []
+      for (let i = 0; i < n.items.length;) {
+        let j = i
+        while (j < n.items.length && n.items[j].type === 'lit' && !n.items[j].desc) j++
+        if (j - i > 1) {
+          out.push({ src: source.slice(n.items[i].start, n.items[j - 1].end), text: `Matches the text "${n.items.slice(i, j).map((x) => x.value).join('')}"`, start: n.items[i].start, end: n.items[j - 1].end, children: [] })
+          i = j
+        } else { out.push(...rows(n.items[i])); i++ }
+      }
+      return out
+    }
     if (n.type === 'alt') return [{ src: source.slice(n.start, n.end), text: describe(n, flags), start: n.start, end: n.end, children: n.alts.map((a, i) => ({ src: source.slice(a.start, a.end) || '(empty)', text: `Option ${i + 1}`, start: a.start, end: a.end, children: rows(a) })) }]
     if (n.type === 'quant') {
       const inner = rows(n.body)
