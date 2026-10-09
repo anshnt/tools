@@ -109,7 +109,7 @@ export async function mount(root, { tool, params = {} }) {
   const beforeBtn = iconBtn({ icon: 'eye', tip: 'Before only (\\)', pressed: false, onClick: () => app.toggleCompare('before') })
   const clipBtn = iconBtn({ icon: 'zap', tip: 'Clipping warning (J)', pressed: false, onClick: () => app.setClip(!app.clip) })
   const cropBtn = iconBtn({ icon: 'crop', tip: 'Crop and straighten (C)', pressed: false, onClick: () => app.setCropMode(!app.cropMode) })
-  const leftBtn = iconBtn({ icon: 'panel-left', tip: 'Presets and history', pressed: true, cls: 'pd-hide-s', onClick: () => { const on = develop.dataset.left !== '1'; develop.dataset.left = on ? '1' : '0'; leftBtn.setPressed(on); stage.layout() } })
+  const leftBtn = iconBtn({ icon: 'panel-left', tip: 'Presets and history', pressed: true, cls: 'pd-hide-s', onClick: () => { const on = develop.dataset.left !== '1'; develop.dataset.left = on ? '1' : '0'; leftBtn.setPressed(on); stage.layout(); if (on) sidebar.refresh() } })
   const rail = h('div', { class: 'pd-rail' },
     cropBtn, h('span', { class: 'pd-sep' }), compareBtn, beforeBtn, clipBtn, h('span', { class: 'pd-sep' }),
     iconBtn({ icon: 'wand-sparkles', tip: 'Auto tone (Ctrl+U)', onClick: () => inspector && app.autoTone?.() }),
@@ -118,7 +118,7 @@ export async function mount(root, { tool, params = {} }) {
   const tabs = h('div', { class: 'pd-tabs', role: 'tablist' },
     ...[['presets', 'Presets', 'wand-sparkles'], ['edit', 'Edit', 'sliders-horizontal']].map(([k, l, ic]) => h('button', { type: 'button', role: 'tab', 'aria-selected': String(k === 'edit'), dataset: { tab: k }, onclick: () => setTab(k) }, icon(ic), l)))
   const develop = h('div', { class: 'pd-view pd-develop', dataset: { left: window.innerWidth > 1180 ? '1' : '0', tab: 'edit' } }, rail, sidebar.el, center, inspectorWrap, tabs)
-  const setTab = (k) => { develop.dataset.tab = k; tabs.querySelectorAll('button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === k))) }
+  const setTab = (k) => { develop.dataset.tab = k; tabs.querySelectorAll('button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === k))); if (k === 'presets') sidebar.refresh() }
   if (window.innerWidth <= 1180) leftBtn.setPressed(false)
 
   const pd = h('div', { class: 'pd', role: 'application', 'aria-label': 'Photo Develop' }, toolbar, busyBox, busyText, h('div', { class: 'pd-main' }, libraryView, develop),

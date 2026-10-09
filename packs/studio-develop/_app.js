@@ -121,14 +121,15 @@ export function createApp() {
     app.order = app.order.filter((id) => app.photos.has(id))
     await store.saveOrder(app.order)
     app.selection = new Set([...app.selection].filter((id) => app.photos.has(id)))
-    if (!app.photos.has(app.activeId)) {
+    const lostActive = !app.photos.has(app.activeId)
+    if (lostActive) {
       app.activeId = app.visible()[0] || null
       if (app.activeId) app.selection = new Set([app.activeId])
       if (!app.activeId) app.view = 'library'
     }
     app.emit('library', { removed: ids })
     app.emit('selection', {})
-    if (!app.activeId) app.emit('view', app.view)
+    if (lostActive) app.emit(app.activeId ? 'active' : 'view', app.activeId || app.view)
   }
 
   // ---------- Selection and navigation ----------

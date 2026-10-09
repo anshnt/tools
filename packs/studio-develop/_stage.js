@@ -323,7 +323,7 @@ export function createStage(app) {
   const ro = new ResizeObserver(() => { layout(); scheduleRender() })
   ro.observe(viewport)
   const offs = [
-    app.on('active', (id) => { if (app.view === 'develop' || cur) load(id) }),
+    app.on('active', (id) => { if (app.view === 'develop') load(id) }), // the library only needs thumbnails, so photos are decoded when Develop is open
     app.on('view', (v) => { if (v === 'develop') { if (!cur || cur.id !== app.activeId) load(app.activeId); else { layout(); scheduleRender() } } }),
     app.on('edit', (ev) => {
       if (ev.id !== app.activeId || !cur) return

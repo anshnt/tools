@@ -102,7 +102,7 @@ export function createSidebar(app, stage) {
   async function renderPreviews() {
     const src = stage.source?.small
     const m = app.active()
-    if (!src || !m || ui.presets === false) return
+    if (!src || !m || ui.presets === false || !root.offsetParent) return // collapsed or hidden: draw when it is shown
     const my = ++prevToken
     try {
       if (prevRenderer?.lost) { prevRenderer = null; prevSrcId = null }
@@ -161,5 +161,5 @@ export function createSidebar(app, stage) {
       if (k !== geomKey) { geomKey = k; schedulePreviews() }
     }),
   ]
-  return { el: root, dispose() { offs.forEach((o) => o()); clearTimeout(previewTimer); prevToken++; prevRenderer?.dispose() } }
+  return { el: root, refresh: schedulePreviews, dispose() { offs.forEach((o) => o()); clearTimeout(previewTimer); prevToken++; prevRenderer?.dispose() } }
 }
