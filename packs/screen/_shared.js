@@ -399,7 +399,7 @@ export const readableOn = (rgb) => (contrastRatio(rgb, [0, 0, 0]) >= contrastRat
 
 export const fmt = {
   hex: (rgb) => rgbToHex(rgb),
-  rgb: (rgb) => `rgb(${rgb.join(', ')})`,
+  rgb: (rgb) => `rgb(${rgb.slice(0, 3).join(", ")})`,
   hsl: (rgb) => { const [a, b, c] = rgbToHsl(rgb); return `hsl(${Math.round(a)}, ${Math.round(b)}%, ${Math.round(c)}%)` },
   oklch: (rgb) => { const [L, C, hh] = rgbToOklch(rgb); return `oklch(${(L * 100).toFixed(1)}% ${C.toFixed(3)} ${hh.toFixed(1)})` },
 }
