@@ -118,7 +118,7 @@ export async function mount(root, { signal }) {
     })
     const star = (k, label, ph) => field(label, Object.assign(textarea({ rows: 2, placeholder: ph }), { value: A[k], oninput: (e) => { A[k] = e.target.value; keepAns() } }))
     const out = h('div', { class: 'cr-md' })
-    const coach = button('Coach me with Claude', { icon: 'sparkles', variant: 'secondary', size: 'sm' })
+    const coach = button('Coach me with AI', { icon: 'sparkles', variant: 'secondary', size: 'sm' })
     coach.addEventListener('click', () => busy(coach, async () => {
       if (!(await ai.ensureKey())) return
       const mine = [A.s && `Situation: ${A.s}`, A.t && `Task: ${A.t}`, A.a && `Action: ${A.a}`, A.r && `Result: ${A.r}`].filter(Boolean).join('\n') || '(nothing written yet)'
@@ -149,7 +149,7 @@ export async function mount(root, { signal }) {
   jd.addEventListener('input', redraw)
   const onField = () => { keepSt(); draw() }
 
-  const aiBtn = button('Add tailored questions with Claude', { icon: 'sparkles', variant: 'secondary' })
+  const aiBtn = button('Add tailored questions with AI', { icon: 'sparkles', variant: 'secondary' })
   const aiErr = h('div')
   aiBtn.addEventListener('click', () => busy(aiBtn, async () => {
     if (!(await ai.ensureKey())) return
@@ -196,7 +196,7 @@ export async function mount(root, { signal }) {
           field('Seniority', select([['entry', 'Entry level'], ['mid', 'Mid level'], ['senior', 'Senior'], ['lead', 'Lead or manager']], st.level, (v) => { st.level = v; onField() })),
           field('Focus', focusChips),
           field('Job description (optional)', jd))),
-        card('Tailor with AI', 'sparkles', h('div', { class: 'stack tight' }, ai.notice('Optional: uses Claude'), h('div', { class: 'row' }, aiBtn), aiErr))),
+        card('Tailor with AI', 'sparkles', h('div', { class: 'stack tight' }, ai.notice('Optional: uses AI'), h('div', { class: 'row' }, aiBtn), aiErr))),
       h('div', { class: 'stack' },
         card('Your question list', 'list-checks', h('div', { class: 'stack tight' },
           catBar, h('div', { class: 'row between' }, progTxt, h('div', { class: 'row' }, button('Copy Markdown', { icon: 'copy', variant: 'ghost', size: 'sm', onClick: () => copyText(md()) }), wb)), prog, list)),
