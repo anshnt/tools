@@ -1,8 +1,8 @@
 // Styles for Video Studio, scoped under .vs (one <style> tag, removed when the tool is left). Colors come from the site's CSS variables.
 const CSS = `
-.vs { --vs-video:#3b82f6; --vs-image:#14b8a6; --vs-title:#f59e0b; --vs-audio:#22c55e; --head:136px; --tl-h:clamp(262px, 36vh, 330px);
+.vs { --vs-video:#3b82f6; --vs-image:#14b8a6; --vs-title:#f59e0b; --vs-audio:#22c55e; --head:136px; --tl-h:clamp(300px, 38vh, 340px);
   display:grid; grid-template-rows:auto minmax(0,1fr) var(--tl-h) auto; gap:8px; min-width:0;
-  height:clamp(680px, calc(100dvh - 118px), 1100px); }
+  height:clamp(700px, calc(100dvh - 118px), 1100px); }
 .tool-body.app:fullscreen .vs { height:calc(100dvh - 20px); }
 .vs *:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
 .vs-panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-sm); min-width:0; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
