@@ -17,9 +17,9 @@ export default [
   { id: 'pomodoro', name: 'Pomodoro timer', desc: 'Focus sessions and breaks with task tracking and daily stats.', icon: 'clock', also: ['student', 'career'], tags: 'pomodoro focus productivity', ready: true },
   { id: 'habit-tracker', name: 'Habit tracker', desc: 'Track daily habits with streaks and a yearly heatmap.', icon: 'check-check', tags: 'habits streaks daily' },
   { id: 'calendar-planner', name: 'Calendar planner', desc: 'Month planner with events and reminders; export to .ics.', icon: 'calendar', tags: 'calendar events planner ics' },
-  { id: 'bmi-calculator', name: 'BMI calculator', desc: 'Body mass index with healthy range, in metric or imperial.', icon: 'heart-pulse', also: ['calc'], tags: 'bmi weight height health' },
-  { id: 'calorie-calculator', name: 'Calorie & BMR calculator', desc: 'Daily calories to maintain, lose or gain weight.', icon: 'flame', also: ['calc'], tags: 'calories bmr tdee diet' },
-  { id: 'water-intake', name: 'Water intake calculator', desc: 'How much water you should drink per day.', icon: 'droplet', also: ['calc'], tags: 'water hydration' },
+  { id: 'bmi-calculator', name: 'BMI calculator', module: 'health', params: { kind: 'bmi' }, desc: 'Body mass index with healthy range, in metric or imperial.', icon: 'heart-pulse', also: ['calc'], tags: 'bmi weight height health', ready: true },
+  { id: 'calorie-calculator', name: 'Calorie & BMR calculator', module: 'health', params: { kind: 'calorie' }, desc: 'Daily calories to maintain, lose or gain weight.', icon: 'flame', also: ['calc'], tags: 'calories bmr tdee diet', ready: true },
+  { id: 'water-intake', name: 'Water intake calculator', module: 'health', params: { kind: 'water' }, desc: 'How much water you should drink per day.', icon: 'droplet', also: ['calc'], tags: 'water hydration', ready: true },
   { id: 'random-picker', name: 'Random picker & spin wheel', desc: 'Spin a wheel, pick names, flip a coin or roll dice.', icon: 'dices', tags: 'wheel random choice coin dice' },
   { id: 'gift-planner', name: 'Birthday & gift planner', desc: 'Remember birthdays and anniversaries with gift ideas and budgets.', icon: 'gift', tags: 'birthday anniversary gifts reminders' },
 ]
