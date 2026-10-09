@@ -90,6 +90,7 @@ export function parseSvg(text, doc) {
   let w = parseLen(root.getAttribute('width'), 0), h = parseLen(root.getAttribute('height'), 0)
   if (!w) w = hasVb ? vb[2] : 0
   if (!h) h = hasVb ? vb[3] : 0
+  let vp = { w: hasVb ? vb[2] : w || 100, h: hasVb ? vb[3] : h || 100 } // size that percentage lengths refer to
   let M0 = I
   if (hasVb) {
     if (!w) w = vb[2]
@@ -207,8 +208,26 @@ export function parseSvg(text, doc) {
     if (own.display === 'none') return []
     for (const a of ['clip-path', 'mask', 'filter']) if (el.hasAttribute(a) && !/^none$/i.test(el.getAttribute(a))) warn.add(a === 'clip-path' ? 'clip paths' : a === 'mask' ? 'masks' : 'filters')
     const own_M = mul(M, parseTransform(el.getAttribute('transform')))
-    const n = (a, d = 0) => parseLen(el.getAttribute(a), d)
+    const AXIS = { x: 'w', cx: 'w', x1: 'w', x2: 'w', width: 'w', rx: 'w', y: 'h', cy: 'h', y1: 'h', y2: 'h', height: 'h', ry: 'h', r: 'r' }
+    const n = (a, d = 0) => {
+      const raw = String(el.getAttribute(a) ?? '').trim()
+      if (raw.endsWith('%')) { const k = AXIS[a], ref = k === 'r' ? Math.sqrt((vp.w ** 2 + vp.h ** 2) / 2) : vp[k] || 0; return (parseFloat(raw) / 100) * ref }
+      return parseLen(raw, d)
+    }
 
+    if (tag === 'svg' && el !== root) { // nested svg: position and viewBox scale its content
+      const nvb = (el.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number)
+      const ok = nvb.length === 4 && nvb.every(Number.isFinite) && nvb[2] > 0 && nvb[3] > 0
+      const nw = el.hasAttribute('width') ? n('width') : ok ? nvb[2] : vp.w, nh = el.hasAttribute('height') ? n('height') : ok ? nvb[3] : vp.h
+      let inner = mul(own_M, tr(n('x'), n('y')))
+      const saved = vp
+      if (ok) { const k = Math.min(nw / nvb[2], nh / nvb[3]); inner = mul(inner, mul(tr((nw - nvb[2] * k) / 2, (nh - nvb[3] * k) / 2), mul(sc(k), tr(-nvb[0], -nvb[1])))); vp = { w: nvb[2], h: nvb[3] } }
+      else vp = { w: nw, h: nh }
+      const kids = []
+      for (const c of el.children) kids.push(...convert(c, props, inner, depth + 1))
+      vp = saved
+      return kids.length ? [finish(mk(doc, 'group', { kids }), el, own, inner)] : []
+    }
     if (tag === 'g' || tag === 'svg' || tag === 'a' || tag === 'switch') {
       const kids = []
       for (const c of el.children) kids.push(...convert(c, props, own_M, depth + 1))
@@ -258,7 +277,9 @@ export function parseSvg(text, doc) {
       const text = lines.map((l) => l.trim()).filter((l, i, a) => l !== '' || (i > 0 && i < a.length - 1)).join('\n')
       if (!text.trim()) return []
       const fs = parseLen(props['font-size'], 16) || 16, fw = props['font-weight'] === 'bold' ? 700 : parseInt(props['font-weight']) || 400
-      const first = el.querySelector('tspan[x]'), xs = nums(el.getAttribute('x') ?? first?.getAttribute('x')), ys = nums(el.getAttribute('y') ?? first?.getAttribute('y'))
+      const first = el.querySelector('tspan[x]')
+      const coord = (a, ref) => { const v = String(el.getAttribute(a) ?? first?.getAttribute(a) ?? '0').trim().split(/[\s,]+/)[0]; return v.endsWith('%') ? (parseFloat(v) / 100) * ref : parseLen(v, 0) }
+      const xs = [coord('x', vp.w)], ys = [coord('y', vp.h)]
       node = mk(doc, 'text', {
         x: xs[0] || 0, y: ys[0] || 0, text, ff: props['font-family'] || 'sans-serif', fs, fw, fi: /italic|oblique/.test(props['font-style'] || ''),
         ta: { middle: 'middle', end: 'end' }[props['text-anchor']] || 'start', lh: 1.2, ls: parseLen(props['letter-spacing'], 0),
