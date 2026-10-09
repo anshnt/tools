@@ -33,8 +33,8 @@ const BASE_CSS = `
 .pz-stat .s{font-size:12px;color:var(--muted);margin-top:3px}
 .pz-stat .s:empty{display:none}
 .pz-stat.ok{--tone:var(--success)}.pz-stat.warn{--tone:var(--warning)}.pz-stat.bad{--tone:var(--danger)}.pz-stat.info{--tone:var(--info)}
-.pz-stat.hero{background:linear-gradient(140deg,color-mix(in srgb,var(--tone,var(--tc)) 18%,var(--surface)),var(--surface));border-color:color-mix(in srgb,var(--tone,var(--tc)) 30%,var(--border))}
-.pz-stat.hero .v{color:var(--tone,var(--tc))}
+.pz-stat.lead{background:linear-gradient(140deg,color-mix(in srgb,var(--tone,var(--tc)) 18%,var(--surface)),var(--surface));border-color:color-mix(in srgb,var(--tone,var(--tc)) 30%,var(--border))}
+.pz-stat.lead .v{color:var(--tone,var(--tc))}
 .pz-chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .pz-chips.scroll{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding:2px 2px 4px;margin:-2px;-webkit-overflow-scrolling:touch}
 .pz-chips.scroll::-webkit-scrollbar{display:none}
@@ -91,6 +91,7 @@ const BASE_CSS = `
 .pz-bar{height:8px;border-radius:999px;background:var(--surface-3);overflow:hidden}
 .pz-bar>i{display:block;height:100%;width:0;border-radius:inherit;background:var(--bc,var(--tc));transition:width .6s var(--ease),background .3s}
 .pz-note{font-size:12.5px;color:var(--muted)}
+.pz-title .pz-note{text-transform:none;letter-spacing:0;font-weight:500}
 .pz-printonly{display:none}
 .pz-pop-in{animation:pz-rise .35s var(--ease) both}
 @media print{
@@ -255,13 +256,13 @@ export function checkBtn(checked, onToggle, label, color) {
 export function stat({ label, value, hint = '', icon: ic, tone, hero } = {}) {
   const v = h('div', { class: 'v' }, value)
   const s = h('div', { class: 's' }, hint)
-  const el = h('div', { class: ['pz-stat', tone, hero && 'hero'] }, h('div', { class: 'l' }, ic && icon(ic), h('span', label)), v, s)
+  const el = h('div', { class: ['pz-stat', tone, hero && 'lead'] }, h('div', { class: 'l' }, ic && icon(ic), h('span', label)), v, s)
   el.set = (nv, nh, nt) => {
     v.textContent = nv
     if (nh != null) s.textContent = nh
-    if (nt !== undefined) el.className = ['pz-stat', nt, hero && 'hero'].filter(Boolean).join(' ')
+    if (nt !== undefined) el.className = ['pz-stat', nt, hero && 'lead'].filter(Boolean).join(' ')
   }
-  el.tween = (to, fmt = (x) => String(Math.round(x)), nh, nt) => { tween(v, to, fmt); if (nh != null) s.textContent = nh; if (nt !== undefined) el.className = ['pz-stat', nt, hero && 'hero'].filter(Boolean).join(' ') }
+  el.tween = (to, fmt = (x) => String(Math.round(x)), nh, nt) => { tween(v, to, fmt); if (nh != null) s.textContent = nh; if (nt !== undefined) el.className = ['pz-stat', nt, hero && 'lead'].filter(Boolean).join(' ') }
   return el
 }
 
@@ -569,3 +570,28 @@ export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 export const plural = (n, w, p = w + 's') => `${n} ${n === 1 ? w : p}`
 export const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 export { clear }
+
+// ---------------------------------------------------------------- clock formatting
+/** 3725000 -> "1:02:05" (ceil to seconds). tenths adds one decimal ("12:05.3", floor). */
+export function fmtClock(ms, { tenths = false, hours = 'auto' } = {}) {
+  ms = Math.max(0, ms)
+  const t = tenths ? Math.floor(ms / 100) / 10 : Math.ceil(ms / 1000)
+  const s = Math.floor(t)
+  const hh = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = s % 60
+  const frac = tenths ? `.${Math.floor((ms % 1000) / 100)}` : ''
+  const body = `${pad(mm)}:${pad(ss)}${frac}`
+  return hours === true || (hours === 'auto' && hh > 0) ? `${hh}:${body}` : body
+}
+/** "10m", "1h 30m", "90s", "1:30", "1:02:03", "25" (minutes) -> seconds, or NaN. */
+export function parseDuration(str) {
+  const s = String(str).trim().toLowerCase()
+  if (!s) return NaN
+  if (/^\d+(:\d{1,2}){1,2}$/.test(s)) { const p = s.split(':').map(Number); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1] }
+  if (/^\d+(\.\d+)?$/.test(s)) return Math.round(parseFloat(s) * 60)
+  const hm = s.match(/^(\d+)\s*h\s*(\d+)$/)
+  if (hm) return +hm[1] * 3600 + +hm[2] * 60
+  const re = /(\d+(?:\.\d+)?)\s*(h|hr|hrs|hours?|m|min|mins|minutes?|s|sec|secs|seconds?)\b/g
+  let total = 0, found = false, m, used = ''
+  while ((m = re.exec(s))) { found = true; used += m[0]; const n = parseFloat(m[1]); const u = m[2][0]; total += u === 'h' ? n * 3600 : u === 'm' ? n * 60 : n }
+  return found && used.replace(/\s/g, '').length === s.replace(/[\s,]|and/g, '').length ? Math.round(total) : NaN
+}
