@@ -69,7 +69,7 @@ async function fetchCerts(host, signal) {
 }
 
 const CSS = `
-.t-ssl .hero { display: grid; gap: 14px; padding: 22px; text-align: left; }
+.t-ssl .lead { display: grid; gap: 14px; padding: 22px; text-align: left; }
 .t-ssl .big { font: 700 clamp(22px, 4.6vw, 34px)/1.15 var(--font); letter-spacing: -.025em; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .t-ssl .big .ico { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; flex: none; }
 .t-ssl .big .ico .icon { width: 26px; height: 26px; }
@@ -105,7 +105,7 @@ export function mount(root, { signal }) {
     const headline = revoked ? 'Certificate was revoked' : expired ? `Expired ${Math.abs(left)} day${Math.abs(left) === 1 ? '' : 's'} ago` : left <= 14 ? `Expires in ${left} day${left === 1 ? '' : 's'}` : `Valid for ${left} more days`
     const bar = h('i')
     requestAnimationFrame(() => (bar.style.width = `${used}%`))
-    const hero = h('section', { class: ['panel', 'hero', 'wt-mesh', tone] },
+    const hero = h('section', { class: ['panel', 'lead', 'wt-mesh', tone] },
       h('div', { class: 'wt-kicker' }, host),
       h('div', { class: 'big' }, h('span', { class: 'ico' }, icon(tone === 'ok' ? 'shield-check' : tone === 'warn' ? 'shield-alert' : 'shield-x')), headline),
       h('div', { class: ['life', tone === 'ok' ? '' : tone] }, bar),

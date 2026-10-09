@@ -43,11 +43,11 @@ export function summarize(hist) {
 
 const CSS = `
 .t-up2 .orbwrap { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 22px; align-items: center; padding: 22px; text-align: left; }
-.t-up2 .orb { --c: var(--muted); width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: var(--c); position: relative; transition: background .4s; }
-.t-up2 .orb .icon { width: 42px; height: 42px; }
-.t-up2 .orb::after { content: ""; position: absolute; inset: -10px; border-radius: 50%; border: 2px solid var(--c); opacity: 0; }
-.t-up2 .orb.up { --c: var(--success); } .t-up2 .orb.slow { --c: var(--warning); } .t-up2 .orb.down { --c: var(--danger); }
-.t-up2 .orb.running::after { animation: up2-ping 2.2s var(--ease) infinite; }
+.t-up2 .upo { --c: var(--muted); width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; color: #fff; background: var(--c); position: relative; transition: background .4s; }
+.t-up2 .upo .icon { width: 42px; height: 42px; }
+.t-up2 .upo::after { content: ""; position: absolute; inset: -10px; border-radius: 50%; border: 2px solid var(--c); opacity: 0; }
+.t-up2 .upo.up { --c: var(--success); } .t-up2 .upo.slow { --c: var(--warning); } .t-up2 .upo.down { --c: var(--danger); }
+.t-up2 .upo.running::after { animation: up2-ping 2.2s var(--ease) infinite; }
 @keyframes up2-ping { 0% { transform: scale(.85); opacity: .55; } 100% { transform: scale(1.35); opacity: 0; } }
 .t-up2 .state { font: 700 clamp(24px, 5vw, 36px)/1.1 var(--font); letter-spacing: -.03em; }
 .t-up2 .ms { font: 600 15px var(--mono); color: var(--text-2); }
@@ -57,7 +57,7 @@ const CSS = `
 .t-up2 .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); } .t-up2 .dot.up { background: var(--success); } .t-up2 .dot.down { background: var(--danger); } .t-up2 .dot.slow { background: var(--warning); }
 .t-up2 .chart { padding: 14px 16px 8px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
 @media (max-width: 520px) { .t-up2 .orbwrap { grid-template-columns: 1fr; justify-items: center; text-align: center; } }
-@media (prefers-reduced-motion: reduce) { .t-up2 .orb.running::after { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .t-up2 .upo.running::after { animation: none; } }
 `
 
 export function mount(root, { signal }) {
@@ -70,7 +70,7 @@ export function mount(root, { signal }) {
 
   const urlIn = h('input', { class: 'input', type: 'text', inputmode: 'url', placeholder: 'https://example.com', 'aria-label': 'Website to watch', autocapitalize: 'off', spellcheck: false, value: hashParam('q'), onkeydown: (e) => { if (e.key === 'Enter') start() } })
   const err = h('div')
-  const orb = h('div', { class: 'orb' }, icon('activity'))
+  const orb = h('div', { class: 'upo' }, icon('activity'))
   const stateEl = h('div', { class: 'state' }, 'Not watching yet')
   const subEl = h('div', { class: 'ms' }, 'Enter a site and press Start.')
   const statsEl = h('div')
@@ -136,7 +136,7 @@ export function mount(root, { signal }) {
   }
 
   function render() {
-    orb.className = ['orb', state === 'idle' ? '' : state, running && 'running'].filter(Boolean).join(' ')
+    orb.className = ['upo', state === 'idle' ? '' : state, running && 'running'].filter(Boolean).join(' ')
     clear(orb, icon(state === 'down' ? 'x' : state === 'slow' ? 'gauge' : state === 'up' ? 'check' : 'activity'))
     const s = summarize(hist)
     const last = s.last

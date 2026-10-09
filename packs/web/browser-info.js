@@ -78,26 +78,26 @@ const CSS = `
 .t-bi .sec { padding: 16px; border: 1px solid var(--border); border-radius: 20px; background: var(--surface); display: grid; gap: 10px; align-content: start; min-width: 0; }
 .t-bi .sec h3 { margin: 0; font-size: 14px; letter-spacing: .01em; display: flex; align-items: center; gap: 8px; }
 .t-bi .sec h3 .icon { width: 17px; height: 17px; color: var(--accent); }
-.t-bi .hero { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center; padding: 22px; }
-.t-bi .hero .big { font-size: clamp(24px, 4.5vw, 38px); font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }
-.t-bi .hero .logo { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; background: var(--brand); color: #fff; box-shadow: 0 12px 30px -12px var(--accent); }
-.t-bi .hero .logo .icon { width: 32px; height: 32px; }
+.t-bi .lead { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center; padding: 22px; }
+.t-bi .lead .big { font-size: clamp(24px, 4.5vw, 38px); font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }
+.t-bi .lead .logo { width: 64px; height: 64px; border-radius: 20px; display: grid; place-items: center; background: var(--brand); color: #fff; box-shadow: 0 12px 30px -12px var(--accent); }
+.t-bi .lead .logo .icon { width: 32px; height: 32px; }
 .t-bi .uastr { font-family: var(--mono); font-size: 12.5px; color: var(--text-2); overflow-wrap: anywhere; word-break: break-all; line-height: 1.55; }
 .t-bi .feat { display: flex; flex-wrap: wrap; gap: 8px; }
 .t-bi .masonry-g { columns: 360px; column-gap: 16px; }
 .t-bi .masonry-g > * { break-inside: avoid; margin-bottom: 16px; }
 .t-bi .wt-kv { border: 0; background: transparent; border-radius: 0; }
 .t-bi .wt-kv-row { padding-left: 0; grid-template-columns: minmax(84px, 128px) minmax(0, 1fr) auto; }
-.t-bi .hero { text-align: left; }
-@media (max-width: 520px) { .t-bi .hero { grid-template-columns: 1fr; } }
+.t-bi .lead { text-align: left; }
+@media (max-width: 520px) { .t-bi .lead { grid-template-columns: 1fr; } }
 `
 
-export function mount(root, { signal }) {
+export function mount(root, { params, signal }) {
   ensureStyle()
   if (!document.getElementById('t-bi-style')) document.head.append(h('style', { id: 't-bi-style' }, CSS))
   const hi = {} // high-entropy client hints + async facts, filled in later
   const grid = h('div', { class: 'masonry-g' })
-  const heroEl = h('section', { class: 'sec hero wt-mesh' })
+  const heroEl = h('section', { class: 'sec lead wt-mesh' })
   let report = ''
 
   const nav = navigator
@@ -259,12 +259,18 @@ export function mount(root, { signal }) {
   const mqls = ['(prefers-color-scheme: dark)', '(prefers-reduced-motion: reduce)'].map((q) => matchMedia(q))
   for (const m of mqls) m.addEventListener?.('change', render)
 
+  const uaFocus = params.focus === 'ua'
+  const decoder = h('section', { class: 'panel stack' }, h('h2', { style: 'margin:0' }, uaFocus ? 'Decode a user agent string' : 'Decode another user agent'), uaIn, uaOut,
+    uaFocus ? h('div', { class: 'row' }, button('Use my own', { icon: 'user', size: 'sm', variant: 'ghost', onClick: () => { uaIn.value = navigator.userAgent; uaIn.dispatchEvent(new Event('input')) } })) : null)
   root.append(h('div', { class: 't-bi stack' },
+    uaFocus ? decoder : null,
+    uaFocus ? h('h2', { style: 'margin:8px 0 0' }, 'Your own browser') : null,
     heroEl,
     h('div', { class: 'row' }, copyButton(() => report, 'Copy report'), button('Download .txt', { icon: 'download', variant: 'secondary', size: 'sm', onClick: () => download(report, 'browser-report.txt', 'text/plain') }), button('Refresh', { icon: 'refresh-cw', variant: 'ghost', size: 'sm', onClick: () => { render(); enrich(); toast('Updated', 'info') } })),
     grid,
-    h('section', { class: 'panel stack' }, h('h2', { style: 'margin:0' }, 'Decode another user agent'), uaIn, uaOut),
+    uaFocus ? null : decoder,
     note('Everything on this page is read by your browser on your device. Nothing is uploaded. These are the same details any website you visit can see, which is useful when reporting a bug.')))
+  if (uaFocus) { uaIn.value = navigator.userAgent; uaIn.dispatchEvent(new Event('input')) }
   render()
   enrich()
   return () => { for (const [ev, fn] of listeners) window.removeEventListener(ev, fn); for (const m of mqls) m.removeEventListener?.('change', render) }

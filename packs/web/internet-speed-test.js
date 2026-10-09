@@ -62,10 +62,10 @@ export function mount(root, { signal }) {
   const fill = h('path', { class: 'fill', d: 'M 20 100 A 80 80 0 0 1 180 100', fill: 'none', 'stroke-width': 14, 'stroke-linecap': 'round', stroke: 'url(#stg)', pathLength: 100, 'stroke-dasharray': 100, 'stroke-dashoffset': 100 })
   const num = h('text', { class: 'num', x: 100, y: 88 }, '0')
   const unit = h('text', { class: 'unit', x: 100, y: 108 }, 'Mbps')
-  const gauge = h('svg', { class: 'gauge', viewBox: '0 0 200 124', role: 'img', 'aria-label': 'Speed gauge' },
+  const gauge = h('svg', { class: 'gauge', viewBox: '0 0 200 126', role: 'img', 'aria-label': 'Speed gauge' },
     h('defs', h('linearGradient', { id: 'stg', x1: 0, y1: 0, x2: 1, y2: 0 }, h('stop', { offset: '0%', 'stop-color': '#6366f1' }), h('stop', { offset: '55%', 'stop-color': '#a855f7' }), h('stop', { offset: '100%', 'stop-color': '#ec4899' }))),
     h('path', { class: 'track', d: 'M 20 100 A 80 80 0 0 1 180 100', fill: 'none', 'stroke-width': 14, 'stroke-linecap': 'round' }), fill, num, unit,
-    ...[[0, 0], [1, 10], [2, 100], [3, 1000]].map(([i, v]) => { const a = Math.PI * (1 - gaugePos(v)); return h('text', { class: 'tick', x: 100 + 98 * Math.cos(a), y: 100 - 98 * Math.sin(a) + 3 }, v === 0 ? '0' : String(v)) }))
+    ...[0, 10, 100, 1000].map((v) => { const a = Math.PI * (1 - gaugePos(v)); const end = v === 0 || v === 1000; return h('text', { class: 'tick', x: end ? (v === 0 ? 20 : 180) : 100 + 99 * Math.cos(a), y: end ? 119 : 100 - 99 * Math.sin(a) + 3 }, String(v)) }))
   const setGauge = (v, big) => { fill.style.strokeDashoffset = String(100 - gaugePos(v) * 100); num.textContent = big ?? fmtMbps(v) }
   const phaseEl = h('div', { class: 'phase', 'aria-live': 'polite' }, 'Ready when you are')
   const goBtn = button('Start test', { icon: 'play', variant: 'primary', size: 'lg', onClick: () => (running ? cancel() : run()) })

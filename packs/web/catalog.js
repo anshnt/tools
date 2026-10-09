@@ -30,5 +30,6 @@ export default [
   { ready: true, id: 'meta-tag-generator', name: 'Meta tag generator', desc: 'Generate SEO, Open Graph and Twitter meta tags for a page.', icon: 'code', also: ['dev'], tags: 'seo meta og tags' },
   { ready: true, id: 'robots-txt', name: 'robots.txt generator', desc: 'Build a robots.txt with allow/disallow rules and sitemap.', icon: 'bot', also: ['dev'], tags: 'robots crawler seo' },
   { ready: true, id: 'internet-speed-test', name: 'Internet speed test', desc: 'Measure download, upload and latency from your browser.', icon: 'gauge', mode: 'online', tags: 'speed test bandwidth ping' },
+  { ready: true, id: 'user-agent-parser', name: 'User agent parser', module: 'browser-info', params: { focus: 'ua' }, desc: 'Decode any user agent string into browser, engine, operating system and device.', icon: 'scan-text', also: ['dev'], tags: 'ua user agent string decode parse detect' },
   { ready: true, id: 'browser-info', name: 'What is my browser', desc: 'Browser, OS, screen, language and feature support at a glance.', icon: 'monitor-smartphone', also: ['dev', 'screen'], tags: 'user agent screen resolution' },
 ]

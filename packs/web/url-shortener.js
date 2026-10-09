@@ -31,7 +31,7 @@ async function shorten(provider, url, alias, signal) {
     text = await res.text()
   } catch {
     if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { code: 'ABORT' })
-    throw Object.assign(new Error(`Could not reach ${provider}. Check your connection (an ad blocker can also block it).`), { user: false })
+    throw Object.assign(new Error(`Could not get a reply from ${provider}. The service may be down, or an ad blocker or firewall may be blocking it.`), { user: false })
   } finally { clearTimeout(timer); signal?.removeEventListener('abort', onAbort) }
   return readReply(text, status)
 }

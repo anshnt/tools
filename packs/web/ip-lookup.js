@@ -23,7 +23,7 @@ export function reservedKind(ip) {
 const fmtOffset = (s) => { const n = Number(s); if (!Number.isFinite(n)) return ''; const a = Math.abs(n); return `UTC${n < 0 ? '-' : '+'}${String(Math.floor(a / 3600)).padStart(2, '0')}:${String(Math.floor((a % 3600) / 60)).padStart(2, '0')}` }
 
 const CSS = `
-.t-ip .hero { display: grid; gap: 14px; padding: 24px; text-align: left; }
+.t-ip .lead { display: grid; gap: 14px; padding: 24px; text-align: left; }
 .t-ip .ipbig { font: 700 clamp(26px, 5.4vw, 46px)/1.1 var(--mono); letter-spacing: -.03em; overflow-wrap: anywhere; }
 .t-ip .where { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 550; flex-wrap: wrap; }
 .t-ip .flag { width: 30px; height: 22px; border-radius: 5px; object-fit: cover; box-shadow: 0 0 0 1px var(--border); }
@@ -72,7 +72,7 @@ export function mount(root, { params, signal }) {
     const place = [d.city, d.region, d.country].filter(Boolean).join(', ')
     const c = d.connection || {}, tz = d.timezone || {}
     return h('div', { class: 'stack' },
-      h('section', { class: 'panel hero wt-mesh' },
+      h('section', { class: 'panel lead wt-mesh' },
         h('div', { class: 'wt-kicker' }, you ? 'Your public IP address' : 'IP address'),
         h('div', { class: 'row', style: 'justify-content:space-between;align-items:center' }, h('div', { class: 'ipbig' }, d.ip), h('div', { class: 'row' }, copyButton(() => d.ip, 'Copy IP', { variant: 'primary' }))),
         h('div', { class: 'where' }, d.flag?.img ? h('img', { class: 'flag', src: d.flag.img, alt: '', referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove() }) : null, place || 'Location unknown',

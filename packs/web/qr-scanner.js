@@ -191,8 +191,8 @@ const CSS = `
 .t-qs .view.idle .frame, .t-qs .view.idle video { opacity: .0; }
 .t-qs .hint { position: absolute; z-index: 3; left: 0; right: 0; bottom: 14px; text-align: center; font-size: 13px; color: rgba(255,255,255,.85); text-shadow: 0 1px 6px rgba(0,0,0,.6); padding: 0 16px; }
 .t-qs .cta { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; justify-items: center; gap: 14px; text-align: center; padding: 22px; color: #fff; }
-.t-qs .cta .orb { width: 84px; height: 84px; border-radius: 28px; display: grid; place-items: center; background: linear-gradient(135deg, #6366f1, #a855f7 55%, #ec4899); box-shadow: 0 22px 50px -14px rgba(168, 85, 247, .8); animation: qs-float 3.4s ease-in-out infinite; }
-.t-qs .cta .orb .icon { width: 38px; height: 38px; }
+.t-qs .cta .ball { width: 84px; height: 84px; border-radius: 28px; display: grid; place-items: center; background: linear-gradient(135deg, #6366f1, #a855f7 55%, #ec4899); box-shadow: 0 22px 50px -14px rgba(168, 85, 247, .8); animation: qs-float 3.4s ease-in-out infinite; }
+.t-qs .cta .ball .icon { width: 38px; height: 38px; }
 @keyframes qs-float { 50% { transform: translateY(-8px) rotate(-3deg); } }
 .t-qs .cta p { margin: 0; max-width: 34ch; color: rgba(255,255,255,.78); font-size: 14px; }
 .t-qs .flash { position: absolute; inset: 0; z-index: 5; background: #4ade80; opacity: 0; pointer-events: none; }
@@ -214,7 +214,7 @@ const CSS = `
 .t-qs .snapbox { position: relative; border-radius: 18px; overflow: hidden; border: 1px solid var(--border); background: var(--checker); }
 .t-qs .snapbox canvas { display: block; width: 100%; height: auto; max-height: 460px; object-fit: contain; }
 @media (max-width: 520px) { .t-qs .view { aspect-ratio: 3 / 4; border-radius: 22px; } .t-qs .frame { inset: 22% 12%; } }
-@media (prefers-reduced-motion: reduce) { .t-qs .frame .line, .t-qs .cta .orb { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .t-qs .frame .line, .t-qs .cta .ball { animation: none; } }
 `
 
 export function mount(root, { signal }) {
@@ -230,7 +230,7 @@ export function mount(root, { signal }) {
   const frame = h('div', { class: 'frame', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i'), h('span', { class: 'line' }))
   const hint = h('div', { class: 'hint', 'aria-live': 'polite' }, 'Point the camera at a QR code or barcode')
   const startBtn = button('Start camera', { icon: 'camera', variant: 'primary', size: 'lg', onClick: () => startCamera() })
-  const cta = h('div', { class: 'cta' }, h('div', { class: 'orb' }, icon('scan-qr-code')), h('div', h('h3', { style: 'margin:0 0 6px;font-size:20px' }, 'Scan with your camera'), h('p', 'Nothing is recorded or uploaded. Frames are read on your device and discarded.')), startBtn)
+  const cta = h('div', { class: 'cta' }, h('div', { class: 'ball' }, icon('scan-qr-code')), h('div', h('h3', { style: 'margin:0 0 6px;font-size:20px' }, 'Scan with your camera'), h('p', 'Nothing is recorded or uploaded. Frames are read on your device and discarded.')), startBtn)
   const view = h('div', { class: 'view idle' }, video, snap, frame, hint, cta, h('div', { class: 'flash' }))
   const camErr = h('div')
   const stopBtn = button('Stop', { icon: 'square', onClick: () => stopCamera(true) })
