@@ -226,7 +226,7 @@ export function mount(root) {
     const ms = Array.from({ length: 6 }, (_, i) => shiftMonth(S().month, i - 5))
     const tt = ms.map((m) => totals(inMonth(S().tx, m)))
     return { type: 'bar', data: { labels: ms.map((m) => monthLabel(m, false)), datasets: [{ label: 'Income', data: tt.map((x) => x.income), backgroundColor: c.success, borderRadius: 6, maxBarThickness: 28 }, { label: 'Expenses', data: tt.map((x) => x.expense), backgroundColor: c.danger, borderRadius: 6, maxBarThickness: 28 }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { usePointStyle: true, boxWidth: 8, color: c.text } }, tooltip: { callbacks: { label: (x) => ` ${x.dataset.label}: ${$(x.parsed.y)}` } } }, scales: { x: { grid: { display: false }, ticks: { color: c.muted } }, y: { beginAtZero: true, grid: { color: c.grid }, ticks: { color: c.muted, callback: (v) => moneyShort(v, S().currency) } } } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { usePointStyle: true, boxWidth: 8, color: c.text } }, tooltip: { callbacks: { label: (x) => ` ${x.dataset.label}: ${$(x.parsed.y)}` } } }, scales: { x: { grid: { display: false }, ticks: { color: c.muted } }, y: { beginAtZero: true, suggestedMax: 1000, grid: { color: c.grid }, ticks: { color: c.muted, callback: (v) => moneyShort(v, S().currency) } } } } }
   }
   function renderCharts() {
     const has = byCategory(monthTx()).length > 0
