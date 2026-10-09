@@ -20,9 +20,9 @@ import { swatchCss } from './_paint.js'
 
 const TOOLS = [
   ['select', 'mouse-pointer-2', 'Selection', 'V', 'Click to select. Drag to move, drag a handle to resize, drag just outside a corner to rotate. Shift adds to the selection.'],
-  ['direct', 'mouse-pointer', 'Direct selection', 'A', 'Click a shape, then drag its points and handles. Double-click a segment to add a point, or a point to switch smooth and corner.'],
+  ['direct', 'mouse-pointer', 'Direct selection', 'A', 'Click a shape, then drag its points, handles or curve segments. Double-click a segment to add a point, or a point to switch smooth and corner.'],
   null,
-  ['pen', 'pen-tool', 'Pen', 'P', 'Click for corner points, drag for curves. Click the first point to close, Enter to finish an open path.'],
+  ['pen', 'pen-tool', 'Pen', 'P', 'Click for corner points, drag for curves. Click the first point to close, Enter to finish, or click an open end to continue it.'],
   ['pencil', 'pencil', 'Pencil', 'N', 'Drag to draw freehand. The line is smoothed when you let go; finish near the start to close the shape.'],
   null,
   ['rect', 'square', 'Rectangle', 'M', 'Drag to draw. Shift makes a square, Alt draws from the centre. Click once for a default size.'],
