@@ -67,7 +67,7 @@ export async function exportPhotos(photos, opts, { onProgress, signal } = {}) {
       }
     }
   } finally {
-    renderer.trim()
+    renderer.dispose() // also releases the WebGL context, which would otherwise linger until garbage collection
   }
   if (!entries.length) throw new Error(failed[0] || 'Nothing could be exported.')
   if (entries.length === 1 && !opts.zip) return { blob: entries[0].data, filename: entries[0].name, count: 1, bytes, failed }

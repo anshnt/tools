@@ -372,7 +372,7 @@ export async function mount(root, { tool, params = {} }) {
   if (disposed) return () => {}
   const last = lstore.load('pdev:last', {})
   app.activeId = app.photos.has(last.id) ? last.id : app.order[0] || null
-  if (app.activeId) { app.selection = new Set([app.activeId]); app.anchor = app.activeId }
+  if (app.activeId) { app.selection = new Set([app.activeId]); app.anchor = app.activeId; app.emit('active', app.activeId) } // panels were built before the library loaded, so tell them which photo is active
   libGrid.update(); filters.update()
   thumbs.backfill()
   syncView()
@@ -381,8 +381,8 @@ export async function mount(root, { tool, params = {} }) {
   offs.push(app.on('view', remember), app.on('active', remember))
   if (params.section) inspector.openSection(params.section)
   if (params.start === 'batch') toast('Add photos, edit one, copy its settings and paste them onto the rest, then Export.', 'info', 7000)
-  const dz = new ResizeObserver(() => stage.layout())
-  dz.observe(pd)
+  const dz = new ResizeObserver(() => { pd.style.setProperty('--tb', `${toolbar.offsetHeight}px`); stage.layout() }) // the phone layout pins the toolbar, so the rows below need its real height
+  dz.observe(pd); dz.observe(toolbar)
 
   // ---------- cleanup ----------
   const cleanup = () => {

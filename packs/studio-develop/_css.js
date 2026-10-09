@@ -283,7 +283,8 @@ const CSS = `
 
 /* phones and small tablets: the page scrolls, the photo stays pinned while the panels move underneath */
 @media (max-width: 900px) {
-  .pd { --stage-h: clamp(210px, 38vh, 400px); --pin: calc(var(--header-h) + 2px); height: auto; overflow: clip; }
+  .pd { --stage-h: clamp(190px, 34vh, 400px); --tb: 44px; --pin: calc(var(--header-h) + 2px); height: auto; overflow: clip; }
+  .pd-toolbar { position: sticky; top: var(--pin); z-index: 10; min-height: 44px; } /* Export and Undo stay reachable while the panels scroll; --tb is set from its measured height */
   .pd-main { display: block; flex: none; }
   .pd-view.on { display: block; }
   .pd-library.on { display: flex; flex-direction: column; }
@@ -291,11 +292,11 @@ const CSS = `
   .pd-develop.on { display: flex; flex-direction: column; }
   .pd-center { display: contents; }
   .pd-rail { order: 0; } .pd-stage { order: 1; } .pd-bar { order: 2; } .pd-film { order: 3; } .pd-tabs { order: 4; } .pd-side, .pd-inspector-wrap { order: 5; }
-  .pd-rail { position: sticky; top: var(--pin); z-index: 9; height: 44px; flex: none; flex-direction: row; justify-content: center; padding: 3px 6px; border-right: 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .pd-rail { position: sticky; top: calc(var(--pin) + var(--tb)); z-index: 9; height: 44px; flex: none; flex-direction: row; justify-content: center; padding: 3px 6px; border-right: 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
   .pd-rail .pd-sep { width: 1px; height: 22px; margin: 0 4px; }
   .pd-rail .pd-ib { flex: none; }
-  .pd-stage { position: sticky; top: calc(var(--pin) + 44px); z-index: 8; height: var(--stage-h); min-height: 0; flex: none; }
-  .pd-bar { position: sticky; top: calc(var(--pin) + 44px + var(--stage-h)); z-index: 8; background: var(--pd-panel); }
+  .pd-stage { position: sticky; top: calc(var(--pin) + var(--tb) + 44px); z-index: 8; height: var(--stage-h); min-height: 0; flex: none; }
+  .pd-bar { position: sticky; top: calc(var(--pin) + var(--tb) + 44px + var(--stage-h)); z-index: 8; background: var(--pd-panel); }
   .pd-bar .name, .pd-zoomlabel, .pd-bar .pd-ib[data-tip^="Zoom in"], .pd-bar .pd-ib[data-tip^="Zoom out"] { display: none; }
   .pd .pd-film.pd-grid { height: 76px; }
   .pd-tabs { display: flex; border-top: 1px solid var(--border); background: var(--pd-panel); position: relative; z-index: 6; }
@@ -318,9 +319,12 @@ const CSS = `
 }
 @media (max-width: 480px) {
   .pd-ib { min-width: 32px; height: 32px; }
+  .pd-brand { display: none; }
   .pd-views button span { display: none; }
   .pd-search { min-width: 0; }
 }
+/* landscape phones: no room to pin the toolbar as well */
+@media (max-width: 900px) and (max-height: 520px) { .pd { --tb: 0px !important; } .pd-toolbar { position: relative; } }
 `
 export function injectCss() {
   if (document.getElementById('pd-css')) return
