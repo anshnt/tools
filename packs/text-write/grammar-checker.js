@@ -1,6 +1,6 @@
 // Grammar checker and spell checker (params.spelling) on the public LanguageTool API. Underlines issues inside the text,
 // explains each one, applies fixes with a click (undo works), and chunks long text to respect the free rate limits.
-import { h, button, busy, alert, field, select, toggle, clear, toast, icon, debounce, onCleanup, empty } from '../../lib/ui.js'
+import { h, button, busy, field, select, toggle, clear, toast, icon, debounce, onCleanup, empty } from '../../lib/ui.js'
 import { toolRoot, addStyle, textInput, chip, kicker, note } from './_shared.js'
 import { load, save } from '../../lib/store.js'
 
@@ -41,10 +41,10 @@ export function chunkForCheck(text, max = MAX_CHUNK) {
     let end = Math.min(p + max, text.length)
     if (end < text.length) {
       const win = text.slice(p, end)
-      let cut = win.lastIndexOf('\n\n')
-      if (cut < max * 0.4) cut = Math.max(win.lastIndexOf('\n'), win.search(/[.!?]\s[^.!?]*$/) + 1)
-      if (cut < max * 0.4) cut = win.lastIndexOf(' ')
-      end = p + (cut > 0 ? cut + 1 : win.length)
+      let cut = win.lastIndexOf('\n\n'), len = 2
+      if (cut < max * 0.4) { cut = Math.max(win.lastIndexOf('\n'), win.search(/[.!?]\s[^.!?]*$/) + 1); len = 1 }
+      if (cut < max * 0.4) { cut = win.lastIndexOf(' '); len = 1 }
+      end = p + (cut > 0 ? cut + len : win.length)
     }
     out.push({ start: p, text: text.slice(p, end) })
     p = end
@@ -147,6 +147,7 @@ const CSS = `
 
 export function mount(root, { params, signal }) {
   addStyle('tw-gc-css', CSS)
+  const canHover = matchMedia('(hover: hover)').matches
   const spelling = !!params?.spelling
   const prefs = { language: 'auto', picky: false, live: false, ...load('grammar', {}) }
   const dict = new Set(load('grammar-dict', []))
@@ -175,7 +176,8 @@ export function mount(root, { params, signal }) {
   const liveTog = toggle('Re-check automatically while I type', prefs.live, (v) => { prefs.live = v; save('grammar', prefs) })
   const go = button(spelling ? 'Check spelling' : 'Check grammar', { icon: spelling ? 'spell-check' : 'spell-check-2', variant: 'primary', size: 'lg' })
   const fixAll = button('Apply first suggestions', { icon: 'check-check', size: 'sm', variant: 'secondary', onClick: () => applyAll() })
-  const undoBtn = button('Undo all fixes', { icon: 'undo-2', size: 'sm', variant: 'ghost', hidden: true, onClick: () => undoAll() })
+  const undoBtn = button('Undo all fixes', { icon: 'undo-2', size: 'sm', variant: 'ghost', onClick: () => undoAll() })
+  undoBtn.hidden = true
   let beforeFix = null
 
   // ---- editor plumbing
@@ -377,7 +379,7 @@ export function mount(root, { params, signal }) {
   root.append(toolRoot('gc',
     h('div', { class: ['tool-split', 'wide-left'] },
       h('div', { class: 'stack' }, h('section', { class: 'tw-stage' }, h('div', { class: 'stack' }, kicker('Your text', 'type'), inp.el)),
-        h('div', { class: 'tw-bar' }, go, prog.el, h('span', { class: 'grow' }), h('span', { class: 'tw-sub' }, 'Ctrl+Enter to check')), result, h('section', { class: 'tw-stage' }, controls)),
+        h('div', { class: 'tw-bar' }, go, prog.el, h('span', { class: 'grow' }), canHover && h('span', { class: 'tw-sub' }, 'Ctrl+Enter to check')), result, h('section', { class: 'tw-stage' }, controls)),
       h('section', { class: 'tw-stage' }, h('div', { class: 'stack' }, h('div', { class: 'tw-head' }, kicker(spelling ? 'Spelling' : 'Suggestions', 'list-checks'), h('div', { class: 'row' }, fixAll, undoBtn)), summary, filters, list))),
     note('Uses the free LanguageTool service (api.languagetool.org). Only the text you check is sent, so avoid confidential text. The free limit is about 20 checks a minute.', 'cloud')))
 }

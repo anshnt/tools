@@ -42,7 +42,7 @@ export function analyze(text) {
     letters += (wd.w.match(/\p{L}/gu) || []).length
     if (s >= 3 && !isNum) {
       poly++
-      const proper = /^\p{Lu}/u.test(wd.w) && !startsOfSentence.has(wd.start) && !sents.some((x) => x.start === wd.start)
+      const proper = /^\p{Lu}/u.test(wd.w) && !startsOfSentence.has(wd.start)
       if (!proper && !wd.w.includes('-')) { complex++; hard.push({ start: wd.start, end: wd.end }) }
     }
   }
@@ -195,7 +195,7 @@ export function mount(root) {
     clear(tips, list)
     paintText()
   }
-  const later = debounce(render, inp.get().length > 20000 ? 350 : 120)
+  const later = debounce(render, 250)
 
   render()
   root.append(toolRoot('read',

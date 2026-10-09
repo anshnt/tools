@@ -7,7 +7,7 @@ export default [
   { id: 'markdown-to-word', name: 'Markdown to Word', desc: 'Convert Markdown into a styled .docx document.', icon: 'file-type-2', tags: 'md docx', ready: true },
   { id: 'text-to-speech', name: 'Text to speech', desc: 'Read text aloud with your device voices, adjust speed and pitch.', icon: 'volume-2', tags: 'tts read aloud voice', ready: true },
   { id: 'text-to-voice', name: 'Text to voice (natural, download)', module: 'text-to-speech', params: { hq: true }, cat: 'ai', also: ['text'], mode: 'model', desc: 'Natural-sounding speech from an on-device voice model; download as WAV.', icon: 'audio-lines', tags: 'tts natural voice wav download kokoro', ready: true },
-  { id: 'speech-to-text', name: 'Speech to text', desc: 'Dictate live, or transcribe an audio file on your device.', icon: 'mic', mode: 'model', tags: 'dictation transcribe voice typing stt', ready: true },
+  { id: 'speech-to-text', name: 'Speech to text', desc: 'Dictate with browser speech recognition, or transcribe audio files on-device with Whisper.', icon: 'mic', mode: 'model', tags: 'dictation transcribe voice typing stt', ready: true },
   { id: 'voice-to-text', name: 'Voice to text', module: 'speech-to-text', params: { file: true }, cat: 'ai', mode: 'model', desc: 'Turn voice notes and recordings into text with on-device Whisper.', icon: 'mic-vocal', tags: 'voice note whatsapp audio transcribe', ready: true },
   { id: 'grammar-checker', name: 'Grammar checker', desc: 'Find grammar, style and punctuation issues with one-click fixes.', icon: 'spell-check-2', mode: 'online', tags: 'grammar proofread languagetool', ready: true },
   { id: 'spell-checker', name: 'Spell checker', module: 'grammar-checker', params: { spelling: true }, desc: 'Catch spelling mistakes in English and other languages.', icon: 'spell-check', mode: 'online', tags: 'spelling typos', ready: true },
@@ -17,4 +17,8 @@ export default [
   { id: 'readability-checker', name: 'Readability checker', desc: 'Flesch reading ease, grade level, long sentences and passive voice.', icon: 'gauge', tags: 'flesch grade level reading', ready: true },
   { id: 'plagiarism-checker', name: 'Plagiarism checker', desc: 'Find overlap between texts and run exact-phrase web searches for suspect sentences.', icon: 'shield-check', tags: 'similarity duplicate copied', ready: true },
   { id: 'text-editor', name: 'Online notepad', desc: 'A distraction-free notepad that autosaves on this device.', icon: 'notebook-pen', tags: 'notes notepad write autosave', ready: true },
+  // Extra tools in this pack (they share word-lookup.js through params)
+  { id: 'synonym-finder', name: 'Synonym and antonym finder', module: 'word-lookup', params: { mode: 'syn' }, also: ['student'], mode: 'online', desc: 'Find synonyms, antonyms, related and describing words, with short meanings.', icon: 'book-a', tags: 'thesaurus synonyms antonyms words vocabulary', ready: true },
+  { id: 'rhyme-finder', name: 'Rhyme finder', module: 'word-lookup', params: { mode: 'rhy' }, mode: 'online', desc: 'Perfect and near rhymes for songs and poems, grouped by syllables.', icon: 'music', tags: 'rhymes poetry lyrics song words', ready: true },
+  { id: 'crossword-solver', name: 'Crossword and word pattern solver', module: 'word-lookup', params: { mode: 'pat' }, mode: 'online', desc: 'Fill in the missing letters (c?o??) with an optional clue to find the word.', icon: 'grid-3x3', tags: 'crossword wordle scrabble pattern missing letters', ready: true },
 ]

@@ -1,5 +1,5 @@
 // Word to Markdown: .docx -> HTML (mammoth) -> Markdown (turndown) with GFM tables, footnotes and optional images in a ZIP.
-import { h, dropzone, button, alert, empty, segmented, toggle, field, textarea, stats, progress, copyButton, download, formatBytes, formatNumber, clear, toast, onCleanup } from '../../lib/ui.js'
+import { h, dropzone, button, alert, empty, segmented, toggle, field, textarea, stats, progress, copyButton, download, formatBytes, formatNumber, clear, onCleanup } from '../../lib/ui.js'
 import { mammoth as loadMammoth, turndown as loadTurndown, marked as loadMarked, dompurify as loadPurify } from '../../lib/libs.js'
 import { withExt, baseName, zip, base64ToBytes } from '../../lib/files.js'
 import { toolRoot, kicker, note, celebrate, addStyle } from './_shared.js'
@@ -23,6 +23,15 @@ export function makeService(Turndown, { bullet = '-' } = {}) {
     const td = new Turndown({ headingStyle: 'atx', codeBlockStyle: 'fenced', bulletListMarker: bullet, emDelimiter: '*', strongDelimiter: '**', hr: '---', linkStyle: 'inlined' })
     td.addRule('strikethrough', { filter: ['del', 's', 'strike'], replacement: (c) => `~~${c}~~` })
     td.keep(['sub', 'sup'])
+    // Word code paragraphs come through as a bare <pre> (no <code>), which Turndown would flatten into a paragraph
+    td.addRule('barePre', {
+      filter: (node) => node.nodeName === 'PRE' && !node.querySelector('code'),
+      replacement(_c, node) {
+        const copy = node.cloneNode(true)
+        copy.querySelectorAll('br').forEach((br) => br.replaceWith('\n'))
+        return `\n\n\`\`\`\n${copy.textContent.replace(/\n$/, '')}\n\`\`\`\n\n`
+      },
+    })
     // one space after the marker and two-or-three space continuation indents, like most Markdown editors write it
     td.addRule('listItem', {
       filter: 'li',

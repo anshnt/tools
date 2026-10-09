@@ -242,7 +242,7 @@ export function mount(root, { signal }) {
   root.append(toolRoot('tr',
     h('section', { class: 'tw-stage' }, h('div', { class: 'stack' }, h('div', { class: 'tw-pair' }, field('From', srcSel), swap, field('To', tgtSel)), field('Engine', engineChips), engNote)),
     h('div', { class: 'tool-split' }, h('section', { class: 'tw-stage' }, h('div', { class: 'stack' }, kicker('Original', 'type'), inp.el)), outCard),
-    h('div', { class: 'tw-bar' }, go, h('span', { class: 'tw-sub' }, 'Ctrl+Enter to translate')), result,
+    h('div', { class: 'tw-bar' }, go, matchMedia('(hover: hover)').matches && h('span', { class: 'tw-sub' }, 'Ctrl+Enter to translate')), result,
     ai.notice('Claude engine'),
     note('MyMemory and Claude send the text you translate to their servers. Chrome on-device translation keeps it on your computer. MyMemory is free but rate limited, and short phrases can come back oddly.', 'cloud')))
 }

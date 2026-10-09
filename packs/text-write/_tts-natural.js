@@ -1,5 +1,5 @@
 // Text to voice (natural, download): Kokoro-82M on the device. Streams audio while it is being generated and saves a WAV.
-import { h, button, busy, alert, field, rangeField, toggle, segmented, progress, clear, formatDuration, formatBytes, download, toast, onCleanup } from '../../lib/ui.js'
+import { h, button, busy, alert, rangeField, toggle, segmented, progress, clear, formatDuration, formatBytes, download, toast, onCleanup } from '../../lib/ui.js'
 import { toolRoot, addStyle, textInput, tiles, kicker, note, wave, celebrate, SAMPLE_ARTICLE } from './_shared.js'
 import { VOICES, SAMPLE_RATE, chunkText, loadEngine, speakChunk, encodeWav, gpuAvailable, modelSize } from './_kokoro.js'
 import { load, save } from '../../lib/store.js'
@@ -67,7 +67,20 @@ export function mount(root, { signal }) {
     const AC = window.AudioContext || window.webkitAudioContext
     const ctx = new AC({ sampleRate: SAMPLE_RATE })
     state.ctx = ctx
-    let nextAt = 0, playAlong = true, sources = []
+    let nextAt = 0, playAlong = false, started = false, sources = [], doneChars = 0, genAfter = 0, audioAfter = 0
+    const totalChars = chunks.reduce((n, c) => n + c.length, 0)
+    const queue = []
+    const play = (a) => {
+      const buf = ctx.createBuffer(1, a.length, SAMPLE_RATE)
+      buf.copyToChannel(a, 0)
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+      src.connect(ctx.destination)
+      nextAt = Math.max(ctx.currentTime + 0.05, nextAt)
+      src.start(nextAt)
+      sources.push(src)
+      nextAt += buf.duration + 0.18
+    }
     try {
       prog.set(null, `Loading the voice model (first time downloads ${modelSize(device)} MB, then it is cached)`)
       let eng
@@ -97,24 +110,26 @@ export function mount(root, { signal }) {
           a = await speakChunk(eng, chunks[i], { voice: prefs.voice, speed: prefs.speed })
         }
         if (sig.aborted) break
-        genSec += (performance.now() - t0) / 1000
+        const gs = (performance.now() - t0) / 1000
+        genSec += gs
         audioSec += a.length / SAMPLE_RATE
+        doneChars += chunks[i].length
         if (!a.length) continue
+        if (audios.length >= 1) { genAfter += gs; audioAfter += a.length / SAMPLE_RATE } // the first chunk includes model warm-up, so it is left out of the speed estimate
         audios.push(a)
-        // once we know how fast this device is, only play along if generation keeps up with playback
-        if (audios.length === 1) playAlong = genSec <= audioSec * 0.9 || chunks.length === 1
-        if (playAlong) {
-          const buf = ctx.createBuffer(1, a.length, SAMPLE_RATE)
-          buf.copyToChannel(a, 0)
-          const src = ctx.createBufferSource()
-          src.buffer = buf
-          src.connect(ctx.destination)
-          nextAt = Math.max(ctx.currentTime + 0.05, nextAt)
-          src.start(nextAt)
-          sources.push(src)
-          nextAt += buf.duration + 0.18
+        queue.push(a)
+        // Start playing as soon as that cannot run dry: when generation is faster than playback straight away, otherwise
+        // once enough audio is buffered to cover the gap for the rest of the text.
+        if (!started) {
+          const rtf = audios.length >= 2 ? genAfter / Math.max(audioAfter, 0.01) : gs / Math.max(a.length / SAMPLE_RATE, 0.01)
+          const remaining = ((totalChars - doneChars) / Math.max(doneChars, 1)) * audioSec
+          const need = Math.max(0, remaining * (rtf - 1))
+          const firstOnly = audios.length === 1 && chunks.length > 1 && rtf > 0.5
+          if (!firstOnly && audioSec >= need) started = true
         }
+        if (started) while (queue.length) play(queue.shift())
       }
+      playAlong = started
       wv.set(false)
       now.hidden = true
       if (!audios.length) return
@@ -134,8 +149,11 @@ export function mount(root, { signal }) {
       if (!stopped) celebrate(host)
       if (!playAlong && !stopped) audio.play().catch(() => {})
     } finally {
-      sources.forEach((s) => { try { s.stop() } catch { /* already finished */ } })
-      ctx.close().catch(() => {})
+      if (sig.aborted || !started) { sources.forEach((s) => { try { s.stop() } catch { /* already finished */ } }); ctx.close().catch(() => {}) } else {
+        // generation finished while the audio is still playing: let it play out, then free the audio device
+        setTimeout(() => ctx.close().catch(() => {}), Math.max(0, nextAt - ctx.currentTime) * 1000 + 800)
+        state.late = { ctx, sources }
+      }
       state.ctx = null
       state.running = false
       stop.disabled = true
@@ -148,7 +166,12 @@ export function mount(root, { signal }) {
   go.addEventListener('click', () => busy(go, run, { label: 'Generating', errorTo: result, progress: prog }))
   stop.addEventListener('click', () => state.abort?.abort())
   signal?.addEventListener('abort', () => state.abort?.abort())
-  onCleanup(() => { state.abort?.abort(); if (state.url) URL.revokeObjectURL(state.url) })
+  onCleanup(() => {
+    state.abort?.abort()
+    state.late?.sources.forEach((src) => { try { src.stop() } catch { /* done */ } })
+    state.late?.ctx.close().catch(() => {})
+    if (state.url) URL.revokeObjectURL(state.url)
+  })
 
   const voicePanel = h('section', { class: 'tw-stage' }, h('div', { class: 'stack' },
     kicker('Voice', 'audio-lines'),

@@ -60,7 +60,8 @@ export function mount(root, { signal }) {
   const engineSeg = segmented([['claude', 'Claude'], ['chrome', 'Chrome on-device']], 'claude', (v) => setEngine(v), 'Engine')
   const showDiff = toggle('Highlight new wording', true, () => results.querySelectorAll('.tw-ver').forEach((v) => v._render?.()))
   const go = button('Paraphrase', { icon: 'repeat-2', variant: 'primary', size: 'lg' })
-  const stop = button('Stop', { icon: 'square', variant: 'secondary', size: 'lg', hidden: true, onClick: () => st.abort?.abort() })
+  const stop = button('Stop', { icon: 'square', variant: 'secondary', size: 'lg', onClick: () => st.abort?.abort() })
+  stop.hidden = true
   const engineBox = h('div', { hidden: true }, field('Engine', engineSeg, 'Claude uses your Anthropic key. Chrome on-device needs no key but supports fewer tones.'))
 
   function setEngine(e) {
@@ -166,6 +167,7 @@ export function mount(root, { signal }) {
       if (st.engine === 'chrome') await runChrome(text, st.abort.signal)
       else await runClaude(text, st.abort.signal)
       celebrate(results.firstChild)
+      if (!matchMedia('(min-width: 900px)').matches) results.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
     } finally { stop.hidden = true }
   }, { label: 'Rewriting', errorTo: status }))
   signal?.addEventListener('abort', () => st.abort?.abort())

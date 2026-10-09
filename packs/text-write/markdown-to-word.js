@@ -101,7 +101,7 @@ export async function markdownToDocx(md, o) {
       case 'strong': return runs(t.tokens, { ...st, bold: true })
       case 'em': return runs(t.tokens, { ...st, italics: true })
       case 'del': return runs(t.tokens, { ...st, strike: true })
-      case 'codespan': return [new TextRun({ text: decode(t.text), ...st, font: MONO, size: Math.round(o.size * 2 * 0.92), shading: { type: ShadingType.CLEAR, fill: 'EEEEF2', color: 'auto' } })]
+      case 'codespan': return [new TextRun({ text: decode(t.text), ...st, style: 'CodeChar' })]
       case 'br': return [new TextRun({ break: 1 })]
       case 'link':
         return [new ExternalHyperlink({ link: t.href, children: runs(t.tokens, { ...st, color: th.accent, underline: {} }) })]
@@ -190,8 +190,7 @@ export async function markdownToDocx(md, o) {
   const quote = (t, indent, depth) => t.tokens.flatMap((b) => {
     if (b.type === 'blockquote') return quote(b, indent, depth + 1)
     if (b.type === 'paragraph' || b.type === 'text') {
-      return [new Paragraph({ children: inline(b.tokens || [{ type: 'text', text: b.text }], { italics: true, color: '4B5563' }), indent: { left: indent + 360 * depth + 120 }, spacing: { after: 100 },
-        border: { left: { style: BorderStyle.SINGLE, size: 18, color: 'A3A8B4', space: 10 } } })]
+      return [new Paragraph({ style: 'Quote', children: inline(b.tokens || [{ type: 'text', text: b.text }]), indent: { left: indent + 480 + 360 * (depth - 1) } })]
     }
     return block(b, indent + 360 * depth)
   })
@@ -207,11 +206,7 @@ export async function markdownToDocx(md, o) {
       case 'list': return list(t, 0, indent)
       case 'code': {
         const lines = t.text.replace(/\n$/, '').split('\n')
-        return [new Paragraph({
-          children: lines.map((l, i) => new TextRun({ text: l, font: MONO, size: Math.round(o.size * 2 * 0.9), break: i ? 1 : 0 })),
-          shading: { type: ShadingType.CLEAR, fill: 'F3F4F8', color: 'auto' }, indent: { left: 160 + indent, right: 160 }, spacing: { before: 80, after: 160, line: 260, lineRule: LineRuleType.AUTO },
-          border: { left: { style: BorderStyle.SINGLE, size: 12, color: th.accent, space: 6 } },
-        })]
+        return [new Paragraph({ style: 'Code', children: lines.map((l, i) => new TextRun({ text: l, break: i ? 1 : 0 })), indent: { left: 160 + indent, right: 160 } })]
       }
       case 'blockquote': return quote(t, indent, 1)
       case 'table': return [table(t), new Paragraph({ children: [], spacing: { after: 120 } })]
@@ -239,7 +234,14 @@ export async function markdownToDocx(md, o) {
     ] },
     styles: {
       default: { document: { run: { font: o.font, size: Math.round(o.size * 2) }, paragraph: { spacing: { line: lineValue(o.line), lineRule: LineRuleType.AUTO, after: 140 } } } },
-      paragraphStyles: [0, 1, 2, 3, 4, 5].map(headStyle),
+      paragraphStyles: [
+        ...[0, 1, 2, 3, 4, 5].map(headStyle),
+        { id: 'Quote', name: 'Quote', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { italics: true, color: '4B5563' },
+          paragraph: { spacing: { after: 100 }, indent: { left: 480 }, border: { left: { style: BorderStyle.SINGLE, size: 18, color: 'A3A8B4', space: 10 } } } },
+        { id: 'Code', name: 'Code', basedOn: 'Normal', quickFormat: true, run: { font: MONO, size: Math.round(o.size * 2 * 0.9) },
+          paragraph: { spacing: { before: 80, after: 160, line: 260, lineRule: LineRuleType.AUTO }, shading: { type: ShadingType.CLEAR, fill: 'F3F4F8', color: 'auto' }, indent: { left: 160, right: 160 }, border: { left: { style: BorderStyle.SINGLE, size: 12, color: th.accent, space: 6 } } } },
+      ],
+      characterStyles: [{ id: 'CodeChar', name: 'Code Char', basedOn: 'DefaultParagraphFont', run: { font: MONO, size: Math.round(o.size * 2 * 0.92), shading: { type: ShadingType.CLEAR, fill: 'EEEEF2', color: 'auto' } } }],
     },
     sections: [{
       properties: { page: { size: { width: pg.width, height: pg.height }, margin: { top: m, right: m, bottom: m, left: m } } },

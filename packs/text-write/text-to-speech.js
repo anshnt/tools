@@ -97,7 +97,7 @@ export function mount(root, ctx) {
       groups.get(k).push(v)
     }
     clear(voiceSel, [...groups].sort((a, b) => a[0].localeCompare(b[0])).map(([k, list]) => h('optgroup', { label: k }, list.map((v) => h('option', { value: v.voiceURI, selected: v.voiceURI === prefs.voiceURI },
-      `${v.name.replace(/^Microsoft |^Google /, '')}${v.localService ? '' : ' (online)'}`)))))
+      `${v.name.replace(/^Microsoft |^Google /, '').replace(/ - .*$/, '')}${v.localService ? '' : ' (online)'}`)))))
     voiceSel.value = prefs.voiceURI
     voiceSel.disabled = !shown.length
     voiceNote()

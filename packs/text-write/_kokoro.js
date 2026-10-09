@@ -150,7 +150,8 @@ export function loadEngine(device = 'wasm', onProgress) {
       }
     }
     engines.set(device, (async () => {
-      const [{ StyleTextToSpeech2Model, AutoTokenizer, Tensor }] = await Promise.all([transformers(), import(PHONEMIZER)])
+      const [{ StyleTextToSpeech2Model, AutoTokenizer, Tensor, env }] = await Promise.all([transformers(), import(PHONEMIZER)])
+      if (device === 'wasm') env.backends.onnx.wasm.proxy = true // run the CPU model in a worker so the page stays responsive while it speaks
       const [model, tokenizer] = await Promise.all([
         StyleTextToSpeech2Model.from_pretrained(MODEL, { dtype: device === 'webgpu' ? 'q8f16' : 'q8', device, progress_callback: cb }),
         AutoTokenizer.from_pretrained(MODEL, { progress_callback: cb }),
