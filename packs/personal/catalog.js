@@ -20,6 +20,6 @@ export default [
   { id: 'bmi-calculator', name: 'BMI calculator', module: 'health', params: { kind: 'bmi' }, desc: 'Body mass index with healthy range, in metric or imperial.', icon: 'heart-pulse', also: ['calc'], tags: 'bmi weight height health', ready: true },
   { id: 'calorie-calculator', name: 'Calorie & BMR calculator', module: 'health', params: { kind: 'calorie' }, desc: 'Daily calories to maintain, lose or gain weight.', icon: 'flame', also: ['calc'], tags: 'calories bmr tdee diet', ready: true },
   { id: 'water-intake', name: 'Water intake calculator', module: 'health', params: { kind: 'water' }, desc: 'How much water you should drink per day.', icon: 'droplet', also: ['calc'], tags: 'water hydration', ready: true },
-  { id: 'random-picker', name: 'Random picker & spin wheel', desc: 'Spin a wheel, pick names, flip a coin or roll dice.', icon: 'dices', tags: 'wheel random choice coin dice' },
+  { id: 'random-picker', name: 'Random picker & spin wheel', desc: 'Spin a wheel, pick names, flip a coin or roll dice.', icon: 'dices', tags: 'wheel random choice coin dice', ready: true },
   { id: 'gift-planner', name: 'Birthday & gift planner', desc: 'Remember birthdays and anniversaries with gift ideas and budgets.', icon: 'gift', tags: 'birthday anniversary gifts reminders' },
 ]
