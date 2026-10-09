@@ -1,12 +1,13 @@
 // Pack web: QR codes, links, websites and network lookups. Default category: web.
 export const cat = 'web'
 export default [
-  { id: 'qr-generator', name: 'QR code generator', desc: 'QR codes for links, text, email, SMS and more, with colors and logo.', icon: 'qr-code', also: ['security'], tags: 'qr code generate' },
-  { id: 'wifi-qr', name: 'Wi-Fi QR code', module: 'qr-generator', params: { type: 'wifi' }, desc: 'Let guests join your Wi-Fi by scanning a QR code.', icon: 'wifi', also: ['security'], tags: 'wifi password qr' },
-  { id: 'vcard-qr', name: 'vCard QR code', module: 'qr-generator', params: { type: 'vcard' }, desc: 'Share your contact card as a scannable QR code.', icon: 'contact', tags: 'contact vcard qr' },
-  { id: 'upi-qr', name: 'UPI payment QR', module: 'qr-generator', params: { type: 'upi' }, cat: 'india', desc: 'Make a UPI QR with your UPI ID, name and amount for GPay, PhonePe, Paytm.', icon: 'indian-rupee', tags: 'upi gpay phonepe paytm payment' },
-  { id: 'qr-scanner', name: 'QR code scanner', desc: 'Scan QR codes and barcodes with your camera or from an image.', icon: 'scan-qr-code', also: ['security'], tags: 'scan read qr barcode' },
-  { id: 'barcode-generator', name: 'Barcode generator', desc: 'Code 128, EAN-13, UPC, Code 39 and more as PNG or SVG.', icon: 'barcode', tags: 'barcode ean upc code128' },
+  { ready: true, id: 'qr-generator', name: 'QR code generator', desc: 'QR codes for links, text, email, SMS and more, with colors and logo.', icon: 'qr-code', also: ['security'], tags: 'qr code generate' },
+  { ready: true, id: 'wifi-qr', name: 'Wi-Fi QR code', module: 'qr-generator', params: { type: 'wifi' }, desc: 'Let guests join your Wi-Fi by scanning a QR code.', icon: 'wifi', also: ['security'], tags: 'wifi password qr' },
+  { ready: true, id: 'vcard-qr', name: 'vCard QR code', module: 'qr-generator', params: { type: 'vcard' }, desc: 'Share your contact card as a scannable QR code.', icon: 'contact', tags: 'contact vcard qr' },
+  { ready: true, id: 'upi-qr', name: 'UPI payment QR', module: 'qr-generator', params: { type: 'upi' }, cat: 'india', desc: 'Make a UPI QR with your UPI ID, name and amount for GPay, PhonePe, Paytm.', icon: 'indian-rupee', tags: 'upi gpay phonepe paytm payment' },
+  { ready: true, id: 'whatsapp-link-generator', name: 'WhatsApp link and QR', module: 'qr-generator', params: { type: 'whatsapp' }, desc: 'Make a click-to-chat link and QR code for a WhatsApp number, with an optional message.', icon: 'message-circle', tags: 'wa.me whatsapp chat link number' },
+  { ready: true, id: 'qr-scanner', name: 'QR code scanner', desc: 'Scan QR codes and barcodes with your camera or from an image.', icon: 'scan-qr-code', also: ['security'], tags: 'scan read qr barcode' },
+  { ready: true, id: 'barcode-generator', name: 'Barcode generator', desc: 'Code 128, EAN-13, UPC, Code 39 and more as PNG or SVG.', icon: 'barcode', tags: 'barcode ean upc code128' },
   { id: 'url-shortener', name: 'URL shortener', desc: 'Shorten long links in one click.', icon: 'link-2', mode: 'online', tags: 'short link tinyurl' },
   { id: 'website-screenshot', name: 'Website screenshot', desc: 'Capture a screenshot of any web page by URL.', icon: 'camera', mode: 'online', tags: 'screenshot capture url' },
   { id: 'full-page-screenshot', name: 'Full-page screenshot', module: 'website-screenshot', params: { full: true }, desc: 'Capture the entire scrolling page as one tall image.', icon: 'scroll', mode: 'online', tags: 'full page long screenshot' },
