@@ -25,14 +25,13 @@ const SCHEMA = {
           aspect: { type: 'string' },
           degrees: { type: 'number' },
           direction: { type: 'string', enum: ['horizontal', 'vertical'] },
-          px_width: { type: 'number' }, px_height: { type: 'number' }, scale: { type: 'number' },
+          px_width: { type: 'number' }, px_height: { type: 'number' },
           text: { type: 'string' },
           position: { type: 'string', enum: POSITIONS },
           size: { type: 'number' },
           color: { type: 'string' }, background: { type: 'string' },
-          bold: { type: 'boolean' }, italic: { type: 'boolean' }, outline: { type: 'boolean' },
+          bold: { type: 'boolean' },
           font: { type: 'string', enum: ['sans', 'serif', 'mono', 'display'] },
-          opacity: { type: 'number' },
           shape: { type: 'string', enum: ['rect', 'ellipse'] },
           style: { type: 'string', enum: ['blur', 'pixelate'] },
         },
@@ -42,7 +41,7 @@ const SCHEMA = {
     },
     warnings: { type: 'array', items: { type: 'string' } },
   },
-  required: ['explanation', 'operations'],
+  required: ['explanation', 'operations', 'warnings'],
   additionalProperties: false,
 }
 const EXAMPLES = ['Make it brighter with more contrast', 'Turn it black and white', 'Crop to a square', 'Add the caption "Summer 2026" at the bottom in white', 'Warm it up a little and sharpen', 'Rotate 90 degrees clockwise', 'Blur any faces or license plates']
@@ -387,7 +386,7 @@ export function mount(root, { signal }) {
     const block = await ai.imageBlock(base)
     const system = `You are the planner of an image editor. Look at the image and the instruction, then return an edit plan as JSON. ${UNTRUSTED}
 The image is ${base.width} x ${base.height} pixels. Only use the allowed operations; do the minimum the instruction needs, and never make up changes the user did not ask for.
-Operations: brightness, contrast, saturation, warmth (amount -100..100; 0 changes nothing; typical edits are 10 to 30), blur (amount 1..30 px at 1000 px wide), sharpen (amount 0..100), grayscale and sepia (amount 0..100, default 100), flip (direction), rotate (degrees clockwise, any number), resize (px_width and/or px_height, or scale as a fraction), crop (x, y, w, h as fractions 0..1 of the picture as it is now, or just aspect like "1:1" or "16:9" for a centered crop), blur_region (x, y, w, h fractions of the picture as it is now, shape rect or ellipse, style blur or pixelate, amount 1..100; use it to hide faces, plates or private text, and place the region carefully from what you can see), text (text, position one of ${POSITIONS.join(', ')}, size as percent of picture height 2..15, color, optional background color, bold, italic, font sans/serif/mono/display, outline, opacity).
+Operations: brightness, contrast, saturation, warmth (amount -100..100; 0 changes nothing; typical edits are 10 to 30), blur (amount 1..30 px at 1000 px wide), sharpen (amount 0..100), grayscale and sepia (amount 0..100, default 100), flip (direction), rotate (degrees clockwise, any number), resize (px_width and/or px_height in pixels; give just one to keep the proportions), crop (x, y, w, h as fractions 0..1 of the picture as it is now, or just aspect like "1:1" or "16:9" for a centered crop), blur_region (x, y, w, h fractions of the picture as it is now, shape rect or ellipse, style blur or pixelate, amount 1..100; use it to hide faces, plates or private text, and place the region carefully from what you can see), text (text, position one of ${POSITIONS.join(', ')}, size as percent of picture height 2..15, color, optional background color, bold, font sans/serif/mono/display).
 Order matters little: the editor applies tone and filters first, then blur_region, then crop/rotate/flip/resize in the order you give, then text. Text positions refer to the FINAL picture after cropping and resizing. blur_region coordinates refer to the picture BEFORE cropping, rotating or resizing. If the request cannot be done with these operations, return an empty operations array and say why in warnings. explanation is one friendly sentence on what you will do.`
     const plan = await ai.ask({ system, json: SCHEMA, effort: 'low', signal: sig, messages: [{ role: 'user', content: [block, ai.textBlock(`Instruction: ${text}`)] }] })
     const ops = Array.isArray(plan.operations) ? plan.operations : []
