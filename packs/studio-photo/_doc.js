@@ -93,6 +93,7 @@ export class Doc {
   // ----- snapshots -----
   snap() { return { w: this.w, h: this.h, layers: this.layers.map((l) => [l, { ...l }]), activeId: this.activeId, editMask: this.editMask, sel: this.sel } }
   restore(s) {
+    if (this.sel && this.sel !== s.sel) this.sel._c = null // drop the cached alpha canvas of a selection that leaves the stage (rebuilt on demand)
     this.w = s.w; this.h = s.h
     for (const [l, st] of s.layers) Object.assign(l, st)
     this.layers = s.layers.map((p) => p[0]); this.activeId = s.activeId; this.editMask = s.editMask; this.sel = s.sel
@@ -111,6 +112,7 @@ export class Doc {
       let bytes = 2000
       for (const c of cb) if (!ca.has(c)) bytes += c.width * c.height * 4
       for (const c of ca) if (!cb.has(c)) bytes += c.width * c.height * 4
+      if (after.sel && after.sel !== before.sel) bytes += after.sel.mask.length // a selection keeps a w*h mask alive
       this.hist.push({ label, key: opts.key, bytes, undo: () => this.restore(before), redo: () => this.restore(after), after })
     }
     this.emit(opts.quiet || 'all')
@@ -149,7 +151,7 @@ export class Doc {
   }
 
   // ----- selection -----
-  setSel(sel, label = 'Selection') { this.tx(label, () => { this.sel = sel }, { quiet: 'sel' }) }
+  setSel(sel, label = 'Selection') { this.tx(label, () => { if (this.sel) this.sel._c = null; this.sel = sel }, { quiet: 'sel' }) }
   selectionCanvas() { return this.sel ? selCanvas(this.sel, this.w, this.h) : null }
 
   // ----- layers -----

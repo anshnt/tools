@@ -18,7 +18,7 @@ export const SHORTCUTS = [
   ['Edit', [['Ctrl+Z', 'Undo'], ['Ctrl+Shift+Z / Ctrl+Y', 'Redo'], ['Ctrl+C / X / V', 'Copy, cut, paste'], ['Ctrl+Shift+C', 'Copy merged'], ['Ctrl+J', 'Layer via copy'], ['Ctrl+Shift+J', 'Layer via cut'], ['Delete', 'Clear selection (or delete layer)'], ['Alt+Delete', 'Fill with foreground'], ['Ctrl+Delete', 'Fill with background']]],
   ['Selection', [['Ctrl+A', 'Select all'], ['Ctrl+D', 'Deselect'], ['Ctrl+Shift+I', 'Invert selection'], ['Shift / Alt + drag', 'Add to / subtract from selection']]],
   ['Brush and colors', [['[ and ]', 'Smaller and larger brush'], ['X', 'Swap foreground and background'], ['D', 'Default colors (black and white)'], ['0-9', 'Brush or layer opacity (0 = 100%)']]],
-  ['View and layers', [['Ctrl+0', 'Fit on screen'], ['Ctrl+1', '100%'], ['Ctrl + / -', 'Zoom in and out'], ['Ctrl+scroll', 'Zoom at the cursor'], ['Ctrl+Shift+N', 'New layer'], ['Ctrl+E', 'Merge down'], ['Ctrl+] / [', 'Layer up and down'], ['Arrows', 'Nudge with Move (Shift = 10 px)'], ['Ctrl+S', 'Save project file'], ['Ctrl+Shift+E', 'Export image']]],
+  ['View and layers', [['Ctrl+0', 'Fit on screen'], ['Ctrl+1', '100%'], ['Ctrl + / -', 'Zoom in and out'], ['Ctrl+scroll', 'Zoom at the cursor'], ['Ctrl+Alt+N', 'New layer'], ['Ctrl+E', 'Merge down'], ['Ctrl+] / [', 'Layer up and down'], ['Arrows', 'Nudge with Move (Shift = 10 px)'], ['Ctrl+S', 'Save project file'], ['Ctrl+Shift+E', 'Export image']]],
 ]
 
 export function createDialogs(app) {

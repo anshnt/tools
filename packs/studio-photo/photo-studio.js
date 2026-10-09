@@ -145,6 +145,7 @@ export async function mount(root, ctx) {
     h('button', { type: 'button', class: 'ps-ib', 'aria-label': 'Zoom out', 'data-tip': 'Zoom out|Ctrl+-', onclick: () => app.doc && vp.zoomBy(1 / 1.25) }, icon('zoom-out')), zoomTxt,
     h('button', { type: 'button', class: 'ps-ib', 'aria-label': 'Zoom in', 'data-tip': 'Zoom in|Ctrl++', onclick: () => app.doc && vp.zoomBy(1.25) }, icon('zoom-in')),
     h('button', { type: 'button', class: 'ps-ib', 'aria-label': 'Fit on screen', 'data-tip': 'Fit on screen|Ctrl+0', onclick: () => app.doc && vp.fit() }, icon('scan')),
+    h('button', { type: 'button', class: 'ps-ib', 'aria-label': 'Keyboard shortcuts', 'data-tip': 'Keyboard shortcuts', onclick: () => app.dialogs.shortcuts() }, icon('keyboard')),
     dockBtn, h('span', { class: 'ps-sep' }), exportBtn)
 
   const status = { zoom: h('b', '100%'), size: h('b', '-'), cursor: h('b', ''), sel: h('b', ''), saved: h('span', '') }
@@ -195,7 +196,7 @@ export async function mount(root, ctx) {
   function layerMenu() {
     const d = app.doc, L = d?.active
     return [
-      { label: 'New layer', icon: 'plus', key: 'Ctrl+Shift+N', disabled: needDoc, run: () => app.ops.newLayer() }, { label: 'Duplicate layer', icon: 'copy', key: 'Ctrl+J', disabled: () => !L, run: () => d.duplicate(L.id) },
+      { label: 'New layer', icon: 'plus', key: 'Ctrl+Alt+N', disabled: needDoc, run: () => app.ops.newLayer() }, { label: 'Duplicate layer', icon: 'copy', key: 'Ctrl+J', disabled: () => !L, run: () => d.duplicate(L.id) },
       { label: 'Delete layer', icon: 'trash-2', disabled: () => !L, run: () => d.deleteLayer(L.id) }, { label: 'Merge down', icon: 'merge', key: 'Ctrl+E', disabled: () => !L, run: () => app.mergeDown() },
       { label: 'Rasterize text or shape', icon: 'image', disabled: () => !L || (L.type !== 'text' && L.type !== 'shape'), run: () => d.rasterize(L.id) }, { sep: true },
       { label: 'Add mask (reveal all)', icon: 'venetian-mask', disabled: () => !L || !!L.mask, run: () => d.addMask(L.id, 'reveal') }, { label: 'Add mask from selection', disabled: () => !L || !!L.mask || !d.sel, run: () => d.addMask(L.id, 'sel') },
@@ -295,7 +296,7 @@ export async function mount(root, ctx) {
     unsub?.()
     app.doc = doc
     unsub = doc.on(onDocEvent)
-    app.crop = null; app.preview = null; app.live = null; app.opts.cloneSource = null; app.opts.cloneOffset = null
+    app.crop = null; app.preview = null; app.live = null; app._buf = null; app.opts.cloneSource = null; app.opts.cloneOffset = null
     startEl.hidden = true
     vp.setDoc()
     layers.refresh(); props.refresh(); history.refresh(); updateStatus(); updateTop()
@@ -476,7 +477,7 @@ export async function mount(root, ctx) {
       if (lk === 'j') return run(() => (e.shiftKey ? app.ops.layerViaCut() : app.ops.layerViaCopy()))
       if (lk === 'e') return run(() => (e.shiftKey ? app.dialogs.export() : app.mergeDown()))
       if (lk === 's') return run(() => app.saveProject())
-      if (lk === 'n' && e.shiftKey) return run(() => app.ops.newLayer())
+      if (e.code === 'KeyN' && e.altKey) return run(() => app.ops.newLayer())
       if (lk === '0') return run(() => vp.fit())
       if (lk === '1') return run(() => vp.setZoom(1))
       if (k === '+' || k === '=') return run(() => vp.zoomBy(1.25))

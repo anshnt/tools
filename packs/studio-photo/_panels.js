@@ -86,7 +86,7 @@ export function layersPanel(app) {
   const maskBtn = h('button', { type: 'button', class: 'ps-ib sm', 'data-tip': 'Layer mask', 'aria-label': 'Layer mask', 'aria-haspopup': 'menu', onclick: (e) => openMenu(app.root, e.currentTarget, maskItems(app)) }, icon('venetian-mask'))
   const btn = (ic, tip, fn, extra) => h('button', { type: 'button', class: 'ps-ib sm', 'data-tip': tip, 'aria-label': tip, onclick: fn, ...extra }, icon(ic))
   const foot = h('div', { class: 'ps-lfoot' },
-    btn('plus', 'New layer|Ctrl+Shift+N', () => app.doc && app.ops.newLayer()), addAdj, maskBtn,
+    btn('plus', 'New layer|Ctrl+Alt+N', () => app.doc && app.ops.newLayer()), addAdj, maskBtn,
     btn('copy', 'Duplicate layer|Ctrl+J', () => app.doc?.active && app.doc.duplicate(app.doc.activeId)),
     btn('arrow-up', 'Move layer up|Ctrl+]', () => app.moveLayer(1)), btn('arrow-down', 'Move layer down|Ctrl+[', () => app.moveLayer(-1)),
     btn('merge', 'Merge down|Ctrl+E', () => app.mergeDown()), h('span', { class: 'ps-sp' }), btn('trash-2', 'Delete layer', () => app.doc?.active && app.doc.deleteLayer(app.doc.activeId)))
@@ -105,7 +105,7 @@ export function layersPanel(app) {
 
   function refresh() {
     const d = app.doc
-    if (!d) { list.replaceChildren(); return }
+    if (!d) { list.replaceChildren(h('p', { class: 'ps-note', style: 'padding:10px' }, 'No document yet. Open a photo or start a blank canvas.')); return }
     const A = d.active
     blend.set(A?.blend || 'source-over'); blend.disabled = !A || A.type === 'adjust'
     opacity.set(Math.round((A?.opacity ?? 1) * 100))
