@@ -262,7 +262,7 @@ const CSS = `
 .t-shot canvas.view[data-tool="select"]{touch-action:pan-x pan-y pinch-zoom;cursor:default}
 .t-shot canvas.view[data-tool="text"]{cursor:text}
 .t-shot .texted{position:absolute;margin:0;padding:0;border:0;outline:2px dashed var(--accent);outline-offset:4px;background:rgba(255,255,255,.06);resize:none;overflow:hidden;font-family:Geist,ui-sans-serif,system-ui,sans-serif;font-weight:600;line-height:1.25;white-space:pre;min-width:3ch;z-index:3}
-.t-shot .cropbar{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:4;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;padding:8px 10px;border-radius:18px;max-width:calc(100% - 20px);animation:sc-fade .3s var(--ease)}
+.t-shot .cropbar{position:absolute;left:50%;top:12px;transform:translateX(-50%);width:max-content;z-index:4;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;padding:8px 10px;border-radius:18px;max-width:calc(100% - 20px);animation:sc-fade .3s var(--ease)}
 .t-shot .hint{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;min-height:22px}
 .t-shot .hint .icon{width:15px;height:15px;color:var(--accent)}
 .t-shot .side{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}

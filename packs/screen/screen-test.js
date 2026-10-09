@@ -194,7 +194,7 @@ const CSS = `
 .t-st-layer{position:fixed;inset:0;z-index:2147483000;background:#000;overflow:hidden;outline:none;touch-action:manipulation;-webkit-user-select:none;user-select:none}
 .t-st-layer.idle{cursor:none}
 .t-st-layer canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-.t-st-layer .hud{position:absolute;left:50%;bottom:max(22px,env(safe-area-inset-bottom));transform:translateX(-50%) translateY(0);max-width:min(94vw,640px);padding:10px 16px;border-radius:18px;background:rgba(14,14,20,.78);color:#fff;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 18px 40px -12px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.14);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;transition:opacity .4s,transform .4s;text-align:center;display:flex;flex-direction:column;gap:4px}
+.t-st-layer .hud{position:absolute;left:50%;bottom:max(22px,env(safe-area-inset-bottom));transform:translateX(-50%) translateY(0);width:max-content;max-width:min(94vw,640px);padding:10px 16px;border-radius:18px;background:rgba(14,14,20,.78);color:#fff;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 18px 40px -12px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.14);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;transition:opacity .4s,transform .4s;text-align:center;display:flex;flex-direction:column;gap:4px}
 .t-st-layer.idle .hud,.t-st-layer.idle .x{opacity:0;transform:translateX(-50%) translateY(12px);pointer-events:none}
 .t-st-layer .hud b{font-size:15px}
 .t-st-layer .hud small{color:#c7c7d4;font-size:12.5px}

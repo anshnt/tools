@@ -12,5 +12,5 @@ export default [
   { id: 'keyboard-tester', ready: true, name: 'Keyboard tester', desc: 'Test every key on your keyboard and see key codes.', icon: 'keyboard', also: ['dev'], tags: 'keyboard test keys keycode' },
   { id: 'screen-test', ready: true, name: 'Dead pixel & screen test', desc: 'Full-screen color tests for dead pixels, bleed and uniformity.', icon: 'monitor', tags: 'dead pixel monitor test' },
   { id: 'webcam-mic-test', ready: true, name: 'Webcam & mic test', desc: 'Check your camera and microphone before a call.', icon: 'webcam', also: ['media'], tags: 'camera microphone test' },
-  { id: 'teleprompter', name: 'Teleprompter', desc: 'Scroll your script at a steady speed for videos and talks.', icon: 'scroll-text', also: ['career', 'media'], tags: 'teleprompter script autocue' },
+  { id: 'teleprompter', ready: true, name: 'Teleprompter', desc: 'Scroll your script at a steady speed for videos and talks.', icon: 'scroll-text', also: ['career', 'media'], tags: 'teleprompter script autocue' },
 ]
