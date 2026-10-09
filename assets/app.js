@@ -1,6 +1,6 @@
 // App shell: hash router (#/, #/c/<category>, #/<tool-id>), home, category and tool pages, command palette, motion.
 import { CATEGORIES, TOOLS, byId, catById, toolsIn, POPULAR, MODES, search } from './catalog.js'
-import { h, icon, clear, button, toast, alert, errorMessage, debounce, copyText, runCleanups } from '../lib/ui.js'
+import { h, icon, clear, button, toast, alert, errorMessage, debounce, copyText, runCleanups, modal, matchesAccept, fileType, formatBytes } from '../lib/ui.js'
 import * as store from '../lib/store.js'
 import * as ai from '../lib/ai.js'
 
@@ -156,7 +156,7 @@ function homeView() {
     const found = search(v)
     clear(results, h('section', { class: 'section' },
       h('div', { class: 'section-head' }, h('h2', icon('search'), `${found.length} result${found.length === 1 ? '' : 's'} for "${v}"`)),
-      found.length ? masonry(found.slice(0, 60)) : h('div', { class: 'empty' }, icon('search-x'), h('div', 'No tools match. Try another word, like "convert" or "calculator".'))))
+      found.length ? masonry(found.slice(0, 60)) : h('div', { class: 'empty' }, icon('search-x'), h('div', 'No tools match. Try another word, like "convert" or "calculator".'), h('a', { class: 'link', href: requestUrl(v), target: '_blank', rel: 'noopener' }, 'Request this tool'))))
     reveal(results)
   }
 
@@ -175,7 +175,8 @@ function homeView() {
           h('span', icon('shield-check'), 'Private by design'),
           h('span', icon('zap'), 'Instant, no uploads'),
           h('span', icon('smartphone'), 'Phone & desktop'),
-          h('span', icon('moon'), 'Light & dark')))),
+          h('span', icon('moon'), 'Light & dark')),
+        canHover && h('p', { class: 'drop-hint' }, icon('mouse-pointer-click'), 'Tip: drop or paste any file on this page to see what you can do with it'))),
     marquee(marqueeTools.slice(0, 18)),
     marquee(marqueeTools.slice(18, 36), true),
     h('div', { class: 'container' }, chips(null), results, browse))
@@ -221,6 +222,7 @@ function toolView(t) {
               t.mode === 'ai' && h('button', { type: 'button', class: 'badge badge-btn', onclick: () => ai.openSettings() }, icon('key-round'), 'AI settings'))),
           h('div', { class: 'head-actions' },
             favButton(t, 'icon-btn'),
+            navigator.share && button('', { icon: 'share-2', variant: 'ghost', ariaLabel: 'Share this tool', onClick: () => navigator.share({ title: `${t.name} · Tools`, text: t.desc, url: location.href }).catch(() => {}) }),
             button('', { icon: 'link', variant: 'ghost', ariaLabel: 'Copy link to this tool', onClick: () => copyText(location.href) }))))),
     h('div', { class: 'container' },
       body,
@@ -245,6 +247,8 @@ function toolView(t) {
       if (controller.signal.aborted) return
       clear(body)
       const ret = await mod.mount(body, { tool: t, params: t.params || {}, signal: controller.signal })
+      if (pendingFiles && !controller.signal.aborted) giveFiles(body, pendingFiles, t)
+      pendingFiles = null
       if (typeof ret === 'function') {
         if (controller.signal.aborted) safe(ret)
         else teardown = () => { controller.abort(); ret() }
@@ -349,16 +353,17 @@ function openPalette() {
     'aria-controls': 'palette-list', 'aria-expanded': 'true', 'aria-autocomplete': 'list', enterkeyhint: 'go',
     oninput: () => { sel = 0; render() },
   })
-  const go = (t) => { palette.close(); location.hash = `#/${t.id}` }
+  const go = (t) => { palette.close(); if (t.run) t.run(); else location.hash = `#/${t.id}` }
   function render() {
     const v = input.value.trim()
-    items = v ? search(v).slice(0, 40) : [...new Set([...recent, ...POPULAR])].map((id) => byId.get(id)).filter(Boolean).slice(0, 14)
+    const acts = actions().filter((a) => !v || `${a.name} ${a.tags}`.toLowerCase().includes(v.toLowerCase()))
+    items = v ? [...acts, ...search(v).slice(0, 40)] : [...acts, ...[...new Set([...recent, ...POPULAR])].map((id) => byId.get(id)).filter(Boolean).slice(0, 12)]
     clear(list, items.length ? items.map((t, i) => h('li', {
       role: 'option', id: `po-${i}`, 'aria-selected': i === sel, onclick: () => go(t), onpointermove: () => { if (sel !== i) { sel = i; mark() } },
     },
-    h('div', { class: 'tile', style: { '--c': color(t) } }, icon(t.icon)),
+    h('div', { class: 'tile', style: { '--c': t.run ? 'var(--accent)' : color(t) } }, icon(t.icon)),
     h('div', { class: 't' }, h('b', t.name), h('span', t.desc)),
-    !t.ready ? h('span', { class: 'badge soon' }, 'Soon') : h('span', { class: 'cat' }, catById.get(t.cat)?.name)))
+    t.run ? h('span', { class: 'cat' }, 'Action') : !t.ready ? h('span', { class: 'badge soon' }, 'Soon') : h('span', { class: 'cat' }, catById.get(t.cat)?.name)))
       : h('li', { class: 'palette-empty', role: 'presentation' }, 'No matching tools'))
     mark()
   }
@@ -407,11 +412,162 @@ document.getElementById('footer-count').textContent = `${TOOLS.length} tools`
 
 document.addEventListener('keydown', (e) => {
   const typing = e.target.closest?.('input, textarea, select, [contenteditable]')
+  if (e.key === '?' && !typing && !document.querySelector('dialog[open]')) { e.preventDefault(); showShortcuts(); return }
   if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing)) {
     e.preventDefault()
     if (e.key === '/' && app.focusSearch) app.focusSearch()
     else openPalette()
   }
 })
+// ---------- Smart file drop: drop or paste a file anywhere ----------
+// On a tool page the file goes to that tool's dropzone; elsewhere we suggest tools for it and hand the file over.
+let pendingFiles = null
+const SUGGEST = {
+  pdf: ['merge-pdf', 'compress-pdf', 'pdf-to-word', 'split-pdf', 'pdf-to-image', 'sign-pdf', 'rotate-pdf', 'pdf-ocr', 'pdf-to-text', 'protect-pdf', 'pdf-summary', 'pdf-qa'],
+  image: ['compress-image', 'resize-image', 'image-to-kb', 'remove-background', 'image-to-pdf', 'image-converter', 'crop-image', 'image-to-text', 'exif-remover', 'passport-photo', 'image-upscaler', 'watermark-image'],
+  heic: ['heic-to-jpg', 'compress-image', 'resize-image', 'image-to-pdf', 'exif-remover', 'image-to-kb'],
+  video: ['compress-video', 'video-to-mp3', 'trim-video', 'video-to-gif', 'video-to-mp4', 'video-to-text', 'mute-video', 'change-video-resolution', 'subtitle-generator'],
+  audio: ['audio-converter', 'trim-audio', 'compress-audio', 'speech-to-text', 'merge-audio', 'audio-volume', 'video-to-text'],
+  sheet: ['csv-viewer', 'csv-to-excel', 'excel-to-csv', 'excel-to-pdf', 'chart-maker', 'csv-cleaner', 'remove-duplicate-rows', 'data-statistics', 'sql-to-csv', 'ai-spreadsheet-analysis'],
+  word: ['word-to-pdf', 'word-to-txt', 'word-to-markdown', 'document-summarizer', 'document-translator', 'office-metadata-remover'],
+  slides: ['powerpoint-to-pdf', 'ppt-to-images', 'office-metadata-remover'],
+  json: ['json-formatter', 'json-tree-viewer', 'json-to-csv', 'json-to-excel', 'json-schema-generator'],
+  text: ['word-counter', 'text-to-pdf', 'markdown-to-pdf', 'markdown-to-word', 'subtitle-to-text', 'diff-checker', 'clean-text'],
+  zip: ['unzip-files', 'file-inspector'],
+  any: ['file-inspector', 'file-checksum', 'file-to-base64', 'zip-files', 'hex-viewer'],
+}
+function fileKind(f) {
+  const t = fileType(f), n = f.name.toLowerCase()
+  if (t === 'application/pdf') return 'pdf'
+  if (/hei[cf]/.test(t)) return 'heic'
+  if (t.startsWith('image/')) return 'image'
+  if (t.startsWith('video/')) return 'video'
+  if (t.startsWith('audio/')) return 'audio'
+  if (/\.(csv|tsv|xlsx|xls|ods)$/.test(n)) return 'sheet'
+  if (/\.(docx|doc|odt|rtf)$/.test(n)) return 'word'
+  if (/\.(pptx|ppt|odp)$/.test(n)) return 'slides'
+  if (/\.json$/.test(n)) return 'json'
+  if (/\.(txt|md|markdown|srt|vtt|log|html?|xml|ya?ml)$/.test(n) || t.startsWith('text/')) return 'text'
+  if (/\.zip$/.test(n)) return 'zip'
+  return 'any'
+}
+
+/** Give files to the first dropzone in `root` that accepts them. Returns true if one took them. */
+function giveFiles(root, files, t) {
+  const zone = [...root.querySelectorAll('.dropzone')].find((z) => z._take && files.some((f) => matchesAccept(f, z._accept)))
+  if (zone) { zone._take(files); return true }
+  toast(t ? `Choose or drop your file in ${t.name} to start.` : 'This page does not take files.')
+  return false
+}
+
+function suggestFor(files) {
+  const f = files[0]
+  const ids = [...new Set([...SUGGEST[fileKind(f)], ...SUGGEST.any])]
+  const list = ids.map((id) => byId.get(id)).filter((t) => t?.ready).slice(0, 12)
+  const label = files.length > 1 ? `${files.length} files` : f.name
+  const m = modal({
+    title: 'What do you want to do with it?', icon: 'wand-sparkles',
+    body: [
+      h('div', { class: 'drop-files' }, files.slice(0, 4).map((x) => h('span', { class: 'badge' }, icon('file'), `${x.name} · ${formatBytes(x.size)}`)), files.length > 4 && h('span', { class: 'badge' }, `+${files.length - 4} more`)),
+      h('div', { class: 'suggest-grid' }, list.map((t) => h('button', {
+        type: 'button', class: 'suggest', style: { '--c': color(t) },
+        onclick: () => { pendingFiles = files; m.close(); location.hash = `#/${t.id}` },
+      }, h('div', { class: 'tile' }, icon(t.icon)), h('div', h('b', t.name), h('span', t.desc))))),
+      h('p', { class: 'small muted' }, `Your ${files.length > 1 ? 'files stay' : 'file stays'} on this device until a tool says otherwise. `, h('a', { class: 'link', href: '#/', onclick: (e) => { e.preventDefault(); m.close(); openPalette() } }, 'Search all tools')),
+    ],
+  })
+  m.el.setAttribute('aria-label', `Tools for ${label}`)
+}
+
+function handleFiles(files) {
+  if (!files.length) return
+  const body = document.querySelector('.tool-body')
+  if (body) return giveFiles(body, files, byId.get(location.hash.slice(2).split('?')[0]))
+  suggestFor(files)
+}
+
+const dropOverlay = h('div', { class: 'drop-overlay', 'aria-hidden': 'true', hidden: true }, h('div', { class: 'drop-card' }, icon('upload'), h('strong'), h('span')))
+document.body.append(dropOverlay)
+let dragDepth = 0
+const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes('Files')
+document.addEventListener('dragenter', (e) => {
+  if (!hasFiles(e) || document.querySelector('dialog[open]')) return
+  if (++dragDepth === 1) {
+    const onTool = !!document.querySelector('.tool-body')
+    dropOverlay.querySelector('strong').textContent = onTool ? 'Drop to add it here' : 'Drop a file to see what you can do'
+    dropOverlay.querySelector('span').textContent = onTool ? 'Anywhere on the page works' : 'PDFs, images, video, audio, spreadsheets, documents...'
+    dropOverlay.hidden = false
+  }
+})
+document.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault() })
+document.addEventListener('dragleave', (e) => { if (hasFiles(e) && --dragDepth <= 0) { dragDepth = 0; dropOverlay.hidden = true } })
+document.addEventListener('drop', (e) => {
+  dragDepth = 0
+  dropOverlay.hidden = true
+  if (!hasFiles(e) || e.defaultPrevented) return
+  e.preventDefault()
+  if (document.querySelector('dialog[open]')) return
+  handleFiles([...e.dataTransfer.files])
+})
+document.addEventListener('paste', (e) => {
+  if (e.defaultPrevented || e.target.closest?.('input, textarea, [contenteditable]') || document.querySelector('dialog[open]')) return
+  if (document.querySelector('.tool-body')) return // tool pages: the dropzone paste router handles it
+  const files = [...(e.clipboardData?.files || [])]
+  if (files.length) { e.preventDefault(); suggestFor(files) }
+})
+
+// ---------- Quick actions, shortcuts, requests ----------
+function requestUrl(q = '') {
+  return `${REPO}/issues/new?title=${encodeURIComponent(`Tool request: ${q}`.trim())}&body=${encodeURIComponent('What should the tool do? Example input and output help a lot.')}`
+}
+function showShortcuts() {
+  const k = (...keys) => h('span', keys.map((x, i) => [i ? ' ' : '', h('kbd', x)]))
+  modal({
+    title: 'Keyboard shortcuts', icon: 'keyboard',
+    body: h('div', { class: 'table-wrap' }, h('table', { class: 'table' }, h('tbody',
+      [[k('Ctrl', 'K'), 'Search tools and actions from anywhere'], [k('/'), 'Jump to the search box'], [k('?'), 'Show this list'], [k('Esc'), 'Close a dialog'],
+        [k('↑', '↓', 'Enter'), 'Move through search results and open one']].map(([a, b]) => h('tr', h('td', a), h('td', b)))))),
+  })
+}
+let installEvent = null
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform))
+async function installApp() {
+  if (installEvent) {
+    installEvent.prompt()
+    const { outcome } = await installEvent.userChoice.catch(() => ({}))
+    if (outcome === 'accepted') { installEvent = null; installBtn.hidden = true }
+    return
+  }
+  modal({
+    title: 'Install Tools', icon: 'download',
+    body: [h('p', isIOS ? 'In Safari, tap the Share button, then "Add to Home Screen".' : 'Use your browser menu and choose "Install app" or "Add to Home screen". In Chrome and Edge it is also the install icon in the address bar.'),
+      h('p', { class: 'small muted' }, 'Once installed, Tools opens in its own window and the tools you have used keep working offline.')],
+  })
+}
+function actions() {
+  const dark = document.documentElement.dataset.theme === 'dark'
+  const ready = TOOLS.filter((x) => x.ready)
+  return [
+    { id: 'act-theme', name: dark ? 'Switch to light mode' : 'Switch to dark mode', desc: 'Change the colour theme', icon: dark ? 'sun' : 'moon', tags: 'theme dark light mode', run: () => setTheme(dark ? 'light' : 'dark') },
+    { id: 'act-ai', name: 'AI settings', desc: 'Add or change your Claude or Gemini API key', icon: 'sparkles', tags: 'ai key claude gemini settings', run: () => ai.openSettings() },
+    !isStandalone() && { id: 'act-install', name: 'Install as an app', desc: 'Open Tools in its own window and use it offline', icon: 'download', tags: 'install pwa offline app home screen', run: installApp },
+    { id: 'act-random', name: 'Surprise me', desc: 'Open a random tool', icon: 'shuffle', tags: 'random discover', run: () => { location.hash = `#/${ready[Math.floor(Math.random() * ready.length)].id}` } },
+    { id: 'act-keys', name: 'Keyboard shortcuts', desc: 'All the keys that make this faster', icon: 'keyboard', tags: 'shortcuts keys help', run: showShortcuts },
+    { id: 'act-request', name: 'Request a tool', desc: 'Suggest something new on GitHub', icon: 'message-square-plus', tags: 'request suggest feedback idea', run: () => window.open(requestUrl(), '_blank', 'noopener') },
+  ].filter(Boolean)
+}
+
+// ---------- Installable app + offline ----------
+const installBtn = document.getElementById('install-app')
+installBtn?.addEventListener('click', installApp)
+addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvent = e; if (installBtn) installBtn.hidden = false })
+addEventListener('appinstalled', () => { installEvent = null; if (installBtn) installBtn.hidden = true; toast('Installed. Tools now opens in its own window.', 'success') })
+addEventListener('offline', () => toast('You are offline. On-device tools you have opened before keep working.'))
+addEventListener('online', () => toast('Back online', 'success'))
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || new URLSearchParams(location.search).has('sw'))) {
+  navigator.serviceWorker.register(new URL('../sw.js', import.meta.url).href, { scope: new URL('../', import.meta.url).href }).catch((e) => console.warn('Offline mode unavailable:', e))
+}
+
 window.addEventListener('hashchange', route)
 route()
