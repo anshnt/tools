@@ -14,8 +14,8 @@ export default [
   { id: 'file-checksum', name: 'File checksum', desc: 'Verify downloads with MD5, SHA-1, SHA-256 or CRC32 checksums.', icon: 'file-check', also: ['files'], tags: 'checksum verify integrity', ready: true },
   { id: 'encrypt-text', name: 'Encrypt / decrypt text', desc: 'AES-256 encrypt text with a password; decrypt it anywhere with this tool.', icon: 'lock-keyhole', tags: 'aes encrypt decrypt password', ready: true },
   { id: 'secret-message', name: 'Secret message encoder', desc: 'Hide a message inside normal text or an image (steganography).', icon: 'venetian-mask', tags: 'steganography hidden message zero width', ready: true },
-  { id: 'pii-redactor', name: 'PII detector & redactor', desc: 'Find and mask emails, phones, Aadhaar, PAN, cards and more in text.', icon: 'scan-eye', also: ['india'], tags: 'pii redact mask privacy aadhaar pan' },
-  { id: 'office-metadata-remover', name: 'Office metadata remover', desc: 'Strip author, company and history from .docx, .xlsx and .pptx.', icon: 'file-x', tags: 'docx xlsx pptx metadata author' },
+  { id: 'pii-redactor', name: 'PII detector & redactor', desc: 'Find and mask emails, phones, Aadhaar, PAN, cards and more in text.', icon: 'scan-eye', also: ['india'], tags: 'pii redact mask privacy aadhaar pan', ready: true },
+  { id: 'office-metadata-remover', name: 'Office metadata remover', desc: 'Strip author, company and history from .docx, .xlsx and .pptx.', icon: 'file-x', tags: 'docx xlsx pptx metadata author', ready: true },
   { id: 'totp-generator', name: '2FA code generator (TOTP)', desc: 'Generate time-based 2FA codes from a secret key, offline.', icon: 'smartphone', tags: '2fa totp authenticator otp', ready: true },
   { id: 'bcrypt-generator', name: 'Bcrypt hash & verify', desc: 'Hash passwords with bcrypt and check a password against a hash.', icon: 'hash', also: ['dev'], tags: 'bcrypt password hash', ready: true },
 ]
