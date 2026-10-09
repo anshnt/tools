@@ -80,3 +80,7 @@ export const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
 
 /** Download-safe file name pieces. */
 export const stem = (name = 'Untitled') => name.replace(/\.[^.\/\\]+$/, '') || 'Untitled'
+
+let heavyTail = Promise.resolve()
+/** Run big encode jobs (autosave, export, project save) one at a time: several 12 MP encodes at once can exhaust browser memory. */
+export const heavy = (fn) => (heavyTail = heavyTail.then(fn, fn))

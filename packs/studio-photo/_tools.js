@@ -99,7 +99,8 @@ class Stroke {
   }
 
   move(p, e) {
-    const evs = e.getCoalescedEvents?.() || [e]
+    const co = e.getCoalescedEvents?.()
+    const evs = co && co.length ? co : [e]
     const vp = this.app.vp
     for (const ev of evs) {
       const q = ev === e ? p : vp.point(ev)
@@ -159,12 +160,14 @@ class Stroke {
     const c = rectIntersect({ x: r.x - this.ox, y: r.y - this.oy, w: r.w, h: r.h }, { x: -this.ox, y: -this.oy, w: d.w, h: d.h })
     if (!c) return
     const sc = d.selectionCanvas(), cx = this.Cx
+    cx.save()
+    cx.beginPath(); cx.rect(c.x, c.y, c.w, c.h); cx.clip() // destination-in would otherwise clear everything outside the drawn rect
     cx.globalCompositeOperation = 'source-over'
     cx.clearRect(c.x, c.y, c.w, c.h)
     cx.drawImage(this.S, c.x, c.y, c.w, c.h, c.x, c.y, c.w, c.h)
     cx.globalCompositeOperation = 'destination-in'
     cx.drawImage(sc, c.x + this.ox, c.y + this.oy, c.w, c.h, c.x, c.y, c.w, c.h)
-    cx.globalCompositeOperation = 'source-over'
+    cx.restore()
   }
 
   end(label) {
@@ -318,7 +321,7 @@ const move = (() => {
         if (st.h.includes('n')) y0 = p.y; if (st.h.includes('s')) y1 = p.y
         let nx = Math.min(x0, x1), ny = Math.min(y0, y1), nw = Math.abs(x1 - x0), nh = Math.abs(y1 - y0)
         if (e.shiftKey && st.b.w && st.b.h) { const k = st.b.w / st.b.h; if (st.h.length === 2) { nh = nw / k; if (st.h.includes('n')) ny = y1 - nh } else if ('ns'.includes(st.h)) nw = nh * k; else nh = nw / k }
-        st.drag.set({ shape: { ...L.shape, x: nx, y: ny, w: Math.max(1, nw), h: Math.max(1, nh) } })
+        st.drag.set({ shape: { ...L.shape, x: Math.round(nx), y: Math.round(ny), w: Math.max(1, Math.round(nw)), h: Math.max(1, Math.round(nh)) } })
         return
       }
       let dx = p.x - st.start.x, dy = p.y - st.start.y

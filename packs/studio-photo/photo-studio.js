@@ -71,7 +71,7 @@ export async function mount(root, ctx) {
   const props = propsPanel(app)
   const history = historyPanel(app)
   const colorsP = colorPanel(app)
-  app.focusText = (select) => { showTab('props'); setTimeout(() => props.focusText(select), 40) }
+  app.focusText = (select) => { showTab('props'); if (mobile.matches) openDock(true); setTimeout(() => props.focusText(select), 40) }
 
   // ---------- DOM ----------
   const rail = h('div', { class: 'ps-rail', role: 'toolbar', 'aria-label': 'Tools', 'aria-orientation': 'vertical' })
@@ -121,7 +121,6 @@ export async function mount(root, ctx) {
     activeTab = id
     for (const [k, b] of Object.entries(bodies)) b.hidden = k !== id
     for (const [k, b] of Object.entries(tabBtns)) b.setAttribute('aria-selected', String(k === id))
-    if (mobile.matches && id !== 'layers' && root_ps.dataset.dock !== 'open') root_ps.dataset.dock = 'open'
   }
   const mobile = matchMedia('(max-width: 860px)')
   function layoutDock() {
@@ -135,7 +134,8 @@ export async function mount(root, ctx) {
   const undoBtn = h('button', { type: 'button', class: 'ps-ib', 'aria-label': 'Undo', 'data-tip': 'Undo|Ctrl+Z', onclick: () => app.undo() }, icon('undo-2'))
   const redoBtn = h('button', { type: 'button', class: 'ps-ib', 'aria-label': 'Redo', 'data-tip': 'Redo|Ctrl+Shift+Z', onclick: () => app.redo() }, icon('redo-2'))
   const zoomTxt = h('button', { type: 'button', class: 'ps-ib ps-zoomtxt', style: 'width:auto;padding:0 6px', 'aria-label': 'Zoom, click for 100%', 'data-tip': 'Actual size|Ctrl+1', onclick: () => app.doc && vp.setZoom(1) }, '100%')
-  const dockBtn = h('button', { type: 'button', class: 'ps-ib ps-dock-btn', 'aria-label': 'Panels', 'aria-pressed': 'false', 'data-tip': 'Layers and panels', onclick: () => { root_ps.dataset.dock = root_ps.dataset.dock === 'open' ? 'closed' : 'open'; dockBtn.setAttribute('aria-pressed', String(root_ps.dataset.dock === 'open')) } }, icon('layers'))
+  const dockBtn = h('button', { type: 'button', class: 'ps-ib ps-dock-btn', 'aria-label': 'Panels', 'aria-pressed': 'false', 'data-tip': 'Layers and panels', onclick: () => openDock(root_ps.dataset.dock !== 'open') }, icon('layers'))
+  function openDock(on) { root_ps.dataset.dock = on ? 'open' : 'closed'; dockBtn.setAttribute('aria-pressed', String(on)) }
   const menuBtns = []
   const mbtn = (label, build) => { const b = h('button', { type: 'button', class: 'ps-mb', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: (e) => openMenu(root_ps, e.currentTarget, build()) }, label); menuBtns.push(b); return b }
   const exportBtn = h('button', { type: 'button', class: 'ps-go', 'aria-label': 'Export', onclick: () => app.doc ? app.dialogs.export() : app.warn('Open or create an image first.') }, icon('download'), h('span', 'Export'))
@@ -489,7 +489,7 @@ export async function mount(root, ctx) {
     if (e.altKey && (k === 'Delete' || k === 'Backspace')) { e.preventDefault(); return app.ops.fillSelection(app.fg) }
     if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); return app.ops.deleteOrClear() }
     if (k === 'Enter' && app.tool === 'crop') { e.preventDefault(); return app.applyCrop() }
-    if (k === 'Escape') { app.cancelTool(); if (app.tool === 'crop') app.optAction('cancelCrop'); else if (d.sel) app.ops.deselect(); return }
+    if (k === 'Escape') { app.cancelTool(); if (app.tool === 'crop') app.optAction('cancelCrop'); return }
     if (k.startsWith('Arrow')) {
       const L = d.active
       if (!L || L.locked || L.type === 'adjust' || app.tool !== 'move') return
@@ -519,7 +519,7 @@ export async function mount(root, ctx) {
       app.setTool(ids[(i + 1) % ids.length])
     }
   }
-  function onKeyUp(e) { if (e.key === ' ' && app.spaceDown) { app.spaceDown = false; delete vp.el.dataset.grab } }
+  function onKeyUp(e) { if (e.key === ' ' && app.spaceDown) { e.preventDefault(); app.spaceDown = false; delete vp.el.dataset.grab } }
   const blurReset = () => { app.spaceDown = false; delete vp.el.dataset.grab }
   function onPaste(e) {
     if (typing(e.target) || document.querySelector('dialog[open]')) return
@@ -548,6 +548,8 @@ export async function mount(root, ctx) {
   if (restored) { app.setDoc(restored.doc); toast('Restored your last session', 'success') }
   else if (params.template && TEMPLATES[params.template]) app.newFromTemplate(params.template)
   else showStart()
+
+  if (mobile.matches) requestAnimationFrame(() => root_ps.scrollIntoView({ block: 'start' })) // on phones, bring the editor into view
 
   // test hook (used by the automated tests; harmless in production)
   root_ps.__app = app

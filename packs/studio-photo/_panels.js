@@ -90,7 +90,7 @@ export function layersPanel(app) {
     btn('copy', 'Duplicate layer|Ctrl+J', () => app.doc?.active && app.doc.duplicate(app.doc.activeId)),
     btn('arrow-up', 'Move layer up|Ctrl+]', () => app.moveLayer(1)), btn('arrow-down', 'Move layer down|Ctrl+[', () => app.moveLayer(-1)),
     btn('merge', 'Merge down|Ctrl+E', () => app.mergeDown()), h('span', { class: 'ps-sp' }), btn('trash-2', 'Delete layer', () => app.doc?.active && app.doc.deleteLayer(app.doc.activeId)))
-  const el = h('div', { class: 'ps-sec layers-sec', style: 'min-height:0' }, head, list, foot)
+  const el = h('div', { class: 'ps-sec layers-sec', style: 'min-height:0' }, h('div', { class: 'ps-tabs ps-lt' }, h('strong', { style: 'padding:0 4px' }, 'Layers')), head, list, foot)
   el.style.display = 'flex'
 
   let dragId = null
@@ -192,7 +192,7 @@ export function propsPanel(app) {
     }
 
     if (L.type === 'text') {
-      const ta = h('textarea', { class: 'ps-in', rows: 3, value: L.text.text, 'aria-label': 'Text', spellcheck: false, oninput: () => nested('text', { text: ta.value }, 'Edit text') })
+      const ta = h('textarea', { class: 'ps-in', rows: 3, value: L.text.text, 'aria-label': 'Text', spellcheck: false, oninput: () => nested('text', { text: ta.value }, 'Edit text'), onkeydown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); app.vp.el.focus() } } })
       ta.set = (v) => { if (ta.value !== v) ta.value = v }
       syncs.push(() => ta.set(L.text.text))
       app.textArea = ta

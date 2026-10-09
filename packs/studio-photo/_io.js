@@ -3,7 +3,7 @@ import { loadImage, toBlob, MAX_PIXELS } from '../../lib/image.js'
 import { zip } from '../../lib/files.js'
 import { jszip } from '../../lib/libs.js'
 import * as idb from '../../lib/idb.js'
-import { cv, rctx, hexToRgb, rgbToHex, clamp } from './_util.js'
+import { cv, rctx, hexToRgb, rgbToHex, clamp, heavy } from './_util.js'
 import { Doc, rasterLayer, mkLayer, adjustLayer, DEFAULT_TEXT, DEFAULT_SHAPE } from './_doc.js'
 import { renderDoc, layerBounds } from './_render.js'
 import { adjustDefaults } from './_adjust.js'
@@ -161,8 +161,18 @@ export async function docFromPsd(file) {
   return { doc, stats }
 }
 
+/** Our masks are alpha-only canvases; PSD wants a grayscale image. */
+function psdMask(L) {
+  const m = L.mask.canvas, g = cv(m.width, m.height), ctx = rctx(g)
+  const img = rctx(m).getImageData(0, 0, m.width, m.height), d = img.data
+  for (let i = 0; i < d.length; i += 4) { const v = d[i + 3]; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255 }
+  ctx.putImageData(img, 0, 0)
+  return { top: 0, left: 0, bottom: m.height, right: m.width, canvas: g, defaultColor: 255, disabled: !L.maskOn }
+}
+
 /** Write a layered PSD. Text and shape layers are saved as pixel layers; unsupported adjustments are listed in `dropped`. */
-export async function psdBlob(doc) {
+export const psdBlob = (doc) => heavy(() => buildPsd(doc))
+async function buildPsd(doc) {
   const { writePsd } = await loadPsd()
   const dropped = []
   const children = []
@@ -172,6 +182,7 @@ export async function psdBlob(doc) {
       const a = toPsdAdjustment(L.adjust)
       if (!a) { dropped.push(L.name); continue }
       o.adjustment = a
+      if (L.mask) o.mask = psdMask(L)
     } else {
       let canvas = L.canvas, left = L.x, top = L.y
       if (L.type !== 'raster') {
@@ -181,13 +192,7 @@ export async function psdBlob(doc) {
         left = r.x; top = r.y
       }
       Object.assign(o, { canvas, left, top })
-      if (L.mask) {
-        const m = L.mask.canvas, g = cv(m.width, m.height), ctx = rctx(g)
-        const img = rctx(m).getImageData(0, 0, m.width, m.height), d = img.data
-        for (let i = 0; i < d.length; i += 4) { const v = d[i + 3]; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255 }
-        ctx.putImageData(img, 0, 0)
-        o.mask = { top: 0, left: 0, bottom: m.height, right: m.width, canvas: g, defaultColor: 255, disabled: !L.maskOn }
-      }
+      if (L.mask) o.mask = psdMask(L)
     }
     children.push(o)
   }
@@ -197,11 +202,10 @@ export async function psdBlob(doc) {
 
 // ---------- flat export ----------
 export const FORMATS = { png: ['image/png', 'png'], jpeg: ['image/jpeg', 'jpg'], webp: ['image/webp', 'webp'] }
-export async function exportBlob(doc, { format = 'png', quality = 0.92, scale = 1, background } = {}) {
+export function exportBlob(doc, { format = 'png', quality = 0.92, scale = 1, background } = {}) {
   const [type] = FORMATS[format]
   const bg = format === 'jpeg' ? background || '#ffffff' : null
-  const c = renderDoc(doc, { scale, background: bg })
-  return toBlob(c, type, type === 'image/png' ? undefined : quality)
+  return heavy(() => toBlob(renderDoc(doc, { scale, background: bg }), type, type === 'image/png' ? undefined : quality))
 }
 
 // ---------- project (zip / IndexedDB) ----------
@@ -248,7 +252,8 @@ export async function deserialize(meta, getBlob) {
   return doc
 }
 
-export async function projectBlob(doc) {
+export const projectBlob = (doc) => heavy(() => buildProject(doc))
+async function buildProject(doc) {
   const { meta, files } = await serialize(doc)
   return zip([{ name: 'project.json', data: JSON.stringify(meta) }, ...Object.entries(files).map(([name, data]) => ({ name, data }))])
 }
@@ -266,10 +271,10 @@ export async function docFromProject(file) {
 }
 
 const key = (slot) => `photo-studio:${slot}`
-export async function saveAuto(doc, slot) {
+export const saveAuto = (doc, slot) => heavy(async () => {
   const { meta, files } = await serialize(doc)
   return idb.set(key(slot), { meta, files, ts: Date.now() })
-}
+})
 export async function loadAuto(slot) {
   const rec = await idb.get(key(slot))
   if (!rec?.meta) return null

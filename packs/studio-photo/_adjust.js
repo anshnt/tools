@@ -1,5 +1,5 @@
 // Adjustment math (non-destructive adjustment layers) and destructive filters. Everything works on RGBA Uint8ClampedArray data.
-import { clamp, hexToRgb, rgbToHsl, hslToRgb } from './_util.js'
+import { clamp, hexToRgb } from './_util.js'
 import { blurArray } from './_select.js'
 
 const lutOf = (fn) => { const l = new Uint8ClampedArray(256); for (let i = 0; i < 256; i++) l[i] = fn(i); return l }
@@ -45,6 +45,12 @@ export function gradientLut(stops) {
     out[i * 3] = col[0]; out[i * 3 + 1] = col[1]; out[i * 3 + 2] = col[2]
   }
   return out
+}
+
+function hueToRgb(p, q, t) {
+  if (t < 0) t += 1
+  else if (t > 1) t -= 1
+  return t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p
 }
 
 const num = (v, d) => (Number.isFinite(v) ? v : d)
@@ -101,15 +107,23 @@ export function applyAdjust(d, kind, p) {
     return
   }
   if (kind === 'huesat') {
-    const hue = num(p.hue, 0), sat = num(p.sat, 0) / 100, light = num(p.light, 0) / 100
+    const hue = num(p.hue, 0) / 360, sat = num(p.sat, 0) / 100, light = num(p.light, 0) / 100
     if (!hue && !sat && !light) return
     for (let i = 0; i < n; i += 4) {
-      let [h, s, l] = rgbToHsl(d[i], d[i + 1], d[i + 2])
-      h += hue
-      s = sat >= 0 ? s + (1 - s) * sat : s * (1 + sat)
-      l = light >= 0 ? l + (1 - l) * light : l * (1 + light)
-      const [r, g, b] = hslToRgb(h, clamp(s, 0, 1), clamp(l, 0, 1))
-      d[i] = r; d[i + 1] = g; d[i + 2] = b
+      const r = d[i] / 255, g = d[i + 1] / 255, b = d[i + 2] / 255
+      const mx = r > g ? (r > b ? r : b) : g > b ? g : b, mn = r < g ? (r < b ? r : b) : g < b ? g : b
+      let l = (mx + mn) / 2, s = 0, h = 0
+      if (mx !== mn) {
+        const df = mx - mn
+        s = l > 0.5 ? df / (2 - mx - mn) : df / (mx + mn)
+        h = (mx === r ? (g - b) / df + (g < b ? 6 : 0) : mx === g ? (b - r) / df + 2 : (r - g) / df + 4) / 6
+      }
+      h += hue; h -= Math.floor(h)
+      s = sat >= 0 ? s + (1 - s) * sat : s * (1 + sat); s = s < 0 ? 0 : s > 1 ? 1 : s
+      l = light >= 0 ? l + (1 - l) * light : l * (1 + light); l = l < 0 ? 0 : l > 1 ? 1 : l
+      if (s === 0) { const v = l * 255; d[i] = d[i + 1] = d[i + 2] = v; continue }
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s, pp = 2 * l - q
+      d[i] = hueToRgb(pp, q, h + 1 / 3) * 255; d[i + 1] = hueToRgb(pp, q, h) * 255; d[i + 2] = hueToRgb(pp, q, h - 1 / 3) * 255
     }
     return
   }

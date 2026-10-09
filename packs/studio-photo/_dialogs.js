@@ -154,16 +154,21 @@ export function createDialogs(app) {
     export() {
       const d = app.doc
       let token = 0
+      const bigDoc = d.w * d.h > 8e6
       const info = h('p', { class: 'ps-note', 'aria-live': 'polite' }, 'Calculating size...')
-      const update = debounce(async (v) => {
+      const update = debounce((v) => {
         const t = ++token
         if (v.format === 'psd') { info.textContent = `Layered PSD, ${d.w} x ${d.h} px, ${d.layers.length} layers.`; return }
         const sc = clamp((v.scale || 100) / 100, 0.01, 8)
-        try {
-          info.textContent = 'Calculating size...'
-          const blob = await exportBlob(d, { format: v.format, quality: v.quality / 100, scale: sc, background: v.bg })
-          if (t === token) info.textContent = `${Math.round(d.w * sc)} x ${Math.round(d.h * sc)} px, about ${formatBytes(blob.size)}.`
-        } catch (e) { if (t === token) info.textContent = errorMessage(e) }
+        if (bigDoc) { info.textContent = `${Math.round(d.w * sc)} x ${Math.round(d.h * sc)} px. The file size is shown after you export.`; return }
+        ;(async () => {
+          if (t !== token) return
+          try {
+            info.textContent = 'Calculating size...'
+            const blob = await exportBlob(d, { format: v.format, quality: v.quality / 100, scale: sc, background: v.bg })
+            if (t === token) info.textContent = `${Math.round(d.w * sc)} x ${Math.round(d.h * sc)} px, about ${formatBytes(blob.size)}.`
+          } catch (e) { if (t === token) info.textContent = errorMessage(e) }
+        })()
       }, 350)
       const m = formDialog({
         title: 'Export', icon: 'download', ok: 'Download',
@@ -182,6 +187,7 @@ export function createDialogs(app) {
             download(blob, `${name}.psd`)
             toast(dropped.length ? `Saved PSD. ${dropped.length} adjustment layer(s) have no PSD equivalent and were skipped: ${dropped.join(', ')}` : 'Saved PSD with layers, masks and blend modes', dropped.length ? 'info' : 'success')
           } else {
+            token++
             const blob = await exportBlob(d, { format: v.format, quality: v.quality / 100, scale: clamp(v.scale / 100, 0.01, 8), background: v.bg })
             download(blob, `${name}.${FORMATS[v.format][1]}`)
             toast(`Saved ${name}.${FORMATS[v.format][1]} (${formatBytes(blob.size)})`, 'success')

@@ -43,12 +43,19 @@ export class Viewport {
     return { ...this.s2d(sx, sy), sx, sy }
   }
 
+  /** Device pixel ratio to render at: full on plain documents, capped when pixel-level adjustment layers must run on every frame. */
+  wantDpr() {
+    const base = Math.min(2, window.devicePixelRatio || 1)
+    const heavy = this.doc?.layers.some((l) => l.type === 'adjust' && l.visible)
+    return heavy ? Math.min(base, 1.25) : base
+  }
+
   resize() {
     const W = this.W, H = this.H
     if (W < 2 || H < 2) return
-    this.dpr = Math.min(2, window.devicePixelRatio || 1)
+    this.dpr = this.wantDpr()
     const dw = Math.round(W * this.dpr), dh = Math.round(H * this.dpr)
-    if (this.canvas.width !== dw || this.canvas.height !== dh) {
+    if (this.canvas.width !== dw || this.canvas.height !== dh || this.antsA.width !== W) {
       for (const c of [this.canvas, this.over, this.acc]) { c.width = dw; c.height = dh }
       for (const c of [this.antsA, this.antsB]) { c.width = W; c.height = H }
       if (this.fitted && this.doc) this.fit(false)
@@ -120,6 +127,7 @@ export class Viewport {
   }
 
   renderNow() {
+    if (this.doc && this.wantDpr() !== this.dpr) { this.resize(); if (this.raf === 0) this.dirty = FULL }
     const doc = this.doc, W = this.canvas.width, H = this.canvas.height
     if (!doc || !W) { this.ctx.clearRect(0, 0, W, H); this.dirty = null; return }
     const r = this.dirty === FULL || !this.dirty ? { x: 0, y: 0, w: W, h: H } : rectIntersect(this.dirty, { x: 0, y: 0, w: W, h: H })
@@ -204,7 +212,7 @@ export class Viewport {
       if (!this.doc) return
       e.preventDefault()
       const r = el.getBoundingClientRect()
-      if (e.ctrlKey || e.metaKey) this.zoomBy(Math.exp(-e.deltaY * (e.ctrlKey ? 0.012 : 0.0016)), e.clientX - r.left, e.clientY - r.top)
+      if (e.ctrlKey || e.metaKey) this.zoomBy(Math.exp(-clamp(e.deltaY, -120, 120) * (Math.abs(e.deltaY) < 30 ? 0.012 : 0.0022)), e.clientX - r.left, e.clientY - r.top)
       else if (e.shiftKey) this.panBy(-(e.deltaY || e.deltaX), 0)
       else this.panBy(-e.deltaX, -e.deltaY)
     }, { passive: false })
@@ -214,7 +222,7 @@ export class Viewport {
     if (!this.doc) return
     this.el.focus({ preventScroll: true })
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
-    this.el.setPointerCapture?.(e.pointerId)
+    try { this.el.setPointerCapture?.(e.pointerId) } catch { /* synthetic or already released pointer */ }
     if (this.pointers.size === 2) { // pinch / two-finger pan cancels whatever the tool was doing
       this.app.cancelTool()
       this.pan = null
