@@ -153,3 +153,15 @@ node scripts/check.mjs
 It must pass: it validates every catalog entry, that `ready` tools have a module exporting `mount`, that relative imports resolve and named imports exist, Lucide icon names, JS syntax, pinned CDN versions and the no-em-dash rule. CI also runs `scripts/smoke.py`, which mounts every ready tool at 1280px and 375px and fails on console errors, uncaught exceptions, error alerts or horizontal overflow.
 
 Test locally with a static server (`python -m http.server 8000`, then open `http://localhost:8000/#/<tool-id>`): clean console, 375px wide, dark mode (moon button), and the main path with real inputs. Generate test inputs yourself (Pillow, pypdf, reportlab, python-docx, openpyxl, pillow-heif, ffmpeg) rather than downloading sample files from websites.
+
+## Studio apps (full editors)
+
+The `studio-*` packs hold full editors (photo, develop, vector, video, motion, layout, PDF, audio, slides, docs, sheets, CAD). They follow everything above, plus:
+
+- Catalog entry has `layout: 'app'`: the tool page gets a compact header, a full-width workspace and a Full screen button (`.tool-body.app`). Build an app shell inside `root`: a top toolbar, optional left tool rail and right inspector panels, and the canvas/editor in the middle, sized to the available height. Keep it usable at 360px (panels collapse into tabs or a bottom sheet) and say "best on a larger screen" where a feature really needs it.
+- **State:** one document model (plain objects), rendered from state; every edit goes through a command so **undo/redo** works (Ctrl+Z / Ctrl+Shift+Z or Ctrl+Y), with a history panel where useful.
+- **Projects:** autosave to IndexedDB with `lib/idb.js` (`get/set/del/keys`; values can include Blobs) and restore on open; New / Open / Save project as a file (JSON or ZIP with assets); import and export the common formats for that kind of app.
+- **Keyboard:** standard shortcuts (Delete, arrows to nudge, Ctrl+C/V/X/D, Ctrl+A, zoom with Ctrl+wheel and Ctrl+0/+/-, Space-drag to pan where it fits), shown in tooltips.
+- **Performance:** canvas or WebGL for pixels, SVG for vectors, virtualize long lists and big grids, workers for heavy processing, `yieldToMain()` in long loops.
+- **Libraries:** pinned, permissively licensed (MIT, Apache, BSD, ISC; avoid GPL/AGPL/commercial engines such as HyperFormula). Examples that fit: ag-psd (PSD), paper.js (vector booleans), pdf.js + pdf-lib, SheetJS, docx/mammoth, pptxgenjs, dxf-parser, ffmpeg.wasm via `lib/ffmpeg.js`, WebCodecs + mp4-muxer.
+- **Credit:** each studio app is a clean-room browser take on a category also covered by the open-source ArtCraft native apps (https://github.com/storytold). Add a small footer line linking the matching ArtCraft repo ("Prefer a native app? PhotoCraft by ArtCraft is free and open source."). Do not copy their code or assets, and do not use Adobe, Microsoft or Autodesk names or logos as product names (descriptive mentions like "Photoshop-style" in tags are fine).
