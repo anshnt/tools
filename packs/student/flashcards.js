@@ -369,7 +369,7 @@ export function mount(root) {
     }, { label: 'Writing cards', errorTo: out }) })
     if (typeof ready === 'string' && ready) { ta.value = ready; setTimeout(() => local.click(), 60) }
     return tile({ tint: TINTS[2], title: 'Turn notes into cards', icon: 'wand-sparkles' },
-      h('div', { class: 'stack' }, ta, h('div', { class: 'row' }, local, aiBtn, fileBtn), ai.notice('AI option uses Claude'), out))
+      h('div', { class: 'stack' }, ta, h('div', { class: 'row' }, local, aiBtn, fileBtn), ai.notice('AI option uses AI'), out))
   }
 
   // ---------------- shell ----------------

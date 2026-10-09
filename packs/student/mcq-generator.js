@@ -160,7 +160,7 @@ export function mount(root) {
       effort: 'low', maxTokens: 12000,
     })
     S.qs = cleanAi(res.questions, prefs.opts); S.made = 'ai'; S.answered.clear()
-    if (!S.qs.length) throw new Error('Claude did not return usable questions. Try again with more text.')
+    if (!S.qs.length) throw new Error('AI did not return usable questions. Try again with more text.')
     paint()
   }, { label: 'Writing questions', errorTo: genOut }) })
   const localBtn = button('Another set', { icon: 'shuffle', variant: 'secondary', onClick: () => { S.seed++; generateLocal(false) } })
@@ -170,7 +170,7 @@ export function mount(root) {
   function drawEngine() {
     clear(engineBox, prefs.engine === 'local'
       ? [h('div', { class: 'stu-hint' }, 'Builds fill-in and definition questions, using other key terms from your notes as the wrong options. Free and private.'), h('div', { class: 'row' }, localBtn)]
-      : [ai.notice('AI questions use Claude'), h('div', { class: 'row' }, aiBtn), h('div', { class: 'stu-hint' }, 'AI reads your notes and writes better wrong options and explanations. Your text goes to Anthropic under your own API key.')])
+      : [ai.notice('AI questions use AI'), h('div', { class: 'row' }, aiBtn), h('div', { class: 'stu-hint' }, 'AI reads your notes and writes better wrong options and explanations. Your text goes to Anthropic under your own API key.')])
   }
   const titleIn = h('input', { class: 'input', value: prefs.title, 'aria-label': 'Quiz title', oninput: (e) => { prefs.title = e.target.value || 'Quiz'; savePrefs() } })
   const levelSeg = segmented([['easy', 'Easy'], ['medium', 'Medium'], ['hard', 'Hard']], prefs.level, (v) => { prefs.level = v; savePrefs() }, 'Difficulty')

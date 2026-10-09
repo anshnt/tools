@@ -286,7 +286,7 @@ export function mount(root) {
   const aiDesc = textarea({ rows: 4, placeholder: 'Describe what to match, e.g. "an Indian mobile number with optional +91 or 0 prefix" or "dates like 14 Mar 2026"', 'aria-label': 'Describe the pattern' })
   const aiSample = textarea({ rows: 3, mono: true, spellcheck: false, placeholder: 'Optional: paste a few example lines that should match (and some that should not)', 'aria-label': 'Examples' })
   const aiOut = h('div', { class: 'stack' })
-  const aiBtn = button('Generate with Claude', { icon: 'wand-sparkles', variant: 'primary' })
+  const aiBtn = button('Generate with AI', { icon: 'wand-sparkles', variant: 'primary' })
   aiBtn.addEventListener('click', async () => {
     if (!aiDesc.value.trim()) return clear(aiOut, alert('warn', 'Describe what the pattern should match first.'))
     if (!(await ai.ensureKey())) return
@@ -301,7 +301,7 @@ export function mount(root) {
       })
       const flags = String(r.flags || '').replace(/[^gimsu]/g, '')
       let re
-      try { re = new RegExp(r.pattern, flags) } catch (e) { return clear(aiOut, alert('error', `Claude returned a pattern this browser cannot compile (${e.message}). Try rephrasing.`)) }
+      try { re = new RegExp(r.pattern, flags) } catch (e) { return clear(aiOut, alert('error', `AI returned a pattern this browser cannot compile (${e.message}). Try rephrasing.`)) }
       const check = (list, want) => list.map((t) => { re.lastIndex = 0; return [t, re.test(t) === want] })
       const good = check(r.matches || [], true)
       const bad = check(r.nonMatches || [], false)
@@ -321,7 +321,7 @@ export function mount(root) {
       clear(aiOut, alert('error', e.userMessage || e.message))
     } finally { aiBtn.disabled = false }
   })
-  const aiView = h('div', { class: 'panel stack' }, ai.notice('Optional: describe a pattern in words and Claude writes it (uses your own Anthropic API key).'),
+  const aiView = h('div', { class: 'panel stack' }, ai.notice('Optional: describe a pattern in words and AI writes it (uses your own Anthropic API key).'),
     h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'What should it match?'), aiDesc),
     h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Examples (optional)'), aiSample),
     h('div', { class: 'row' }, aiBtn), aiOut)

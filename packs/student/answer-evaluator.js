@@ -204,12 +204,12 @@ export function mount(root) {
       })
       const sc = Math.max(0, Math.min(st.max, Number(res.score) || 0))
       clear(aiOut, h('div', { class: 'stack', style: 'margin-top:12px' },
-        h('div', { class: 'row' }, pill('Claude says', 'ok', 'sparkles'), h('b', { style: 'font-size:20px' }, `${fmtMark(sc)} / ${fmtMark(st.max)}`), h('span', { class: 'muted' }, res.verdict)),
+        h('div', { class: 'row' }, pill('AI says', 'ok', 'sparkles'), h('b', { style: 'font-size:20px' }, `${fmtMark(sc)} / ${fmtMark(st.max)}`), h('span', { class: 'muted' }, res.verdict)),
         h('div', (res.points || []).map((p) => h('div', { class: 'pt', style: 'grid-template-columns:minmax(0,1fr) auto' }, h('div', null, h('div', { class: 'tx' }, p.point), h('div', { class: 'sub' }, p.comment)), h('span', { class: 'mk' }, `${fmtMark(p.awarded)} / ${fmtMark(p.max)}`)))),
         res.strengths?.length ? h('div', null, h('b', 'What went well'), h('ul', { class: 'fb' }, ...res.strengths.map((t) => h('li', t)))) : null,
         res.improvements?.length ? h('div', null, h('b', 'How to improve'), h('ul', { class: 'fb' }, ...res.improvements.map((t) => h('li', t)))) : null))
     }, { label: 'Evaluating', errorTo: aiOut }) })
-    return tile({ tint: TINTS[5], title: 'AI second opinion', icon: 'sparkles' }, h('div', { class: 'stack' }, h('div', { class: 'stu-hint' }, 'The on-device score checks wording overlap. AI understands paraphrases, spelling slips and reasoning, so use it for borderline answers.'), ai.notice('AI evaluation uses Claude'), h('div', { class: 'row' }, btn), aiOut))
+    return tile({ tint: TINTS[5], title: 'AI second opinion', icon: 'sparkles' }, h('div', { class: 'stack' }, h('div', { class: 'stu-hint' }, 'The on-device score checks wording overlap. AI understands paraphrases, spelling slips and reasoning, so use it for borderline answers.'), ai.notice('AI evaluation uses AI'), h('div', { class: 'row' }, btn), aiOut))
   }
 
   function loadSample() {
