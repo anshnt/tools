@@ -79,10 +79,11 @@ function designTab(ed, api) {
     return box
   }
   const fillBox = paintBox('Fill', fillEd, true), strokeBox = paintBox('Stroke', strokeEd, true)
-  const appearance = section('Appearance', fillBox, strokeBox,
-    h('div', { class: 'vs-row2' }, mini('Weight', sw, 'px'), mini('Opacity', opacity, '%')),
+  const strokeDetails = h('div', { class: 'vs-sec-body' },
+    h('div', { class: 'vs-row2' }, mini('Weight', sw, 'px')),
     h('div', { class: 'vs-label' }, 'Line cap'), cap, h('div', { class: 'vs-label' }, 'Line join'), join,
-    h('div', { class: 'vs-label' }, 'Dashes'), dash, evenodd)
+    h('div', { class: 'vs-label' }, 'Dashes'), dash)
+  const appearance = section('Appearance', fillBox, strokeBox, h('div', { class: 'vs-row2' }, mini('Opacity', opacity, '%')), strokeDetails, evenodd)
 
   // ----- transform -----
   const X = num(0, { label: 'X' }, (v) => ed.setBox({ x: v })), Y = num(0, { label: 'Y' }, (v) => ed.setBox({ y: v }))
@@ -152,6 +153,8 @@ function designTab(ed, api) {
     const op = top.length ? top[0].op : styleSrc.op
     opacity.set(Math.round(op * 100))
     evenodd.input.checked = styleSrc.rule === 'evenodd'
+    strokeDetails.hidden = !styleSrc.stroke
+    evenodd.hidden = !ls_.some((n) => n.type === 'path') && ed.nodes.length > 0
     const bx = ed.box()
     for (const [i, k] of [[X, 'x'], [Y, 'y'], [W, 'w'], [H, 'h']]) { i.disabled = !bx; i.set(bx ? bx[k] : NaN) }
     const rects = ls_.filter((n) => n.type === 'rect')
