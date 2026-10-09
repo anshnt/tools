@@ -7,7 +7,7 @@
 - **Private by design.** Most tools run entirely on your device. Files are never uploaded.
 - **No sign-up, no install.** Open a tool and use it, on phone or desktop, in light or dark mode.
 - **Fast to find.** Search from anywhere with `Ctrl K` (or `/`), favorite tools, and pick up recent ones.
-- **Drop any file.** Drop or paste a file anywhere and pick what to do with it; it opens straight in that tool.
+- **Drop any file.** Drop or paste a file anywhere and pick what to do with it; the tool opens with your file loaded.
 - **Install it.** Add Tools to your home screen or dock; tools you have used keep working offline.
 
 Tools are marked by how they run:

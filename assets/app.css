@@ -643,6 +643,7 @@ dialog.palette[open] { animation: dlg-in .28s var(--spring); }
 .footer-inner a:hover { color: var(--accent); }
 
 /* ---------- Smart file drop ---------- */
+@media (max-width: 400px) { #install-app { display: none !important; } }
 .drop-overlay { position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; pointer-events: none;
   background: color-mix(in srgb, var(--accent) 10%, rgba(9, 9, 14, .35)); backdrop-filter: blur(3px); animation: fade .15s; }
 .drop-card { display: grid; justify-items: center; gap: 8px; padding: 28px 34px; border-radius: 24px; text-align: center; max-width: calc(100vw - 32px);
