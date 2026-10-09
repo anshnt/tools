@@ -20,5 +20,5 @@ export default [
   { id: 'gif-maker', name: 'GIF maker', desc: 'Turn a set of images into an animated GIF with your own timing, loop and size.', icon: 'film', also: ['media'], tags: 'animated gif animation', ready: true },
   { id: 'image-compare', name: 'Image diff', desc: 'Highlight pixel differences between two images, or compare them with a slider.', icon: 'git-compare', tags: 'difference compare pixels', ready: true },
   { id: 'color-contrast-checker', name: 'Color contrast checker', module: 'color-contrast', desc: 'Check text and background colors against WCAG AA and AAA, and get accessible fixes.', icon: 'contrast', also: ['dev'], tags: 'wcag accessibility a11y contrast ratio text background', ready: true },
-  { id: 'pixelate-image', name: 'Pixel art maker', module: 'pixelate', desc: 'Turn a photo into pixel art with a retro palette, dithering and crisp upscaling.', icon: 'gamepad-2', tags: 'pixelate pixel art retro 8bit gameboy dither mosaic', ready: true },
+  { id: 'pixel-art-maker', name: 'Pixel art maker', module: 'pixelate', desc: 'Turn a photo into pixel art with a retro palette, dithering and crisp upscaling.', icon: 'gamepad-2', tags: 'pixelate pixel art retro 8bit gameboy dither mosaic', ready: true },
 ]
