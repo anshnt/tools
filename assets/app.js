@@ -208,9 +208,10 @@ function categoryView(id) {
 function toolView(t) {
   setMeta(t.name, t.desc)
   const c = catById.get(t.cat)
-  const body = h('div', { class: 'tool-body' })
-  const related = readyFirst(toolsIn(t.cat).filter((x) => x.id !== t.id && x.module !== t.module)).slice(0, 8)
-  const view = h('div', { class: 'page tool-page', style: { '--c': c.color } },
+  const appMode = t.layout === 'app'
+  const body = h('div', { class: ['tool-body', appMode && 'app'] })
+  const related = appMode ? [] : readyFirst(toolsIn(t.cat).filter((x) => x.id !== t.id && x.module !== t.module)).slice(0, 8)
+  const view = h('div', { class: ['page', 'tool-page', appMode && 'app-mode'], style: { '--c': c.color } },
     h('div', { class: 'page-hero compact' }, h('div', { class: 'page-hero-bg', 'aria-hidden': 'true' }),
       h('div', { class: 'container' },
         h('nav', { class: 'crumbs', 'aria-label': 'Breadcrumb' }, h('a', { href: '#/' }, 'Home'), icon('chevron-right'), h('a', { href: `#/c/${c.id}` }, c.title), icon('chevron-right'), h('span', { 'aria-current': 'page' }, t.name)),
@@ -221,10 +222,11 @@ function toolView(t) {
             h('div', { class: 'badges' }, modeBadge(t), !t.ready && h('span', { class: 'badge soon' }, icon('hammer'), 'Coming soon'),
               t.mode === 'ai' && h('button', { type: 'button', class: 'badge badge-btn', onclick: () => ai.openSettings() }, icon('key-round'), 'AI settings'))),
           h('div', { class: 'head-actions' },
+            appMode && document.fullscreenEnabled && button('', { icon: 'maximize', variant: 'ghost', ariaLabel: 'Full screen', title: 'Full screen (Esc to leave)', onClick: () => body.requestFullscreen?.().catch(() => {}) }),
             favButton(t, 'icon-btn'),
             navigator.share && button('', { icon: 'share-2', variant: 'ghost', ariaLabel: 'Share this tool', onClick: () => navigator.share({ title: `${t.name} · Tools`, text: t.desc, url: location.href }).catch(() => {}) }),
             button('', { icon: 'link', variant: 'ghost', ariaLabel: 'Copy link to this tool', onClick: () => copyText(location.href) }))))),
-    h('div', { class: 'container' },
+    h('div', { class: ['container', appMode && 'wide'] },
       body,
       related.length ? section(`More ${c.name} tools`, null, related, h('a', { class: 'more-link', href: `#/c/${c.id}` }, 'View all', icon('arrow-right'))) : null))
 

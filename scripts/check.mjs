@@ -33,7 +33,7 @@ for (const t of TOOLS) {
 for (const id of POPULAR) if (!seen.has(id)) fail(`POPULAR: unknown tool "${id}"`)
 
 // --- Raw catalog entries: only known keys, strict types ---
-const KEYS = new Set(['id', 'name', 'desc', 'icon', 'cat', 'also', 'module', 'params', 'mode', 'tags', 'ready'])
+const KEYS = new Set(['id', 'name', 'desc', 'icon', 'cat', 'also', 'module', 'params', 'mode', 'tags', 'ready', 'layout'])
 for (const pack of readdirSync(join(root, 'packs'))) {
   const file = join(root, 'packs', pack, 'catalog.js')
   if (!existsSync(file)) { fail(`packs/${pack}: missing catalog.js`); continue }
@@ -42,6 +42,7 @@ for (const pack of readdirSync(join(root, 'packs'))) {
   if (!mod.cat) fail(`packs/${pack}/catalog.js: missing export const cat`)
   for (const e of mod.default) {
     for (const k of Object.keys(e)) if (!KEYS.has(k)) fail(`packs/${pack}/${e.id}: unknown key "${k}"`)
+    if ('layout' in e && e.layout !== 'app') fail(`packs/${pack}/${e.id}: layout must be 'app'`)
     if ('ready' in e && typeof e.ready !== 'boolean') fail(`packs/${pack}/${e.id}: ready must be true or false`)
     if ('also' in e && !Array.isArray(e.also)) fail(`packs/${pack}/${e.id}: also must be an array`)
     if ('tags' in e && typeof e.tags !== 'string') fail(`packs/${pack}/${e.id}: tags must be a string`)

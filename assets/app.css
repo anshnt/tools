@@ -642,6 +642,19 @@ dialog.palette[open] { animation: dlg-in .28s var(--spring); }
 .footer-inner a { min-height: 32px; display: inline-flex; align-items: center; }
 .footer-inner a:hover { color: var(--accent); }
 
+/* ---------- Studio apps (layout: 'app') ---------- */
+.container.wide { max-width: none; padding-left: calc(12px + var(--safe-l)); padding-right: calc(12px + var(--safe-r)); }
+.tool-page.app-mode .crumbs { padding-top: 12px; }
+.tool-page.app-mode .page-head { padding: 8px 0 12px; gap: 12px; align-items: center; }
+.tool-page.app-mode .tile.xl { width: 44px; height: 44px; border-radius: 13px; }
+.tool-page.app-mode .tile.xl .icon { width: 22px; height: 22px; }
+.tool-page.app-mode .page-head h1 { font-size: 22px; }
+.tool-page.app-mode .page-head p { margin-top: 2px; font-size: 14px; }
+.tool-page.app-mode .page-head .badges { display: none; }
+.tool-body.app { padding-bottom: 16px; min-height: calc(100dvh - var(--header-h) - 120px); }
+.tool-body.app:fullscreen { background: var(--bg); padding: 10px; overflow: auto; }
+.tool-body.app:fullscreen::backdrop { background: var(--bg); }
+
 /* ---------- Smart file drop ---------- */
 @media (max-width: 400px) { #install-app { display: none !important; } }
 .drop-overlay { position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; pointer-events: none;
