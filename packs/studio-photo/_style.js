@@ -152,7 +152,7 @@ textarea.ps-in { height: auto; min-height: 64px; padding: 6px 8px; resize: verti
 .ps-foot a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 
 @media (max-width: 860px) {
-  .ps { height: clamp(520px, calc(100dvh - 90px), 900px); }
+  .ps { height: clamp(480px, calc(100dvh - 150px), 900px); }
   .ps-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   .ps-rail { grid-row: 2; flex-direction: row; border-right: 0; border-top: 1px solid var(--border); padding: 6px 8px; overflow-x: auto; overflow-y: hidden; justify-content: flex-start; }
   .ps-rail .ps-gap { width: 6px; height: 36px; }

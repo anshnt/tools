@@ -536,7 +536,7 @@ export async function mount(root, ctx) {
   themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
   // bar tweaks that need the DOM in place
   layoutDock()
-  showTab('props')
+  showTab(mobile.matches ? 'layers' : 'props')
   refreshColors()
   app.setTool('move')
   updateTop()
