@@ -178,7 +178,7 @@ const CLAIMS = {
   name: 'Name', given_name: 'Given name', family_name: 'Family name', preferred_username: 'Username', roles: 'Roles', sid: 'Session ID', typ: 'Type', at_hash: 'Access token hash',
 }
 const TIME_CLAIMS = new Set(['exp', 'nbf', 'iat', 'auth_time'])
-const fmtLocal = (sec) => new Date(sec * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium', timeZoneName: 'short' })
+const fmtLocal = (sec) => new Date(sec * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'long' })
 
 export function tokenStatus(payload, now = Date.now() / 1000) {
   if (!payload || typeof payload !== 'object') return null

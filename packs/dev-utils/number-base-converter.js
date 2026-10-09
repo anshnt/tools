@@ -88,7 +88,7 @@ export function mount(root) {
   custom.setAttribute('aria-label', 'Extra output base')
   custom.style.cssText = 'width:auto;min-width:130px;height:34px'
   const rowPlain = {}
-  const extraRow = copyRow('', () => rowPlain.extra, { initial: '' })
+  const extraRow = copyRow('BASE 32', () => rowPlain.extra, { initial: '' })
   const infoEl = h('div')
   const widthSeg = segmented([[8, '8'], [16, '16'], [32, '32'], [64, '64'], [128, '128']], width, (v) => { width = v; run() }, 'Bit width')
   const widthTable = h('div')

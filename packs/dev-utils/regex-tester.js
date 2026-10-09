@@ -281,7 +281,7 @@ export function mount(root) {
     { id: 'matches', label: 'Matches', render: () => matchesView },
     { id: 'replace', label: 'Replace', render: () => replaceView },
     { id: 'explain', label: 'Explain', render: () => explainView },
-    { id: 'insert', label: 'Cheat sheet', render: () => cheat },
+    { id: 'insert', label: 'Tokens', render: () => cheat },
   ], 'matches')
 
   root.append(h('div', { class: 'dv t-rx stack' },

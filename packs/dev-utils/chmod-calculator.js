@@ -155,8 +155,8 @@ export function mount(root) {
   const cmds = h('div', { class: 'stack tight' })
   const explainEl = h('div', { class: 'stack tight' })
 
-  const cmdRows = [copyRow('octal', () => cmdVals.oct), copyRow('symbolic', () => cmdVals.sym), copyRow('ls -l', () => cmdVals.ls), copyRow('find', () => cmdVals.find)]
   const cmdVals = {}
+  const cmdRows = [copyRow('octal', () => cmdVals.oct), copyRow('symbolic', () => cmdVals.sym), copyRow('ls -l', () => cmdVals.ls), copyRow('find', () => cmdVals.find)]
   clear(cmds, ...cmdRows)
 
   // symbolic change

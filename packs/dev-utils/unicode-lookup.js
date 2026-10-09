@@ -56,10 +56,11 @@ const STYLE = `
 
 const SAMPLES = [['snowman', 'snowman'], ['arrow', 'arrow right'], ['©', '©'], ['U+1F600', 'U+1F600'], ['alpha', 'greek alpha'], ['check', 'check mark'], ['&euro;', '&euro;'], ['zero width', 'zero width']]
 
-export function mount(root) {
+export function mount(root, { params = {} } = {}) {
   useKit()
   css('t-ul-css', STYLE)
   const q = hashParams()
+  const focus = params.tab === 'emoji' || params.tab === 'inspect' // dedicated entries open with their own tab first and no detail card until something is picked
   let data = null
   let current = ''
   const loading = h('div', { class: 'small muted', 'aria-live': 'polite' })
@@ -70,6 +71,7 @@ export function mount(root) {
   // ----- detail -----
   function show(s, scroll = false) {
     current = s
+    detail.hidden = false
     const list = U.cps(s)
     const single = list.length === 1
     const cp = list[0]
@@ -249,10 +251,10 @@ export function mount(root) {
 
   const main = tabs([
     { id: 'search', label: 'Search', render: () => h('div', { class: 'stack' }, sIn, ex, sNote, sGrid, sMore) },
-    { id: 'inspect', label: 'Inspect text', render: () => inspectView },
+    { id: 'inspect', label: 'Inspect', render: () => inspectView },
     { id: 'emoji', label: 'Emoji', render: () => { initEmoji(); return emojiView } },
-    { id: 'blocks', label: 'Browse blocks', render: () => { renderBlock(); return blocksView } },
-  ], q.get('tab') || 'search')
+    { id: 'blocks', label: 'Blocks', render: () => { renderBlock(); return blocksView } },
+  ], params.tab || q.get('tab') || 'search')
 
   async function ensure() {
     if (data) return data
@@ -260,20 +262,22 @@ export function mount(root) {
     return data
   }
 
-  root.append(h('div', { class: 'dv t-ul stack' }, detail, loading, h('div', { class: 'panel' }, main),
+  root.append(h('div', { class: 'dv t-ul stack' }, ...(focus ? [loading, h('div', { class: 'panel' }, main), detail] : [detail, loading, h('div', { class: 'panel' }, main)]),
     h('p', { class: 'small muted' }, 'Names and properties follow the Unicode Standard (names from the unicode-name package, emoji lists from unicode-emoji-json). The data downloads once from jsDelivr and is then cached by your browser; everything else runs locally.')))
 
   // Start with a useful selection, then fill in names once the tables arrive.
   const start = q.get('c') ? (U.parseQuery(q.get('c')).list ? U.parseQuery(q.get('c')).list.map((c) => str(c)).join('') : q.get('c')) : '€'
-  show(start)
+  detail.hidden = focus
+  if (!focus) show(start)
   loading.textContent = 'Loading Unicode names...'
   ensure().then(() => {
     loading.textContent = ''
-    show(current)
+    if (current) show(current)
     markPressed()
     if (sIn.value) runSearch()
     if (bGrid.isConnected) renderBlock()
   }).catch(() => { loading.textContent = ''; clear(loading, alert('warn', 'The Unicode name tables could not be loaded, so names are unavailable. Code points, encodings and escapes still work.')) })
+  if (params.tab === 'inspect' && !tIn.value) tIn.value = 'Caf\u00e9 na\u00efve \u{1F44B}\u{1F3FD} \u{1F468}\u200d\u{1F469}\u200d\u{1F467} \u{1F1EE}\u{1F1F3}'
   inspect()
   runSearch()
 }

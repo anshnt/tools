@@ -174,12 +174,13 @@ const STYLE = `
 .t-uu .uu-insp dd { margin: 0; font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
 `
 
-export function mount(root) {
+export function mount(root, { params = {} } = {}) {
   useKit()
   css('t-uu-css', STYLE)
   const gen = { v7: makeV7(), v1: makeV1(), ulid: makeUlid() }
   const q = hashParams()
-  let type = TYPES.some((t) => t[0] === q.get('type')) ? q.get('type') : 'v4'
+  const wanted = params.type || q.get('type')
+  let type = TYPES.some((t) => t[0] === wanted) ? wanted : 'v4'
   let ids = []
 
   const typeBtns = TYPES.map(([id, label]) => h('button', { type: 'button', class: 'uu-type', 'aria-pressed': String(id === type), onclick: () => { type = id; for (const b of typeBtns) b.setAttribute('aria-pressed', String(b.dataset.t === id)); update(true) }, dataset: { t: id } }, label))

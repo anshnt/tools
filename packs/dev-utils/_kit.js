@@ -83,6 +83,7 @@ const CSS = `
 .dv-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .dv-table-actions { display: flex; gap: 4px; justify-content: flex-end; }
 .dv-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+@media (max-width: 520px) { .dv .tabs button { padding: 11px 9px; font-size: 13.5px; } }
 @media (prefers-reduced-motion: reduce) { .dv-hero::before { animation: none; } }
 `
 
