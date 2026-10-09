@@ -18,8 +18,8 @@ export function pdfParams(url, o) {
 export function toLatin1(s) {
   let lost = 0
   const out = String(s)
-    .replace(/[‘’‚′]/g, "'").replace(/[“”„″]/g, '"').replace(/[–—−]/g, '-').replace(/…/g, '...').replace(/[•●▪·]/g, '-')
-    .replace(/[      ]/g, ' ').replace(/[​‌‍﻿]/g, '').replace(/€/g, 'EUR').replace(/→/g, '->').replace(/←/g, '<-')
+    .replace(/[\u2018\u2019\u201a\u2032]/g, "'").replace(/[\u201c\u201d\u201e\u2033]/g, '"').replace(/[\u2013\u2014\u2212]/g, '-').replace(/\u2026/g, '...').replace(/[\u2022\u25cf\u25aa\u00b7]/g, '-')
+    .replace(/[\u00a0\u2002\u2003\u2009\u200a\u202f]/g, ' ').replace(/[\u200b\u200c\u200d\ufeff]/g, '').replace(/\u20ac/g, 'EUR').replace(/\u2192/g, '->').replace(/\u2190/g, '<-')
     .replace(/[^\x09\x0a\x20-\x7e\xa0-\xff]/g, () => { lost++; return '?' })
   return { text: out, lost }
 }
