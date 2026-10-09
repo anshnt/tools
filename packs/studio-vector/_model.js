@@ -2,7 +2,7 @@
 // The document is plain JSON: {v, seq, ab: {w, h, bg, transparent}, nodes: [node]} (nodes are listed back to front).
 // Node types: group {kids}, rect, ellipse, path {subs}, text, image. Groups never carry a transform: moving or scaling
 // a group pushes the matrix down to its children, so geometry always stays editable.
-import { I, mul, ap, lin, isIdent, subsBBox, ellipseSubs, rectSubs, transformSubs, cloneSubs } from './_geom.js'
+import { I, mul, ap, isIdent, subsBBox, ellipseSubs, rectSubs, transformSubs, cloneSubs } from './_geom.js'
 
 export const FONTS = [
   ['Inter, "Segoe UI", system-ui, sans-serif', 'Sans serif'], ['Georgia, "Times New Roman", serif', 'Serif'], ['"Courier New", ui-monospace, monospace', 'Monospace'],
