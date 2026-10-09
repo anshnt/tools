@@ -133,7 +133,7 @@ export function buildShort(text, { max = 10, seed = 1 } = {}) {
       // "A because B" -> ask about A; "Because B, A" -> ask about A (the part after the first comma)
       const main = (m.index < 3 ? s.text.slice(s.text.indexOf(',') + 1) : s.text.slice(0, m.index)).replace(/[\s,;]+$/, '').trim()
       if (wordsN(main) < 4) continue
-      out.push({ q: `Explain why this happened: "${trim(main.replace(/^[a-z]/, (c) => c.toUpperCase()), 120)}".`, a: s.text, kind: 'explain' })
+      out.push({ q: `Explain why this happened: "${trim(main.replace(/^[a-z]/, (c) => c.toUpperCase()).replace(/[.!?]+$/, ''), 120)}".`, a: s.text, kind: 'explain' })
     }
   }
   return (seed > 1 ? shuffle(out, rand) : out).slice(0, max)

@@ -109,7 +109,7 @@ function steps(s) {
   const { a, b, c, D } = s
   const st = []
   st.push(['Write the equation in the form ax² + bx + c = 0 and read off the coefficients.', `a=${num(a)},\\quad b=${num(b)},\\quad c=${num(c)}`])
-  st.push(['Work out the discriminant D = b² − 4ac. Its sign tells us how many real roots there are.', `D=${paren(b)}^{2}-4(${num(a)})(${paren(c)})=${num(b * b)}-${paren(4 * a * c)}=${numTex(D)}`])
+  st.push(['Work out the discriminant D = b² − 4ac. Its sign tells us how many real roots there are.', `D=${paren(b)}^{2}-4(${num(a)})(${num(c)})=${num(b * b)}-${paren(4 * a * c)}=${numTex(D)}`])
   st.push([D > 0 ? 'D is positive, so there are two different real roots.' : D === 0 ? 'D is zero, so there is one repeated real root.' : 'D is negative, so there are no real roots. The roots are a pair of complex numbers.', D > 0 ? 'D>0' : D === 0 ? 'D=0' : 'D<0'])
   st.push(['Substitute into the quadratic formula.', `x=\\frac{-b\\pm\\sqrt{D}}{2a}=\\frac{${b === 0 ? '0' : numTex(-b)}\\pm\\sqrt{${numTex(D)}}}{${numTex(2 * a)}}`])
   if (s.exact?.rational === false) st.push(['Simplify the root, taking out perfect squares.', s.exact.tex])
@@ -146,9 +146,10 @@ function plot(s) {
     svg('line', { x1: sx(vx), y1: pad, x2: sx(vx), y2: H - pad, stroke: 'var(--muted)', 'stroke-dasharray': '4 5', 'stroke-width': 1 }),
     svg('clipPath', { id: 'qclip' }, svg('rect', { x: pad - 6, y: pad - 6, width: W - 2 * pad + 12, height: H - 2 * pad + 12 })),
     svg('polyline', { points: pts, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 3, 'stroke-linejoin': 'round', 'clip-path': 'url(#qclip)' }),
-    ...xs.map((x) => svg('g', null, svg('circle', { cx: sx(x), cy: axisY, r: 6, fill: 'var(--success)', stroke: 'var(--surface)', 'stroke-width': 2 }), svg('text', { x: sx(x), y: axisY + (a > 0 ? -12 : 20), 'text-anchor': 'middle', fill: 'var(--text-2)', 'font-size': 12 }, `x=${+x.toFixed(3)}`))),
+    ...xs.map((x, i) => svg('g', null, svg('circle', { cx: sx(x), cy: axisY, r: 6, fill: 'var(--success)', stroke: 'var(--surface)', 'stroke-width': 2 }),
+      svg('text', { x: sx(x) + (xs.length === 1 ? 0 : i === 0 ? -10 : 10), y: axisY + (a > 0 ? 18 : -10), 'text-anchor': xs.length === 1 ? 'middle' : i === 0 ? 'end' : 'start', fill: 'var(--text-2)', 'font-size': 12 }, `x = ${+x.toFixed(3)}`))),
     svg('circle', { cx: sx(vx), cy: Math.max(pad, Math.min(H - pad, sy(s.vertex.y))), r: 6, fill: 'var(--warning)', stroke: 'var(--surface)', 'stroke-width': 2 }),
-    svg('text', { x: Math.min(W - 70, sx(vx) + 10), y: Math.max(pad + 12, Math.min(H - pad - 6, sy(s.vertex.y) + (a > 0 ? 22 : -10))), fill: 'var(--text-2)', 'font-size': 12 }, `vertex (${+vx.toFixed(3)}, ${+s.vertex.y.toFixed(3)})`))
+    svg('text', { x: Math.max(70, Math.min(W - 70, sx(vx))), y: Math.max(14, Math.min(H - 8, sy(s.vertex.y) + (a > 0 ? 24 : -14))), 'text-anchor': 'middle', fill: 'var(--text-2)', 'font-size': 12 }, `vertex (${+vx.toFixed(3)}, ${+s.vertex.y.toFixed(3)})`))
 }
 
 export function mount(root) {

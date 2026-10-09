@@ -79,9 +79,9 @@ export function mount(root) {
   function paint() {
     clear(aiOut)
     const n = S.blanks.length + S.shorts.length
-    if (!src.get().trim()) { clear(paper, emptyState('list-checks', 'Your quiz appears here', 'Paste notes on the left, or try the sample, and questions are made instantly on your device.', button('Try a sample', { variant: 'primary', icon: 'wand-sparkles', onClick: () => src.set(SAMPLES.history) }))); info.replaceChildren(); return }
-    if (!n) { clear(paper, emptyState('circle-help', 'Not enough to ask about yet', 'Add more text, or write full sentences with key terms and numbers. AI can also write questions from rougher notes.')); info.replaceChildren(); return }
-    info.replaceChildren(pill(`${S.blanks.length} blank${S.blanks.length === 1 ? '' : 's'}`, '', 'text-cursor-input'), ' ', pill(`${S.shorts.length} short answer`, '', 'message-square-text'), ' ', S.aiMade ? h('span', { class: 'stu-pill ok ai-chip' }, 'Written by AI') : null)
+    if (!src.get().trim()) { clear(paper, emptyState('list-checks', 'Your quiz appears here', 'Paste notes on the left, or try the sample, and questions are made instantly on your device.', button('Try a sample', { variant: 'primary', icon: 'wand-sparkles', onClick: () => src.set(SAMPLES.history) }))); clear(info, ); return }
+    if (!n) { clear(paper, emptyState('circle-help', 'Not enough to ask about yet', 'Add more text, or write full sentences with key terms and numbers. AI can also write questions from rougher notes.')); clear(info, ); return }
+    clear(info, pill(`${S.blanks.length} blank${S.blanks.length === 1 ? '' : 's'}`, '', 'text-cursor-input'), ' ', pill(`${S.shorts.length} short answer`, '', 'message-square-text'), ' ', S.aiMade ? h('span', { class: 'stu-pill ok ai-chip' }, 'Written by AI') : null)
     S.view === 'sheet' ? drawSheet() : drawPractice()
   }
 

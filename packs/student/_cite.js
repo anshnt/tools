@@ -15,6 +15,8 @@ const IEEE_MON = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'Jun.', 'Jul.', 'Aug.',
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
 const I = (s) => (s ? `<i>${esc(s)}</i>` : '')
 const T = (s) => esc(s)
+// an italic title followed by a full stop that is not italic (a title that already ends in ? or ! keeps it inside)
+const Ip = (s) => (!s ? '' : /[.?!]$/.test(s) ? I(s) : I(s) + '.')
 const endWith = (s, p = '.') => (!s ? '' : /[.?!]$|[.?!]<\/i>$|[.?!]["'”’]$/.test(s) ? s : s + p)
 const has = (...v) => v.every((x) => x !== undefined && x !== null && String(x).trim() !== '')
 const num = (v) => (Number.isFinite(+v) && String(v).trim() !== '' ? +v : NaN)
@@ -129,7 +131,7 @@ function apa(s) {
     }
     case 'website': {
       const site = sameOrg(A, s.container) ? '' : ` ${T(endWith(s.container))}`
-      return A.length ? `${T(endWith(au))} ${date}. ${I(endWith(s.title))}${site}${tail}` : `${I(endWith(s.title))} ${date}.${site}${tail}`
+      return A.length ? `${T(endWith(au))} ${date}. ${Ip(s.title)}${site}${tail}` : `${Ip(s.title)} ${date}.${site}${tail}`
     }
     case 'video': {
       const plat = has(s.platform) ? ` ${T(endWith(s.platform))}` : ''
@@ -158,7 +160,7 @@ function mla(s) {
     }
     case 'book': {
       const parts = [has(s.edition) && !isFirstEdition(s.edition) ? `${T(editionText(s.edition))} ed.` : '', T(s.publisher), T(s.year)].filter(Boolean)
-      return `${lead}${I(endWith(s.title))} ${endWith(parts.join(', '))}${u ? ' ' + endWith(u) : ''}`
+      return `${lead}${Ip(s.title)} ${endWith(parts.join(', '))}${u ? ' ' + endWith(u) : ''}`
     }
     case 'website': {
       const parts = [I(s.container), has(s.publisher) && s.publisher !== s.container ? T(s.publisher) : '', mlaDate(s), u].filter(Boolean)
@@ -171,7 +173,7 @@ function mla(s) {
     }
     default: {
       const parts = [has(s.reportNo) ? T(s.reportNo) : '', T(s.publisher), T(s.year), u].filter(Boolean)
-      return `${lead}${I(endWith(s.title))} ${endWith(parts.join(', '))}`
+      return `${lead}${Ip(s.title)} ${endWith(parts.join(', '))}`
     }
   }
 }
@@ -194,7 +196,7 @@ function chicago(s) {
       break
     }
     case 'book': {
-      title = I(endWith(s.title))
+      title = Ip(s.title)
       rest = `${has(s.edition) && !isFirstEdition(s.edition) ? T(editionText(s.edition)) + ' ed. ' : ''}${endWith(pub)}`
       break
     }
@@ -209,7 +211,7 @@ function chicago(s) {
       break
     }
     default: {
-      title = I(endWith(s.title))
+      title = Ip(s.title)
       rest = `${has(s.reportNo) ? T(endWith(s.reportNo)) + ' ' : ''}${endWith(pub)}`
     }
   }
@@ -234,11 +236,11 @@ function harvard(s) {
     case 'book': {
       const ed = has(s.edition) && !isFirstEdition(s.edition) ? ` ${T(editionText(s.edition))} edn.` : ''
       const pub = [has(s.city) ? `${T(s.city)}: ` : '', T(s.publisher)].join('')
-      const head = lead ? `${lead} ${I(endWith(s.title))}` : `${I(s.title)} (${T(y)})`
+      const head = lead ? `${lead} ${Ip(s.title)}` : `${I(s.title)} (${T(y)})`
       return `${head}${ed} ${endWith(pub)}${avail(s.doi ? doiUrl(s.doi) : s.url)}`.replace(/\s+\./g, '.')
     }
     case 'website': {
-      const head = lead ? `${lead} ${I(endWith(s.title))}` : `${I(s.title)} (${T(y)})`
+      const head = lead ? `${lead} ${Ip(s.title)}` : `${I(s.title)} (${T(y)})`
       return `${head}${avail(url)}`
     }
     case 'video': {
@@ -247,7 +249,7 @@ function harvard(s) {
     }
     default: {
       const pub = [has(s.city) ? `${T(s.city)}: ` : '', T(s.publisher)].join('')
-      const head = lead ? `${lead} ${I(endWith(s.title))}` : `${I(s.title)} (${T(y)})`
+      const head = lead ? `${lead} ${Ip(s.title)}` : `${I(s.title)} (${T(y)})`
       return `${head} ${has(s.reportNo) ? T(endWith(s.reportNo)) + ' ' : ''}${endWith(pub)}${avail(url)}`
     }
   }
