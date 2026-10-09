@@ -293,3 +293,13 @@ export function acceptTextFiles(el, onText) {
 
 /** Lines of text a person might paste, trimmed and without empties. */
 export const lines = (t) => String(t || '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+
+/** Styled text prompt: askText({title, label, value, ok: 'Save'}, (text) => ...) */
+export function askText({ title = 'Name', label = '', value = '', ok = 'Save', placeholder = '' }, onOk) {
+  const inp = h('input', { class: 'input', type: 'text', value, placeholder, 'aria-label': label || title, maxlength: 80 })
+  const go = () => { const v = inp.value.trim(); if (!v) { inp.focus(); return } m.close(); onOk(v) }
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go() } })
+  const m = modal({ title, body: h('div', { class: 'stack' }, label ? h('div', { class: 'small muted' }, label) : null, inp), actions: [button('Cancel', { variant: 'ghost', onClick: () => m.close() }), button(ok, { variant: 'primary', onClick: go })] })
+  setTimeout(() => { inp.focus(); inp.select() }, 60)
+  return m
+}

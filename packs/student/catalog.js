@@ -2,10 +2,10 @@
 export const cat = 'student'
 export default [
   { id: 'notes-to-pdf', name: 'Notes to PDF', desc: 'Turn typed notes or photos of notes into a tidy PDF.', icon: 'notebook', also: ['pdf'], tags: 'notes pdf study', ready: true },
-  { id: 'flashcards', name: 'Flashcard generator', desc: 'Make flashcards from notes, study with flip cards, export for Anki.', icon: 'layers', tags: 'flashcards anki study revise' },
-  { id: 'quiz-generator', name: 'Quiz generator', desc: 'Create fill-in-the-blank and short-answer quizzes from your notes.', icon: 'list-checks', tags: 'quiz test questions' },
-  { id: 'mcq-generator', name: 'MCQ generator', desc: 'Generate multiple-choice questions with answers from any text.', icon: 'circle-check', tags: 'mcq multiple choice questions' },
-  { id: 'answer-evaluator', name: 'Answer evaluator', desc: 'Score an answer against a model answer or rubric, with feedback.', icon: 'graduation-cap', tags: 'grade marks evaluate rubric' },
+  { id: 'flashcards', name: 'Flashcard generator', desc: 'Make flashcards from notes, study with flip cards, export for Anki.', icon: 'layers', tags: 'flashcards anki study revise', ready: true },
+  { id: 'quiz-generator', name: 'Quiz generator', desc: 'Create fill-in-the-blank and short-answer quizzes from your notes.', icon: 'list-checks', tags: 'quiz test questions', ready: true },
+  { id: 'mcq-generator', name: 'MCQ generator', desc: 'Generate multiple-choice questions with answers from any text.', icon: 'circle-check', tags: 'mcq multiple choice questions', ready: true },
+  { id: 'answer-evaluator', name: 'Answer evaluator', desc: 'Score an answer against a model answer or rubric, with feedback.', icon: 'graduation-cap', tags: 'grade marks evaluate rubric', ready: true },
   { id: 'formula-sheet', name: 'Formula sheet generator', desc: 'Pick formulas for maths, physics, chemistry and print a sheet.', icon: 'sigma', tags: 'formulas cheat sheet maths physics', ready: true },
   { id: 'citation-generator', name: 'Citation generator', desc: 'Cite books, articles and websites in APA, MLA, IEEE, Chicago, Harvard.', icon: 'quote', also: ['text', 'career'], tags: 'cite reference doi isbn', ready: true },
   { id: 'bibliography-generator', name: 'Bibliography generator', module: 'citation-generator', params: { list: true }, desc: 'Build a sorted bibliography and copy or export it.', icon: 'library', tags: 'bibliography references works cited', ready: true },

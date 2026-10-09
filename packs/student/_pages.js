@@ -40,6 +40,18 @@ export const DOC_CSS = `
 .pgdoc mark { background: #fff2a8; padding: 0 .15em; border-radius: 3px; }
 .pgdoc .katex-display { margin: .6em 0; overflow: hidden; }
 .pgdoc .katex { font-size: 1.1em; }
+.pgdoc .q-meta { display: flex; flex-wrap: wrap; gap: 10px 28px; font-size: .9em; color: #3a4057; margin-bottom: .9em; }
+.pgdoc .q-sec h3 { margin: 1.1em 0 .5em; font-size: 1.02em; text-transform: uppercase; letter-spacing: .05em; color: #3a4057; }
+.pgdoc .q-list { padding-left: 1.7em; margin: 0 0 .8em; }
+.pgdoc .q-item { margin: 0 0 .85em; padding-left: .2em; }
+.pgdoc .q-opts { list-style: upper-alpha; padding-left: 1.6em; margin: .35em 0 0; }
+.pgdoc .q-opts li { margin: .12em 0; padding-left: .2em; }
+.pgdoc .q-mk { float: right; margin-left: 12px; font-size: .8em; color: #5a607a; border: 1px solid #cfd3e2; border-radius: 99px; padding: 0 8px; }
+.pgdoc .q-lines { margin-top: .5em; height: 3.1em; background: repeating-linear-gradient(to bottom, transparent 0, transparent 1.45em, #c8ccdb 1.45em, #c8ccdb calc(1.45em + 1px)); }
+.pgdoc .q-blank { display: inline-block; min-width: 5.5em; border-bottom: 1.5px solid #14161f; }
+.pgdoc .q-key li { margin-bottom: .35em; }
+.pgdoc .q-key .qk-a { font-weight: 650; color: #0f6b46; }
+.pgdoc .q-key .qk-x { color: #5a607a; font-size: .9em; }
 .pgdoc.pg-foot { flex: none; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #7a8097; }
 `
 

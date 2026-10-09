@@ -77,7 +77,7 @@ function blankCandidates(text) {
     if (t.length < 45 || t.length > 260 || t.endsWith('?') || lineDefs.has(t)) return
     let best = null
     for (const term of terms) {
-      const re = new RegExp(`(?<![\\p{L}\\p{N}])${term.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')}(?![\\p{L}\\p{N}])`, 'iu')
+      const re = new RegExp(`(?<![\\p{L}\\p{N}-])${term.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')}(?![\\p{L}\\p{N}]|-\\p{L})`, 'iu')
       const m = re.exec(t)
       if (!m) continue
       const occurrences = (t.match(new RegExp(re.source, 'giu')) || []).length
@@ -197,8 +197,13 @@ export function buildMcqs(text, { max = 10, seed = 1, options = 4 } = {}) {
   defs.forEach((d, i) => {
     if (d.definition.length > 220) return
     if (i % 2 === 0) {
-      const wrongTerms = termPool.filter((t) => !sameTerm(t, d.term) && wordsN(t) <= wordsN(d.term) + 2 && !d.definition.toLowerCase().includes(t.toLowerCase()))
-      const similar = wrongTerms.sort((a, b) => Math.abs(a.length - d.term.length) - Math.abs(b.length - d.term.length)).slice(0, 12)
+      const ok = (t) => !sameTerm(t, d.term) && wordsN(t) <= wordsN(d.term) + 2 && !d.definition.toLowerCase().includes(t.toLowerCase())
+      const byLen = (x, y) => Math.abs(x.length - d.term.length) - Math.abs(y.length - d.term.length)
+      // other defined terms make the best distractors; fall back to other key terms of the same kind (name vs common word)
+      const proper = /^\p{Lu}/u.test(d.term) && wordsN(d.term) > 1
+      const fromDefs = [...defs, ...loose].map((x) => x.term).filter(ok).sort(byLen)
+      const fromTerms = termPool.filter((t) => ok(t) && !fromDefs.includes(t) && (/^\p{Lu}/u.test(t) === /^\p{Lu}/u.test(d.term) || proper) && !/^[a-z]+ [a-z]+$/.test(t)).sort(byLen)
+      const similar = [...new Set([...fromDefs, ...fromTerms])].slice(0, 12)
       const it = finish(`Which term is described as: "${trim(d.definition, 170)}"?`, d.term, similar, `${d.term}: ${d.definition}`, 'definition')
       if (it) items.push(it)
     } else {

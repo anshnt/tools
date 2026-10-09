@@ -163,7 +163,7 @@ export function pickNumber(numbers) {
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 /** Replace the first (or all) whole-word occurrences of `term` in `sentence` with a blank. -> {text, found} */
 export function blankOut(sentence, term, { all = true, blank = '________' } = {}) {
-  const re = new RegExp(`(?<![\\p{L}\\p{N}])${escRe(term).replace(/\s+/g, '\\s+')}(?![\\p{L}\\p{N}])`, all ? 'giu' : 'iu')
+  const re = new RegExp(`(?<![\\p{L}\\p{N}-])${escRe(term).replace(/\s+/g, '\\s+')}(?![\\p{L}\\p{N}]|-\\p{L})`, all ? 'giu' : 'iu')
   let found = false
   const text = sentence.replace(re, () => { found = true; return blank })
   return { text, found }
