@@ -57,12 +57,12 @@ export function mount(root, { signal }) {
   const count = segmented([[1, '1'], [2, '2'], [3, '3']], 1, (v) => { st.n = v }, 'Number of versions')
   const keep = input({ placeholder: 'Names or terms to keep exactly, separated by commas', 'aria-label': 'Words to keep' })
   const fStrength = field('Change level', strength), fCount = field('Versions', count), fKeep = field('Keep these words', keep)
-  const engineSeg = segmented([['claude', 'Claude'], ['chrome', 'Chrome on-device']], 'claude', (v) => setEngine(v), 'Engine')
+  const engineSeg = segmented([['claude', 'AI'], ['chrome', 'Chrome on-device']], 'claude', (v) => setEngine(v), 'Engine')
   const showDiff = toggle('Highlight new wording', true, () => results.querySelectorAll('.tw-ver').forEach((v) => v._render?.()))
   const go = button('Paraphrase', { icon: 'repeat-2', variant: 'primary', size: 'lg' })
   const stop = button('Stop', { icon: 'square', variant: 'secondary', size: 'lg', onClick: () => st.abort?.abort() })
   stop.hidden = true
-  const engineBox = h('div', { hidden: true }, field('Engine', engineSeg, 'Claude uses your Anthropic key. Chrome on-device needs no key but supports fewer tones.'))
+  const engineBox = h('div', { hidden: true }, field('Engine', engineSeg, 'AI uses your Anthropic key. Chrome on-device needs no key but supports fewer tones.'))
 
   function setEngine(e) {
     st.engine = e
@@ -83,7 +83,7 @@ export function mount(root, { signal }) {
   })
   const showHint = () => {
     if (ai.isConfigured() || st.chrome) return clear(status)
-    clear(status, alert('info', h('strong', 'Paraphrasing needs an engine. '), 'Connect your Anthropic API key (Claude does the rewriting), or open this page in a recent desktop Chrome that has the built-in Rewriter API turned on. Nothing is sent anywhere until you press Paraphrase.'))
+    clear(status, alert('info', h('strong', 'Paraphrasing needs an engine. '), 'Connect your Anthropic API key (AI does the rewriting), or open this page in a recent desktop Chrome that has the built-in Rewriter API turned on. Nothing is sent anywhere until you press Paraphrase.'))
   }
   const onCfg = () => { showHint(); if (ai.isConfigured() && st.engine === 'chrome' && !st.chrome) setEngine('claude') }
   window.addEventListener('ai-config', onCfg)
@@ -129,7 +129,7 @@ export function mount(root, { signal }) {
     } else {
       const obj = await ai.ask({ system, prompt, signal: sig, effort: 'low', json: { type: 'object', properties: { versions: { type: 'array', items: { type: 'string' } } }, required: ['versions'], additionalProperties: false } })
       const vs = (obj.versions || []).slice(0, st.n)
-      if (!vs.length) throw new Error('Claude did not return a rewrite. Please try again.')
+      if (!vs.length) throw new Error('AI did not return a rewrite. Please try again.')
       for (let i = 0; i < cards.length; i++) { cards[i]._text = (vs[i] || '').trim(); cards[i]._done = true; await cards[i]._render(true) }
     }
   }
@@ -179,6 +179,6 @@ export function mount(root, { signal }) {
     h('div', { class: 'tw-bar' }, go, stop))
   clear(results, empty('Your rewritten text will appear here.', 'repeat-2'))
   const right = h('div', { class: 'stack' }, status, results)
-  root.append(toolRoot('para', ai.notice('Rewrites with Claude'), h('div', { class: ['tool-split', 'wide-left'] }, left, right),
-    note('With Claude, the text you paraphrase is sent to Anthropic with your own API key. Chrome on-device rewriting, where available, keeps text on your computer.', 'info')))
+  root.append(toolRoot('para', ai.notice('Rewrites with AI'), h('div', { class: ['tool-split', 'wide-left'] }, left, right),
+    note('With AI, the text you paraphrase is sent to Anthropic with your own API key. Chrome on-device rewriting, where available, keeps text on your computer.', 'info')))
 }

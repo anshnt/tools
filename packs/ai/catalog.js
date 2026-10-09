@@ -2,8 +2,8 @@
 export const cat = 'ai'
 export const mode = 'ai'
 export default [
-  { id: 'ai-chat', name: 'AI chat', desc: 'Chat with Claude, attach images and PDFs, and copy the answers.', icon: 'message-circle', tags: 'chat assistant claude ask', ready: true },
-  { id: 'ai-image-to-text', name: 'AI image to text', desc: 'Read text from photos, tables and handwriting with Claude vision.', icon: 'scan-text', tags: 'ocr vision extract text', ready: true },
+  { id: 'ai-chat', name: 'AI chat', desc: 'Chat with AI, attach images and PDFs, and copy the answers.', icon: 'message-circle', tags: 'chat assistant claude ask', ready: true },
+  { id: 'ai-image-to-text', name: 'AI image to text', desc: 'Read text from photos, tables and handwriting with AI vision.', icon: 'scan-text', tags: 'ocr vision extract text', ready: true },
   { id: 'handwriting-to-text', name: 'Handwriting to text', module: 'ai-image-to-text', params: { handwriting: true }, also: ['student'], desc: 'Convert handwritten notes into editable text.', icon: 'pen-line', tags: 'handwritten notes ocr', ready: true },
   { id: 'pdf-summary', name: 'PDF summarizer', desc: 'Summaries, key points and action items for any PDF or document.', icon: 'file-text', tags: 'summarize pdf document tldr', ready: true },
   { id: 'document-summarizer', name: 'Document summarizer', module: 'pdf-summary', params: { docs: true }, cat: 'career', also: ['ai'], desc: 'Summarize PDFs, Word files and text documents.', icon: 'file-stack', tags: 'summarize docx report', ready: true },
@@ -20,7 +20,7 @@ export default [
   { id: 'website-summary', name: 'Website summarizer', desc: 'Summarize any web page or article by URL.', icon: 'globe', tags: 'summarize article url webpage', ready: true },
   { id: 'resume-job-match', name: 'Resume to job matching', also: ['career'], desc: 'How well your resume fits a job, gaps to fix and tailored bullets.', icon: 'target', tags: 'resume job fit match', ready: true },
   { id: 'email-reply', name: 'Email reply writer', also: ['career'], desc: 'Paste an email and get a ready-to-send reply in your tone.', icon: 'reply', tags: 'email reply respond', ready: true },
-  { id: 'text-to-image', name: 'Text to image (SVG art)', desc: 'Describe a picture and Claude draws it as editable SVG; export PNG.', icon: 'image-plus', also: ['image'], tags: 'generate image illustration svg icon', ready: true },
+  { id: 'text-to-image', name: 'Text to image (SVG art)', desc: 'Describe a picture and AI draws it as editable SVG; export PNG.', icon: 'image-plus', also: ['image'], tags: 'generate image illustration svg icon', ready: true },
   { id: 'ai-image-editor', name: 'AI image editor', desc: 'Say what to change ("brighter, crop to face, add caption") and it is applied locally.', icon: 'wand-sparkles', also: ['image'], tags: 'edit photo instruction image to image', ready: true },
   { id: 'ai-document-extraction', name: 'AI document data extraction', desc: 'Invoices, receipts, IDs and forms to structured JSON or CSV.', icon: 'file-scan', also: ['data'], tags: 'invoice receipt extract fields ocr', ready: true },
   { id: 'ai-spreadsheet-analysis', name: 'AI spreadsheet analysis', desc: 'Upload CSV/Excel and ask questions; get answers, stats and charts.', icon: 'sheet', also: ['data'], tags: 'analyze excel csv insights', ready: true },

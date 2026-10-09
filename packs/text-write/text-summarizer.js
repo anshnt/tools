@@ -180,10 +180,10 @@ export function mount(root, { signal }) {
   const left = h('div', { class: 'stack' }, h('section', { class: 'tw-stage' }, h('div', { class: 'stack' }, kicker('Your text', 'type'), inp.el)),
     h('section', { class: 'tw-stage' }, h('div', { class: 'stack' }, kicker('How long?', 'ruler'), presetChips, countRange, field('Format', fmtSeg))))
   const aiCard = h('section', { class: 'tw-stage' }, h('div', { class: 'stack' }, kicker('Want it rewritten, not just trimmed?', 'sparkles'),
-    h('div', { class: 'tw-sub' }, 'The summary above picks your own sentences. Claude can write a new one in a style you choose.'), aiStyle, h('div', { class: 'tw-bar' }, aiBtn), aiBox))
+    h('div', { class: 'tw-sub' }, 'The summary above picks your own sentences. AI can write a new one in a style you choose.'), aiStyle, h('div', { class: 'tw-bar' }, aiBtn), aiBox))
   const right = h('div', { class: 'stack' }, out, aiCard)
   autoCount()
   run()
   root.append(toolRoot('sum', h('div', { class: ['tool-split', 'wide-left'] }, left, right),
-    note('The on-device summary picks the most important sentences using word frequency and sentence ranking. It never leaves your browser. Claude, only if you press the AI button, receives the text with your own key.', 'shield-check')))
+    note('The on-device summary picks the most important sentences using word frequency and sentence ranking. It never leaves your browser. AI, only if you press the AI button, receives the text with your own key.', 'shield-check')))
 }

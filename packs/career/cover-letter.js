@@ -193,9 +193,9 @@ export async function mount(root, { signal }) {
   const docxBtn = mk('Word', 'file-type', 'secondary', async () => saveAs(await blocksToDocx(letterBlocks(out.value, opt), { font: opt.look === 'modern' ? 'Calibri' : 'Georgia', accent: opt.look === 'modern' ? '#0d9b8a' : '#18181b', title: `Cover letter - ${f.name}`, author: f.name }), `${fileBase()}.docx`))
 
   // AI tailoring
-  const jdBox = textarea({ rows: 6, placeholder: 'Paste the job description so Claude can tailor the letter to it (optional but recommended).', value: load('career:jd', '') })
+  const jdBox = textarea({ rows: 6, placeholder: 'Paste the job description so AI can tailor the letter to it (optional but recommended).', value: load('career:jd', '') })
   jdBox.addEventListener('input', () => save('career:jd', jdBox.value))
-  const aiBtn = button('Tailor with Claude', { icon: 'sparkles', variant: 'primary' })
+  const aiBtn = button('Tailor with AI', { icon: 'sparkles', variant: 'primary' })
   const aiStatus = h('div')
   aiBtn.addEventListener('click', () => busy(aiBtn, async () => {
     if (!(await ai.ensureKey())) return
@@ -212,12 +212,12 @@ export async function mount(root, { signal }) {
         effort: 'medium', maxTokens: 2500, signal, onText: (t) => { out.value = t; upStats() },
       })
       out.value = text.trim(); upStats()
-      clear(editedNote, alert('success', 'Written by Claude from your details. Read it carefully and replace any [brackets]. ', h('button', { type: 'button', class: 'link', style: 'background:none;border:0;padding:0;font:inherit;cursor:pointer', onclick: regen }, 'Go back to the template version'), '.'))
+      clear(editedNote, alert('success', 'Written by AI from your details. Read it carefully and replace any [brackets]. ', h('button', { type: 'button', class: 'link', style: 'background:none;border:0;padding:0;font:inherit;cursor:pointer', onclick: regen }, 'Go back to the template version'), '.'))
     } catch (e) { out.value = start; throw e }
   }, { label: 'Writing', errorTo: aiStatus }))
 
   root.append(shell(
-    banner({ icon: 'mail-open', text: '<b>A solid first draft in seconds.</b> Fill in a few fields, pick a tone and edit the result. Add the job post and let Claude tailor it if you want more.', steps: ['Your details', 'Pick a tone', 'Edit and download'] }),
+    banner({ icon: 'mail-open', text: '<b>A solid first draft in seconds.</b> Fill in a few fields, pick a tone and edit the result. Add the job post and let AI tailor it if you want more.', steps: ['Your details', 'Pick a tone', 'Edit and download'] }),
     h('div', { class: 'cr-work wide-left' },
       h('div', { class: 'cr-pane-edit' }, formHost),
       h('div', { class: 'cr-sticky stack tight' },
@@ -229,7 +229,7 @@ export async function mount(root, { signal }) {
             button('', { icon: 'file-text', variant: 'ghost', ariaLabel: 'Download as text file', title: 'Download .txt', onClick: () => saveAs(out.value, `${fileBase()}.txt`, 'text/plain;charset=utf-8') }),
             button('Shuffle wording', { icon: 'shuffle', variant: 'ghost', size: 'sm', onClick: () => { opt.variant = (opt.variant + 1) % 3; regen(); persist() } })),
           h('div', { class: 'row small muted' }, 'Document style', lookSeg, h('label', { class: 'switch', style: 'margin-left:auto' }, h('input', { type: 'checkbox', role: 'switch', checked: opt.header, onchange: (e) => { opt.header = e.target.checked; regen(); persist() } }), h('span', 'Include header'))))),
-        card('Tailor with AI', 'sparkles', h('div', { class: 'stack tight' }, ai.notice('Optional: uses Claude'), jdBox, h('div', { class: 'row' }, aiBtn, h('span', { class: 'small muted' }, 'Sends your fields, saved resume and the job text to Anthropic.')), aiStatus))))))
+        card('Tailor with AI', 'sparkles', h('div', { class: 'stack tight' }, ai.notice('Optional: uses AI'), jdBox, h('div', { class: 'row' }, aiBtn, h('span', { class: 'small muted' }, 'Sends your fields, saved resume and the job text to Anthropic.')), aiStatus))))))
   drawForm()
   gen()
   if (f.role || f.company) saved.saved()
