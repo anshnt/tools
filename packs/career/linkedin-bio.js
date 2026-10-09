@@ -159,7 +159,7 @@ export async function mount(root, { signal }) {
     const hs = aiOut ? aiOut.headlines : headlines(f, opt)
     const as = aiOut ? aiOut.abouts : abouts(f, opt)
     clear(outHost,
-      aiOut ? alert('success', 'Written by Claude from your details. Read it carefully before you post. ', h('button', { type: 'button', class: 'link', style: 'background:none;border:0;padding:0;font:inherit;cursor:pointer', onclick: () => { aiOut = null; draw() } }, 'Back to the template versions')) : null,
+      aiOut ? alert('success', 'Written by AI from your details. Read it carefully before you post. ', h('button', { type: 'button', class: 'link', style: 'background:none;border:0;padding:0;font:inherit;cursor:pointer', onclick: () => { aiOut = null; draw() } }, 'Back to the template versions')) : null,
       h('div', { class: 'stack tight' }, h('h2', { class: 'cr-h', style: 'margin:0' }, h('span', { class: 'tile' }, icon('heading')), 'Headlines', h('span', { class: 'aside' }, `${LIMITS.headline} characters max`)), h('div', { class: 'stack tight' }, hs.map(hlCard))),
       h('div', { class: 'stack tight' }, h('h2', { class: 'cr-h', style: 'margin:0' }, h('span', { class: 'tile' }, icon('text-quote')), 'About section', h('span', { class: 'aside' }, `${LIMITS.about.toLocaleString()} characters max`)), h('div', { class: 'stack tight' }, as.map(aboutCard))))
   }
@@ -170,7 +170,7 @@ export async function mount(root, { signal }) {
   const toneSeg = segmented([['professional', 'Professional'], ['friendly', 'Friendly'], ['bold', 'Bold'], ['creative', 'Creative']], opt.tone, (v) => { opt.tone = v; onField() }, 'Tone')
   const personSeg = segmented([['first', 'First person (I)'], ['third', 'Third person']], opt.person, (v) => { opt.person = v; onField() }, 'Perspective')
 
-  const aiBtn = button('Rewrite with Claude', { icon: 'sparkles', variant: 'secondary' })
+  const aiBtn = button('Rewrite with AI', { icon: 'sparkles', variant: 'secondary' })
   const aiErr = h('div')
   aiBtn.addEventListener('click', () => busy(aiBtn, async () => {
     if (!(await ai.ensureKey())) return
@@ -200,7 +200,7 @@ export async function mount(root, { signal }) {
           h('div', { class: 'grid-2' }, fi(f, 'audience', 'Who do you help?', { ph: 'fintech startups' }, onField), fi(f, 'outcome', 'What do you help them do?', { ph: 'ship reliable products faster' }, onField)),
           h('div', { class: 'grid-2' }, fi(f, 'openTo', 'Open to (optional)', { ph: 'Staff Engineer roles in fintech' }, onField), fi(f, 'cta', 'Call to action (optional)', { ph: 'Message me or email aarav@example.com' }, onField)))),
         card('Style', 'palette', h('div', { class: 'stack tight' }, goalSel, field('Tone', toneSeg), field('Perspective', personSeg))),
-        card('Polish with AI', 'sparkles', h('div', { class: 'stack tight' }, ai.notice('Optional: uses Claude'), h('div', { class: 'row' }, aiBtn, saved.el), aiErr))),
+        card('Polish with AI', 'sparkles', h('div', { class: 'stack tight' }, ai.notice('Optional: uses AI'), h('div', { class: 'row' }, aiBtn, saved.el), aiErr))),
       h('div', { class: 'cr-sticky-lite' }, outHost))))
   draw()
 }

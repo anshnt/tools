@@ -318,16 +318,16 @@ export async function mount(root, { params, signal }) {
       }
       const f = report.found
       clear(result, h('div', { class: 'stack tight' },
-        alert(report.warnings.length ? 'warn' : 'success', h('strong', viaAi ? 'Parsed with Claude. ' : 'Parsed. '), `Found ${f.experience} job${f.experience === 1 ? '' : 's'}, ${f.education} education entr${f.education === 1 ? 'y' : 'ies'}, ${f.skills} skills and ${f.projects} project${f.projects === 1 ? '' : 's'}.`,
+        alert(report.warnings.length ? 'warn' : 'success', h('strong', viaAi ? 'Parsed with AI. ' : 'Parsed. '), `Found ${f.experience} job${f.experience === 1 ? '' : 's'}, ${f.education} education entr${f.education === 1 ? 'y' : 'ies'}, ${f.skills} skills and ${f.projects} project${f.projects === 1 ? '' : 's'}.`,
           report.warnings.length ? h('ul', { style: 'margin:6px 0 0;padding-left:18px' }, report.warnings.map((w) => h('li', w))) : null,
           report.skipped?.length ? h('div', { class: 'small muted', style: 'margin-top:4px' }, `Not imported: ${report.skipped.join(', ')}`) : null),
         h('div', { class: 'row' }, button('Use this in the builder', { icon: 'check', variant: 'primary', onClick: () => { onDone(parsed); } }))))
     }
     const bLocal = button('Parse', { icon: 'wand-sparkles', variant: 'primary' })
-    const bAi = button('Parse with Claude', { icon: 'sparkles', variant: 'secondary', title: 'More accurate on messy layouts. Uses your Anthropic key.' })
+    const bAi = button('Parse with AI', { icon: 'sparkles', variant: 'secondary', title: 'More accurate on messy layouts. Uses your Anthropic key.' })
     bLocal.addEventListener('click', () => busy(bLocal, doParse(false), { label: 'Parsing', errorTo: result }))
-    bAi.addEventListener('click', () => busy(bAi, doParse(true), { label: 'Asking Claude', errorTo: result }))
-    return h('div', { class: 'stack' }, src.el, h('div', { class: 'row' }, bLocal, bAi, h('span', { class: 'small muted' }, 'Parsing happens in your browser. Claude parsing sends the text to Anthropic.')), ai.notice('Optional AI parsing uses Claude'), result)
+    bAi.addEventListener('click', () => busy(bAi, doParse(true), { label: 'Asking AI', errorTo: result }))
+    return h('div', { class: 'stack' }, src.el, h('div', { class: 'row' }, bLocal, bAi, h('span', { class: 'small muted' }, 'Parsing happens in your browser. AI parsing sends the text to Anthropic.')), ai.notice('Optional AI parsing uses AI'), result)
   }
   function openImportModal() {
     const m = modal({ title: 'Import an existing resume', icon: 'import', body: importPanel({ compact: true, onDone: (parsed) => { m.close(); applyImported(parsed) } }) })
@@ -351,7 +351,7 @@ export async function mount(root, { params, signal }) {
   const steps = mode === 'import' ? ['Paste or upload', 'Review sections', 'Download']
     : mode === 'pdf' ? ['Add details', 'Pick a look', 'Download PDF'] : mode === 'docx' ? ['Add details', 'Pick a look', 'Download Word'] : ['Add details', 'Pick a look', 'Download']
   const blurb = {
-    import: '<b>Bring your old resume.</b> Paste the text or upload a PDF or DOCX and it is reformatted into a clean, ATS-friendly template. Nothing leaves your device unless you pick Claude.',
+    import: '<b>Bring your old resume.</b> Paste the text or upload a PDF or DOCX and it is reformatted into a clean, ATS-friendly template. Nothing leaves your device unless you pick AI.',
     pdf: '<b>A real PDF, not a screenshot.</b> The text is selectable and searchable, so applicant tracking systems read it properly.',
     docx: '<b>A clean, editable Word file.</b> Real bullet lists and tab-aligned dates, ready for any recruiter or ATS.',
     build: '<b>Autosaved on this device.</b> Three ATS-friendly templates, drag to reorder, and a live preview of the exact PDF you will download.',

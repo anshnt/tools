@@ -179,7 +179,7 @@ export async function mount(root, { signal }) {
     }
     const quick = button('Sort into sections', { icon: 'list-filter', variant: 'secondary' })
     quick.addEventListener('click', () => { if (raw.value.trim().length < 10) return toast('Paste some notes first', 'error'); const r = sortRaw(raw.value); merge(r); toast(`Added ${r.actions.length} action${r.actions.length === 1 ? '' : 's'}, ${r.decisions.length} decision${r.decisions.length === 1 ? '' : 's'}`, 'success') })
-    const aiBtn = button('Clean up with Claude', { icon: 'sparkles', variant: 'primary' })
+    const aiBtn = button('Clean up with AI', { icon: 'sparkles', variant: 'primary' })
     aiBtn.addEventListener('click', () => busy(aiBtn, async () => {
       if (raw.value.trim().length < 20) { toast('Paste some notes first', 'error'); return }
       if (!(await ai.ensureKey())) return
@@ -190,9 +190,9 @@ export async function mount(root, { signal }) {
         effort: 'low', maxTokens: 6000, signal,
       })
       merge(r)
-      toast('Cleaned up by Claude. Review each section.', 'success')
+      toast('Cleaned up by AI. Review each section.', 'success')
     }, { label: 'Cleaning up', errorTo: status }))
-    return card('Raw notes to structure', 'wand-sparkles', h('div', { class: 'stack tight' }, raw, h('div', { class: 'row' }, quick, aiBtn), ai.notice('Optional: uses Claude'), status))
+    return card('Raw notes to structure', 'wand-sparkles', h('div', { class: 'stack tight' }, raw, h('div', { class: 'row' }, quick, aiBtn), ai.notice('Optional: uses AI'), status))
   }
 
   // ---------- exports ----------

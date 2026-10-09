@@ -128,7 +128,7 @@ export function mount(root) {
   paint()
 
   const aiTab = () => h('div', { class: 'stack' },
-    ai.notice('Writes formulas with Claude'),
+    ai.notice('Writes formulas with AI'),
     field('What should the formula do?', promptEl),
     h('div', { class: 'dt-feat' }, IDEAS.map((t) => h('button', { type: 'button', class: 'dt-chip', onclick: () => { promptEl.value = t; showHints(); promptEl.focus() } }, h('span', t)))),
     field('About your data', dataEl),

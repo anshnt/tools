@@ -117,7 +117,7 @@ export async function mount(root, { signal }) {
 
   function aiView() {
     const out = h('div', { class: 'cr-md' })
-    const btn = button('Review with Claude', { icon: 'sparkles', variant: 'primary' })
+    const btn = button('Review with AI', { icon: 'sparkles', variant: 'primary' })
     btn.addEventListener('click', () => busy(btn, async () => {
       if (!last) return
       if (!(await ai.ensureKey())) return
@@ -130,7 +130,7 @@ export async function mount(root, { signal }) {
       })
       await renderMarkdown(out, text || acc)
     }, { label: 'Reviewing', errorTo: out }))
-    return h('div', { class: 'stack' }, ai.notice('AI review uses Claude'), h('div', { class: 'small muted' }, 'Sends your resume text (and the job description) to Anthropic with your own key. The score above is computed locally and never leaves this device.'), h('div', { class: 'row' }, btn), out)
+    return h('div', { class: 'stack' }, ai.notice('AI review uses AI'), h('div', { class: 'small muted' }, 'Sends your resume text (and the job description) to Anthropic with your own key. The score above is computed locally and never leaves this device.'), h('div', { class: 'row' }, btn), out)
   }
 
   root.append(shell(
