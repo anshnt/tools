@@ -238,6 +238,8 @@ void main() {
   o = vec4(c * alpha, alpha);
 }`
 
+const isIdentity = (curve) => [curve.rgb, curve.r, curve.g, curve.b].every((c) => c.length === 2 && c[0][0] === 0 && c[0][1] === 0 && c[1][0] === 255 && c[1][1] === 255)
+
 function gauss(sigma) {
   const w = Array.from({ length: 5 }, (_, i) => Math.exp(-(i * i) / (2 * sigma * sigma)))
   const sum = w[0] + 2 * (w[1] + w[2] + w[3] + w[4])
@@ -327,7 +329,7 @@ export function createRenderer(canvas) {
 
   let srcTex = null, srcW = 1, srcH = 1
   const lutTex = makeTex(256, 1, { filter: gl.NEAREST })
-  let lutKey = ''
+  let lutKey = '', lutArr = null, lutIdentity = true
   let lost = false
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true })
 
@@ -362,18 +364,16 @@ export function createRenderer(canvas) {
       const long = Math.max(width, height)
       const scale = long / 1500
 
-      // curve lookup
-      const lutArr = curveLut(s.curve)
-      const useLut = s.curve.rgb.length !== 2 || s.curve.r.length !== 2 || s.curve.g.length !== 2 || s.curve.b.length !== 2 ||
-        [s.curve.rgb, s.curve.r, s.curve.g, s.curve.b].some((c) => c[0][0] !== 0 || c[0][1] !== 0 || c[1][0] !== 255 || c[1][1] !== 255)
-      if (useLut) {
-        const key = lutArr.join(',')
-        if (key !== lutKey) {
-          lutKey = key
-          gl.bindTexture(gl.TEXTURE_2D, lutTex)
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, lutArr)
-        }
+      // curve lookup, rebuilt only when a curve changed
+      const curveKey = JSON.stringify(s.curve)
+      if (curveKey !== lutKey) {
+        lutKey = curveKey
+        lutArr = curveLut(s.curve)
+        lutIdentity = isIdentity(s.curve)
+        gl.bindTexture(gl.TEXTURE_2D, lutTex)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, lutArr)
       }
+      const useLut = !lutIdentity
 
       // pass 1: main
       const A = target('A', width, height)
