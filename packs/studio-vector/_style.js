@@ -73,12 +73,12 @@ const CSS = `
 .t-vs .ov-rubber { fill: none; stroke: var(--accent); stroke-width: 1.4; stroke-dasharray: 5 3; }
 .t-vs .ov-ring { fill: none; stroke: var(--accent); stroke-width: 1.6; }
 .t-vs .vs-textedit { position: absolute; left: 0; top: 0; transform-origin: 0 0; margin: 0; padding: 0; border: 0; outline: 1px dashed var(--accent); outline-offset: 2px; background: transparent; resize: none; overflow: hidden; white-space: pre; min-width: 20px; z-index: 5; font-synthesis: none; }
-.t-vs .vs-empty { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; padding: 16px; }
-.t-vs .vs-empty-card { pointer-events: none; max-width: 340px; text-align: center; padding: 22px 24px; border-radius: 22px; background: color-mix(in srgb, var(--surface) 86%, transparent); backdrop-filter: blur(14px); border: 1px solid var(--border); box-shadow: var(--shadow); display: grid; gap: 10px; justify-items: center; }
+.t-vs .vs-empty { position: absolute; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; pointer-events: none; padding: 16px; }
+.t-vs .vs-empty-card { pointer-events: none; width: 100%; max-width: 340px; text-align: center; padding: 22px 24px; border-radius: 22px; background: color-mix(in srgb, var(--surface) 86%, transparent); backdrop-filter: blur(14px); border: 1px solid var(--border); box-shadow: var(--shadow); display: grid; gap: 10px; justify-items: center; }
 .t-vs .vs-empty-card button { pointer-events: auto; }
 .t-vs .vs-empty-card h3 { font-size: 16px; letter-spacing: -.01em; }
 .t-vs .vs-empty-card p { color: var(--muted); font-size: 13px; line-height: 1.5; }
-.t-vs .vs-empty-card .icon { width: 30px; height: 30px; color: var(--accent); }
+.t-vs .vs-empty-card > .icon { width: 30px; height: 30px; color: var(--accent); }
 .t-vs .vs-status { display: flex; align-items: center; gap: 14px; height: 28px; padding: 0 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); background: var(--surface); flex: none; white-space: nowrap; overflow: hidden; }
 .t-vs .vs-status .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .t-vs .vs-status .num { font-variant-numeric: tabular-nums; }
@@ -199,6 +199,9 @@ const CSS = `
   .t-vs .vs-opts.plain { display: none; }
   .t-vs .vs-rail { display: flex; justify-content: flex-start; flex-direction: row; border-right: 0; border-bottom: 1px solid var(--border); overflow-x: auto; overflow-y: hidden; padding: 4px 6px; gap: 2px; align-items: center; }
   .t-vs .vs-tool { flex: none; }
+  .t-vs .vs-rail.more-r { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 30px), transparent); }
+  .t-vs .vs-rail.more-l { -webkit-mask-image: linear-gradient(270deg, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(270deg, #000 calc(100% - 30px), transparent); }
+  .t-vs .vs-rail.more-l.more-r { -webkit-mask-image: linear-gradient(90deg, transparent, #000 30px, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(90deg, transparent, #000 30px, #000 calc(100% - 30px), transparent); }
   .t-vs .vs-rule { width: 1px; height: 24px; margin: 0 4px; flex: none; }
   .t-vs .vs-fs { margin: 0 4px 0 auto; flex: none; }
   .t-vs .vs-fsb { flex: none; }

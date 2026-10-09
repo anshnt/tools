@@ -57,7 +57,7 @@ export async function mount(root, { tool, params = {}, signal }) {
   const zoomBtn = h('button', { type: 'button', class: 'vs-tb vs-zoom', 'data-tip': 'Zoom: click to toggle fit and 100%', 'aria-label': 'Zoom level, click to toggle fit and actual size', onclick: () => { Math.abs(ed.view.z - 1) < 0.01 ? ed.fit() : ed.zoomTo(1) } }, '100%')
   const gridBtn = tb('grid-3x3', '', 'Show grid', () => { ed.grid.on = !ed.grid.on; ed.emit('view'); ed.emit('grid') }, { key: "Ctrl+'", cls: 'vs-hide-m' })
   const snapBtn = tb('magnet', '', 'Snap to grid and guides', () => { ed.grid.snap = !ed.grid.snap; ed.emit('grid') }, { cls: 'vs-hide-m' })
-  const panelsBtn = tb('sliders-horizontal', 'Panels', 'Show or hide panels', () => side.classList.toggle('open'), { cls: 'vs-only-m' })
+  const panelsBtn = tb('sliders-horizontal', 'Panels', 'Show or hide panels', () => { if (side.classList.toggle('open') && matchMedia('(max-width: 860px)').matches) body.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }) }, { cls: 'vs-only-m' })
   const bar = h('div', { class: 'vs-bar', role: 'toolbar', 'aria-label': 'Main toolbar' },
     tb('file-plus', 'New', 'New document', () => newDoc2(), { cls: 'vs-hide-m' }),
     tb('folder-open', 'Open', 'Open or import an SVG, image or project', () => openFiles(), { key: 'Ctrl+O' }),
@@ -86,6 +86,10 @@ export async function mount(root, { tool, params = {}, signal }) {
     h('button', { type: 'button', 'data-tip': 'Default colours', 'aria-label': 'Default fill and stroke', onclick: () => ed.setStyle({ fill: DEFAULT_STYLE.fill, stroke: DEFAULT_STYLE.stroke, sw: 2 }, null) }, icon('rotate-ccw')),
     h('button', { type: 'button', 'data-tip': 'Swap fill and stroke', 'aria-label': 'Swap fill and stroke', onclick: () => ed.swapFillStroke() }, icon('arrow-left-right')))
   rail.append(h('div', { class: 'vs-fs' }, strokeSw, fillSw), fsBtns)
+  // phone: the tool rail scrolls sideways, so fade the edge that still has tools behind it
+  const railFade = () => { const m = rail.scrollWidth - rail.clientWidth; rail.classList.toggle('more-r', m > 2 && rail.scrollLeft < m - 2); rail.classList.toggle('more-l', m > 2 && rail.scrollLeft > 2) }
+  on(rail, 'scroll', railFade, { passive: true })
+  const railRO = new ResizeObserver(railFade); railRO.observe(rail); cleanups.push(() => railRO.disconnect())
 
   const statusMsg = h('span', { class: 'grow' })
   const coords = h('span', { class: 'num hide-m' })
