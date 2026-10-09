@@ -1,7 +1,7 @@
 // Pack dev-utils: encoders, generators, regex, time and API helpers. Default category: dev.
 export const cat = 'dev'
 export default [
-  { id: 'base64', name: 'Base64 encoder / decoder', desc: 'Encode and decode Base64 and Base64URL text (UTF-8 safe).', icon: 'binary', also: ['security'], tags: 'base64 encode decode' },
+  { id: 'base64', name: 'Base64 encoder / decoder', desc: 'Encode and decode Base64 and Base64URL text (UTF-8 safe).', icon: 'binary', also: ['security'], tags: 'base64 encode decode' , ready: true },
   { id: 'url-encoder', name: 'URL encoder / decoder', desc: 'Percent-encode and decode URLs and query values.', icon: 'link', also: ['security', 'web'], tags: 'url encode decode percent' },
   { id: 'jwt-decoder', name: 'JWT decoder', desc: 'Decode JWT header and payload, check expiry, verify HS256 signatures.', icon: 'key-round', also: ['security'], tags: 'jwt token decode' },
   { id: 'jwt-generator', name: 'JWT generator', module: 'jwt-decoder', params: { mode: 'generate' }, desc: 'Create and sign HS256/384/512 JWTs for testing.', icon: 'key-square', also: ['security'], tags: 'jwt sign create' },
