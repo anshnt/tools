@@ -170,6 +170,12 @@ export function createDialogs(app) {
           } catch (e) { if (t === token) info.textContent = errorMessage(e) }
         })()
       }, 350)
+      let dlg = null
+      const showFor = (fmt) => {
+        if (!dlg) return
+        const set = (k, on) => { const el = dlg.el.querySelector(`[data-k="${k}"]`); if (el) el.hidden = !on }
+        set('scale', fmt !== 'psd'); set('quality', fmt === 'jpeg' || fmt === 'webp'); set('bg', fmt === 'jpeg')
+      }
       const m = formDialog({
         title: 'Export', icon: 'download', ok: 'Download',
         fields: [
@@ -179,7 +185,7 @@ export function createDialogs(app) {
           { k: 'quality', label: 'Quality (JPG and WebP)', type: 'range', min: 40, max: 100, value: 92, fmt: (v) => `${v}%` },
           { k: 'bg', label: 'Background for JPG', type: 'color', value: '#ffffff' },
         ],
-        onChange: update,
+        onChange: (v) => { showFor(v.format); update(v) },
         onOk: async (v) => {
           const name = safeName(v.name || 'photo')
           if (v.format === 'psd') {
@@ -195,6 +201,8 @@ export function createDialogs(app) {
         },
         onClose: () => { token++ },
       })
+      dlg = m
+      showFor('png')
       m.el.querySelector('.ps-form').append(info)
     },
 

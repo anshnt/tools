@@ -532,6 +532,7 @@ export async function mount(root, ctx) {
   document.addEventListener('paste', onPaste, true)
   window.addEventListener('blur', blurReset)
   mobile.addEventListener('change', layoutDock)
+  document.fonts?.ready.then(() => vp.invalidate()) // text layers draw again once web fonts are in
   const themeObs = new MutationObserver(() => vp.invalidate())
   themeObs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
   // bar tweaks that need the DOM in place

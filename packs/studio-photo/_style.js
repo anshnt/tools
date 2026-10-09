@@ -4,6 +4,7 @@ const CSS = `
   height: clamp(540px, calc(100dvh - 215px), 1080px); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; font-size: 13px; color: var(--text); box-shadow: var(--shadow); }
 .tool-body:fullscreen .ps { height: calc(100dvh - 20px); }
 .ps * { scrollbar-width: thin; }
+.ps [hidden], .ps-form [hidden] { display: none !important; }
 .ps button { font: inherit; }
 .ps-top, .ps-opts { display: flex; align-items: center; gap: 4px; padding: 6px 10px; background: var(--bar); border-bottom: 1px solid var(--border); }
 .ps-top { overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }

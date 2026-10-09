@@ -36,7 +36,8 @@ function blit(c, img, ix, iy, view, r) {
 // ---------- text and shapes ----------
 const measureCtx = document.createElement('canvas').getContext('2d')
 export const FONTS = ['Geist', 'Arial', 'Helvetica', 'Georgia', 'Times New Roman', 'Courier New', 'Verdana', 'Trebuchet MS', 'Impact', 'Comic Sans MS', 'system-ui', 'serif', 'monospace', 'cursive']
-export const fontString = (t) => `${t.italic ? 'italic ' : ''}${t.bold ? '700 ' : '400 '}${t.size}px "${t.font}", sans-serif`
+const GENERIC = /^(serif|sans-serif|monospace|cursive|system-ui)$/
+export const fontString = (t) => `${t.italic ? 'italic ' : ''}${t.bold ? '700 ' : '400 '}${t.size}px ${GENERIC.test(t.font) ? t.font : `"${t.font}"`}, sans-serif`
 
 export function measureText(t) {
   measureCtx.font = fontString(t)

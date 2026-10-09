@@ -222,13 +222,14 @@ const pngOf = (L, key, canvas) => {
 export async function serialize(doc) {
   const files = {}
   const layers = []
-  for (const L of doc.layers) {
+  const head = { w: doc.w, h: doc.h, name: doc.name, bgColor: doc.bgColor, activeId: doc.activeId }
+  for (const L of [...doc.layers]) { // copy: the document may change while PNGs are encoded
     const m = { id: L.id, type: L.type, name: L.name, visible: L.visible, locked: L.locked, opacity: L.opacity, blend: L.blend, x: L.x, y: L.y, maskOn: L.maskOn, text: L.text, shape: L.shape, adjust: L.adjust, bg: L.bg }
     if (L.canvas) { m.img = `layers/${L.id}.png`; files[m.img] = await pngOf(L, 'c', L.canvas) }
     if (L.mask) { m.mask = `masks/${L.id}.png`; files[m.mask] = await pngOf(L, 'm', L.mask.canvas) }
     layers.push(m)
   }
-  return { meta: { app: 'photo-studio', version: 1, w: doc.w, h: doc.h, name: doc.name, bgColor: doc.bgColor, activeId: doc.activeId, layers }, files }
+  return { meta: { app: 'photo-studio', version: 1, ...head, layers }, files }
 }
 
 async function canvasFromBlob(blob) {

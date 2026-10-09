@@ -152,6 +152,11 @@ export function formDialog({ title, icon: ic, fields, ok = 'Apply', onOk, onChan
   let applied = false
   const emit = () => onChange?.({ ...values })
   const rows = fields.map((f) => {
+    const row = buildRow(f)
+    if (row?.dataset) row.dataset.k = f.k
+    return row
+  })
+  function buildRow(f) {
     if (f.type === 'note') return h('p', { class: 'ps-note' }, f.label)
     values[f.k] = f.value
     const fmt = f.fmt || ((v) => v)
@@ -191,7 +196,7 @@ export function formDialog({ title, icon: ic, fields, ok = 'Apply', onOk, onChan
     const inp = h('input', { class: 'ps-in', type: 'text', value: f.value, 'aria-label': f.label, oninput: () => { values[f.k] = inp.value; emit() } })
     els[f.k] = inp
     return h('div', { class: 'ps-f' }, h('div', { class: 'l' }, h('span', f.label)), inp)
-  })
+  }
   const okBtn = button(ok, { variant: 'primary' })
   const m = modal({
     title, icon: ic,
