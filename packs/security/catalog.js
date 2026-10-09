@@ -10,6 +10,7 @@ export default [
   { id: 'hash-generator', name: 'Hash generator', desc: 'MD5, SHA-1, SHA-256, SHA-512, SHA-3 and BLAKE hashes of text or files.', icon: 'fingerprint', also: ['dev'], tags: 'hash md5 sha256 checksum', ready: true },
   { id: 'sha256-generator', name: 'SHA-256 generator', module: 'hash-generator', params: { algo: 'sha256' }, desc: 'SHA-256 hash of text or a file.', icon: 'fingerprint', tags: 'sha256', ready: true },
   { id: 'md5-generator', name: 'MD5 generator', module: 'hash-generator', params: { algo: 'md5' }, desc: 'MD5 hash of text or a file.', icon: 'fingerprint', tags: 'md5', ready: true },
+  { id: 'hash-identifier', name: 'Hash identifier', desc: 'Paste a hash to see which algorithm made it and whether it is safe for storing passwords.', icon: 'search-check', also: ['dev'], tags: 'identify hash type md5 sha1 bcrypt argon2 ntlm', ready: true },
   { id: 'hmac-generator', name: 'HMAC generator', desc: 'HMAC-SHA256/384/512 signatures with a secret key.', icon: 'key-square', also: ['dev'], tags: 'hmac signature webhook', ready: true },
   { id: 'file-checksum', name: 'File checksum', desc: 'Verify downloads with MD5, SHA-1, SHA-256 or CRC32 checksums.', icon: 'file-check', also: ['files'], tags: 'checksum verify integrity', ready: true },
   { id: 'encrypt-text', name: 'Encrypt / decrypt text', desc: 'AES-256 encrypt text with a password; decrypt it anywhere with this tool.', icon: 'lock-keyhole', tags: 'aes encrypt decrypt password', ready: true },

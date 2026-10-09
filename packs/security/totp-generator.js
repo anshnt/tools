@@ -199,7 +199,7 @@ export function mount(root, { signal }) {
   }
   const hero = liveCode(draftAcc)
   const copyHero = copyBtn(() => hero.code, 'Copy code')
-  const addBtn = button('Add to my list', { icon: 'plus', variant: 'primary' })
+  const addBtn = button('Add to list', { icon: 'plus', variant: 'primary' })
   const heroLabel = h('div', { class: 'sx-k' }, icon('smartphone'), 'Your 2FA code')
   const specEl = h('span', 'SHA-1 - 6 digits - 30 s')
   const heroEl = h('div', { class: 'sx-tp-hero' }, hero.ringEl,
