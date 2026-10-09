@@ -15,18 +15,19 @@ export async function formatJson(text, o = {}) {
 
 export function mount(root, { params }) {
   const validate = params.mode === 'validate'
-  const state = { mode: 'format', indent: '2', sort: false, ascii: false, repair: false }
+  const startMin = params.mode === 'minify' // the JSON minifier entry opens in Minify mode
+  const state = { mode: startMin ? 'minify' : 'format', indent: '2', sort: false, ascii: false, repair: false }
   const rerun = () => s.run(true)
   const repairToggle = toggle('Repair common mistakes', false, (v) => { state.repair = v; rerun() })
-  const modeSeg = seg([['format', 'Format'], ['minify', 'Minify']], 'format', (v) => { state.mode = v; s.view.setTitle(v === 'minify' ? 'Minified JSON' : 'Formatted JSON'); rerun() }, 'Output style')
+  const modeSeg = seg([['format', 'Format'], ['minify', 'Minify']], state.mode, (v) => { state.mode = v; s.view.setTitle(v === 'minify' ? 'Minified JSON' : 'Formatted JSON'); rerun() }, 'Output style')
   const indentSeg = seg(INDENTS, '2', (v) => { state.indent = v; rerun() }, 'Indentation')
 
   const s = studio({
-    inputTitle: validate ? 'JSON to check' : 'JSON input', outputTitle: 'Formatted JSON', inputIcon: 'braces', outputIcon: 'sparkles',
-    runLabel: validate ? 'Validate' : 'Format', runIcon: validate ? 'circle-check' : 'wand-sparkles',
+    inputTitle: validate ? 'JSON to check' : 'JSON input', outputTitle: startMin ? 'Minified JSON' : 'Formatted JSON', inputIcon: 'braces', outputIcon: 'sparkles',
+    runLabel: validate ? 'Validate' : startMin ? 'Minify' : 'Format', runIcon: validate ? 'circle-check' : startMin ? 'minimize' : 'wand-sparkles',
     accept: '.json,.jsonc,.geojson,.har,.webmanifest,application/json,text/plain',
     placeholder: 'Paste JSON here, drop a .json file, or pick an example below...',
-    empty: ['braces', validate ? 'Paste JSON to see if it is valid' : 'Your formatted JSON shows up here'],
+    empty: ['braces', validate ? 'Paste JSON to see if it is valid' : startMin ? 'Your minified JSON shows up here' : 'Your formatted JSON shows up here'],
     mime: 'application/json', outLang: 'json',
     filename: (name) => (name ? `${baseName(name)}${state.mode === 'minify' ? '.min' : '.formatted'}.json` : state.mode === 'minify' ? 'data.min.json' : 'formatted.json'),
     indent: () => indentUnit(state.indent),

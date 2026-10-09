@@ -15,7 +15,7 @@ export const CSS = `
 @media (max-width: 720px) { .t-df { --df-lh: 24px; --df-pad: 10px; --df-h: clamp(230px, 40vh, 400px); } }
 
 /* ---- aurora backdrop ---- */
-.df-aurora { position: absolute; inset: -60px -24px auto; height: 300px; z-index: -1; pointer-events: none; overflow: hidden; opacity: .5;
+.df-aurora { position: absolute; inset: -60px -12px auto; height: 300px; z-index: -1; pointer-events: none; overflow: hidden; opacity: .5;
   -webkit-mask-image: linear-gradient(#000 30%, transparent); mask-image: linear-gradient(#000 30%, transparent); }
 :root[data-theme="dark"] .df-aurora { opacity: .62; }
 .df-aurora i { position: absolute; border-radius: 50%; filter: blur(54px); animation: df-drift 16s ease-in-out infinite alternate; }
@@ -157,6 +157,11 @@ export const CSS = `
 .df-meter-bar { height: 12px; border-radius: 999px; background: var(--surface-3); overflow: hidden; position: relative; }
 .df-meter-bar i { position: absolute; inset: 0 auto 0 0; width: 100%; border-radius: inherit; background: var(--brand); background-size: 200% 100%; transform-origin: left; animation: df-grow 1s var(--ease) both, shimmer 3s linear infinite; }
 @keyframes df-grow { from { transform: scaleX(1); } }
+.df-meter-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 84px; gap: 12px; align-items: center; font-size: 13px; color: var(--text-2); }
+.df-meter-row b { font: 600 13px var(--mono); color: var(--text); text-align: right; }
+.df-meter-bar i { transition: width .8s var(--ease); animation: none; }
+.df-meter-row.good .df-meter-bar i { background: var(--success); }
+@media (max-width: 520px) { .df-meter-row { grid-template-columns: 82px minmax(0, 1fr) 64px; gap: 8px; } }
 
 /* ---- tree viewer ---- */
 .df-tree { font: 13px/1.5 var(--mono); padding: 10px 8px 16px; overflow: auto; max-height: 640px; min-height: 220px; }

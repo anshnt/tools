@@ -76,6 +76,19 @@ export function frame(text, line, col = 1, context = 2) {
   return h('div', { class: 'df-fr-box', role: 'img', 'aria-label': `Code around line ${line}, column ${col}` }, rows)
 }
 
+/** The red error card used by tools that manage their own editors: message, position, code frame, hint and buttons. actions: [{label, icon, primary, onClick}] */
+export function errorCard(ed, e, { prefix = '', actions = [] } = {}) {
+  const hasPos = e.line != null
+  const msg = e instanceof DevError ? e.message : errorMessage(e)
+  return h('div', { class: 'df-err', role: 'alert' },
+    h('div', { class: 'df-err-head' }, icon('circle-alert'), h('div', { class: 'df-err-msg' }, prefix + msg), hasPos && h('span', { class: 'df-pos' }, `Line ${e.line}, column ${e.col || 1}`)),
+    hasPos && frame(ed.value, e.line, e.col || 1),
+    e.hint && h('div', { class: 'df-hint' }, e.hint),
+    (hasPos || actions.length) && h('div', { class: 'df-errbtns' },
+      hasPos && button('Jump to the error', { icon: 'crosshair', size: 'sm', onClick: () => ed.goto(e.line, e.col || 1) }),
+      actions.map((a) => button(a.label, { icon: a.icon, size: 'sm', variant: a.primary ? 'primary' : 'secondary', onClick: a.onClick }))))
+}
+
 // ---------- highlighting ----------
 const JSON_TOKEN = /("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false)\b|\b(null)\b|([{}[\],:])/g
 /** Fast JSON highlighter (no library). Returns HTML. */

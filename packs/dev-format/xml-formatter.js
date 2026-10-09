@@ -162,14 +162,15 @@ const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" view
 const POM = '<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion><groupId>com.example</groupId><artifactId>demo</artifactId><version>1.0.0</version><dependencies><dependency><groupId>junit</groupId><artifactId>junit</artifactId><version>4.13.2</version><scope>test</scope></dependency></dependencies></project>'
 const BROKEN = '<?xml version="1.0"?>\n<library>\n  <book id="1">\n    <title>Clean Code</title>\n    <author>Robert Martin</author>\n  </book>\n  <book id="2">\n    <title>Refactoring</title>\n    <author>Martin Fowler</title>\n  </book>\n</library>'
 
-export function mount(root) {
+export function mount(root, { params = {} } = {}) {
+  const validate = params.mode === 'validate'
   const state = { mode: 'pretty', indent: '2', comments: true, selfClose: false }
   const rerun = () => s.run(true)
   const s = studio({
-    inputTitle: 'XML input', outputTitle: 'Formatted XML', inputIcon: 'code-xml', outputIcon: 'sparkles', runLabel: 'Format', runIcon: 'wand-sparkles',
+    inputTitle: validate ? 'XML to check' : 'XML input', outputTitle: 'Formatted XML', inputIcon: 'code-xml', outputIcon: 'sparkles', runLabel: validate ? 'Validate' : 'Format', runIcon: validate ? 'circle-check' : 'wand-sparkles',
     accept: '.xml,.svg,.rss,.atom,.xsd,.xsl,.xslt,.plist,.csproj,.kml,.gpx,.wsdl,text/xml,application/xml,text/plain',
     placeholder: 'Paste XML here, drop an .xml file, or pick an example below...',
-    empty: ['code-xml', 'Your formatted XML shows up here'], mime: 'application/xml', outLang: 'xml',
+    empty: ['code-xml', validate ? 'Paste XML to see if it is well-formed' : 'Your formatted XML shows up here'], mime: 'application/xml', outLang: 'xml',
     filename: (name) => (name ? `${baseName(name)}${state.mode === 'minify' ? '.min' : '.formatted'}.xml` : state.mode === 'minify' ? 'data.min.xml' : 'formatted.xml'),
     indent: () => indentUnit(state.indent),
     samples: [{ label: 'RSS feed', icon: 'rss', text: RSS }, { label: 'SVG icon', icon: 'shapes', text: SVG }, { label: 'Maven POM', icon: 'package', text: POM }, { label: 'Broken XML', icon: 'bug', text: BROKEN }],
