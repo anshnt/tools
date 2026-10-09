@@ -3,7 +3,7 @@ import { createShell, step, tilePicker, note, alert, h, icon, button, clear } fr
 import { inputName, parseSubtitles, toSrt, pickFonts, fmtTime } from './_media.js'
 import { reencodePlan, mapAV, firstThatWorks } from './_video.js'
 import { putFonts, fetchBytes } from './_engine.js'
-import { dropzone, select, field, input, number, isAbort, formatBytes, onCleanup } from '../../lib/ui.js'
+import { dropzone, select, field, input, number, isAbort } from '../../lib/ui.js'
 import { suffixName, ext } from '../../lib/files.js'
 
 const LANGS = [['eng', 'English'], ['hin', 'Hindi'], ['spa', 'Spanish'], ['fra', 'French'], ['deu', 'German'], ['por', 'Portuguese'], ['ita', 'Italian'], ['jpn', 'Japanese'], ['kor', 'Korean'], ['zho', 'Chinese'], ['ara', 'Arabic'], ['rus', 'Russian'], ['ben', 'Bengali'], ['tam', 'Tamil'], ['tel', 'Telugu'], ['mar', 'Marathi'], ['guj', 'Gujarati'], ['pan', 'Punjabi'], ['kan', 'Kannada'], ['mal', 'Malayalam'], ['urd', 'Urdu'], ['und', 'Not specified']]
@@ -92,9 +92,10 @@ export function mount(root, { signal }) {
       let rows = []
       function paintCues() {
         const d = offset()
-        rows = S.cues.map((c) => h('div', { class: 'mc-cue', role: 'button', tabindex: 0, onclick: () => { if (media.el && media.canPlay) { media.el.currentTime = Math.max(0, c.start + d); media.el.pause() } } },
+        const jump = (c) => { if (media.el && media.canPlay) { media.el.currentTime = Math.max(0, c.start + d); media.el.pause() } }
+        rows = S.cues.map((c) => h('div', { class: 'mc-cue', role: 'button', tabindex: 0, title: 'Show this subtitle on the video', onclick: () => jump(c), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jump(c) } } },
           h('time', fmtTime(Math.max(0, c.start + d), 1)), h('span', c.text)))
-        clear(cueBox, S.cues.length ? h('div', { class: 'mc-cues', role: 'list', 'aria-label': 'Subtitles' }, rows) : null)
+        clear(cueBox, S.cues.length ? h('div', { class: 'mc-cues', 'aria-label': 'Subtitles' }, rows) : null)
         paintOverlay()
       }
       function paintOverlay() {
@@ -106,7 +107,6 @@ export function mount(root, { signal }) {
         if (idx < 0) { overlay.hidden = true; return }
         overlay.hidden = false
         overlay.textContent = S.cues[idx].text
-        const w = view.clientWidth || 640
         overlay.style.fontSize = `${Math.max(12, Math.round((v.videoHeight ? Math.min(view.clientHeight || 360, v.clientHeight || 360) : 360) * SIZES[sizeKey] * 1.05))}px`
         overlay.style.bottom = pos === 'bottom' ? '58px' : ''
         overlay.style.top = pos === 'top' ? '42px' : pos === 'middle' ? '50%' : ''
@@ -116,7 +116,6 @@ export function mount(root, { signal }) {
         overlay.style.padding = styleKey === 'box' ? '2px 10px' : '0'
         overlay.style.width = styleKey === 'box' ? 'fit-content' : ''
         overlay.style.margin = styleKey === 'box' ? '0 auto' : ''
-        void w
       }
       let raf = 0
       const loop = () => { paintOverlay(); raf = media.el && !media.el.paused ? requestAnimationFrame(loop) : 0 }
@@ -126,7 +125,7 @@ export function mount(root, { signal }) {
         media.el.addEventListener('seeked', onTime)
         media.el.addEventListener('play', () => { if (!raf) raf = requestAnimationFrame(loop) })
       }
-      onCleanup(() => cancelAnimationFrame(raf))
+      shell.onDispose(() => cancelAnimationFrame(raf))
 
       // ----- options -----
       const howPicker = tilePicker({
@@ -159,10 +158,8 @@ export function mount(root, { signal }) {
         shell.setEnabled(has, 'Add a subtitle file first')
         if (S.text) {
           const f = pickFonts(S.text)
-          const bits = []
           if (f.unsupported.length) { fontNote.textContent = `Burned-in text for ${f.unsupported.join(', ')} is not supported yet (the characters would show as empty boxes). Use a soft track instead.`; fontNote.className = 'mc-note warn' }
           else { fontNote.textContent = `Font: ${f.family}${f.script !== 'Latin' ? ` (${f.script})` : ''}. It downloads once, a few tens of KB.`; fontNote.className = 'mc-note' }
-          void bits
         } else { fontNote.textContent = ''; }
         shell.setInfo(!has ? 'Add subtitles to begin' : how === 'burn' ? 'Burn in (re-encodes)' : `Soft track in ${container.toUpperCase()}`, !has ? 'Drop an SRT or VTT file below' : `${S.cues.length} subtitles${how === 'burn' ? ', the video is re-encoded' : ', the video is copied as it is'}`)
         shell.setLabel(how === 'burn' ? 'Burn in subtitles' : 'Attach subtitles')
@@ -180,7 +177,6 @@ export function mount(root, { signal }) {
       const inName = inputName(file)
       const srt = toSrt(S.cues, o.shift)
       const subBlob = new Blob([srt], { type: 'application/x-subrip' })
-      const e0 = ext(file.name)
       if (o.how === 'burn') {
         const f = pickFonts(S.text)
         hp.report(null, 'Getting the font')
@@ -197,7 +193,7 @@ export function mount(root, { signal }) {
         }
       }
       const codec = { mp4: 'mov_text', mkv: 'srt', webm: 'webvtt' }[o.container]
-      const subName = o.container === 'webm' ? 'sub.srt' : 'sub.srt'
+      const subName = 'sub.srt'
       const meta = ['-metadata:s:s:0', `language=${o.lang}`, ...(o.title ? ['-metadata:s:s:0', `title=${o.title}`] : []), '-disposition:s:0', 'default']
       const build = (vcodec, acodec) => () => {
         const out = `out.${o.container}`
@@ -215,7 +211,7 @@ export function mount(root, { signal }) {
       return {
         blob, name: suffixName(file.name, 'subtitled', o.container), inputSize: file.size, compare: false,
         title: 'Subtitle track attached',
-        summary: `${S.cues.length} subtitles were added as a ${codec} track${o.title ? ` named "${o.title}"` : ''}. Turn them on from the player's subtitles menu. The video was not changed.${e0 && e0 !== o.container ? '' : ''}`,
+        summary: `${S.cues.length} subtitles were added as a ${codec} track${o.title ? ` named "${o.title}"` : ''}. Turn them on from the player's subtitles menu. The video was not changed.`,
       }
     },
   })

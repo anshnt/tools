@@ -1,8 +1,8 @@
 // Trim audio: waveform timeline with dual handles, preview of the selection, optional fades, output format incl. iPhone ringtone.
-import { createShell, step, tilePicker, note, alert, h } from './_ui.js'
+import { createShell, step, tilePicker, note, h } from './_ui.js'
 import { AUDIO_FORMATS, audioArgs, inputName, fmtTime, copyExtFor } from './_media.js'
 import { createTrimmer, computePeaks } from './_timeline.js'
-import { number, field, formatBytes } from '../../lib/ui.js'
+import { number, field } from '../../lib/ui.js'
 import { suffixName } from '../../lib/files.js'
 
 const SAME = 'same'
@@ -21,10 +21,11 @@ export function mount(root, { signal }) {
     trust: [['shield-check', 'Stays on your device', 'Nothing is uploaded. The audio is cut inside this tab.'], ['audio-waveform', 'See the sound', 'A waveform shows loud and quiet parts so cuts are easy to place.'], ['smartphone', 'Ringtones too', 'Save an iPhone ringtone (M4R) or any other format.']],
     action: { label: 'Cut audio', icon: 'scissors', busy: 'Cutting' },
 
-    stageExtra(media) {
+    stageExtra(media, shell) {
       const dur = media.info.duration || media.el?.duration || 0
       if (!dur) return h('div', { class: 'mc-note', style: 'padding:10px' }, 'The length of this file could not be read, so the timeline is unavailable.')
       trimmer = createTrimmer({ media, duration: dur, start: 0, end: dur, minLen: 0.2, tall: true, onChange: () => update() })
+      shell.onDispose(trimmer.destroy)
       const status = h('div', { class: 'mc-note', style: 'padding:0 14px 8px' }, 'Drawing the waveform...')
       computePeaks(media.file, { signal }).then((p) => {
         if (p) { trimmer.setPeaks(p); status.remove() } else status.textContent = 'The waveform could not be drawn for this file, but the handles still work.'
@@ -87,7 +88,6 @@ export function mount(root, { signal }) {
       const copy = o.fmt === SAME && !af
       let blob
       let e
-      let label = 'Original format'
       if (copy) {
         e = (file.name.match(/\.([^.]+)$/)?.[1] || copyExtFor(info.audio.codec) || 'mka').toLowerCase()
         try {
@@ -104,7 +104,6 @@ export function mount(root, { signal }) {
         const br = f.lossy ? Math.max(128, f.bitrates.find((b) => b >= (info.audio.bitrate || 0) * 0.95) || f.def) : 0
         const fmtArgs = o.fmt === 'm4r' ? ['-f', 'ipod'] : []
         blob = await hp.ffmpeg({ inputs, args: [...pre, ...(af ? ['-af', af] : []), ...audioArgs(id, { bitrate: br }), ...fmtArgs, `out.${e}`], output: `out.${e}`, label: 'Cutting the audio' })
-        label = f.label
       }
       return {
         blob, kind: 'audio', name: suffixName(file.name, 'trimmed', e), inputSize: file.size, compare: false,

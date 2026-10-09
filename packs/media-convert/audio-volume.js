@@ -1,15 +1,15 @@
 // Audio volume & normalize: boost or lower with a live preview, normalize loudness (two-pass loudnorm) or peak. Works on audio and video.
 import { createShell, step, tilePicker, pills, note, alert, h, icon, button, clear } from './_ui.js'
-import { AUDIO_FORMATS, inputName, parseLoudnorm, parseVolume, audioArgs } from './_media.js'
+import { inputName, parseLoudnorm, parseVolume, audioArgs } from './_media.js'
+import { sameFormat } from './_audio.js'
 import { firstThatWorks } from './_video.js'
 import { analyze } from './_engine.js'
-import { rangeField, select, field, toggle, isAbort, onCleanup } from '../../lib/ui.js'
+import { rangeField, select, field, toggle, isAbort } from '../../lib/ui.js'
 import { suffixName, ext } from '../../lib/files.js'
 
 const TARGETS = [[-16, 'Podcasts, YouTube, voice (-16 LUFS)'], [-14, 'Spotify, Apple Music (-14 LUFS)'], [-23, 'TV and radio, EBU R128 (-23 LUFS)'], [-18, 'Quieter, for calm listening (-18 LUFS)']]
 const dbToGain = (db) => 10 ** (db / 20)
 const fmtDb = (v) => `${v > 0 ? '+' : ''}${v} dB (${Math.round(dbToGain(v) * 100)}%)`
-const AUDIO_EXTS = Object.values(AUDIO_FORMATS).map((f) => f.ext)
 
 export function mount(root, { signal }) {
   let get = null
@@ -51,6 +51,7 @@ export function mount(root, { signal }) {
 
       async function runMeasure() {
         if (busyMeasure) return
+        if (shell.running) { clear(measureOut, note('Wait for the current job to finish first.')); return }
         busyMeasure = true
         measureBtn.disabled = true
         clear(measureOut, h('div', { class: 'mc-note' }, 'Measuring...'))
@@ -87,7 +88,7 @@ export function mount(root, { signal }) {
           gainNode = ac.createGain()
           srcNode.connect(gainNode).connect(ac.destination)
           media.el.addEventListener('play', () => ac.resume())
-          onCleanup(() => { try { ac.close() } catch { /* closed */ } })
+          shell.onDispose(() => { try { ac.close() } catch { /* closed */ } })
         } catch { ac = null }
       }
       const previewNote = note('')
@@ -157,11 +158,10 @@ export function mount(root, { signal }) {
         const { blob, e } = await firstThatWorks([build(pick), build('mkv')], isAbort)
         return { blob, name: suffixName(file.name, 'volume', e), inputSize: file.size, title: 'Volume adjusted', summary: `${note2 || 'The sound was changed.'} The picture was copied untouched.` }
       }
-      const fmt = AUDIO_EXTS.includes(e0) ? AUDIO_FORMATS[Object.keys(AUDIO_FORMATS).find((k) => AUDIO_FORMATS[k].ext === e0)] : AUDIO_FORMATS.mp3
-      const br = fmt.lossy ? (fmt.bitrates.find((b) => b >= (info.audio.bitrate || 0) * 0.95) || fmt.def) : 0
+      const { fmt, bitrate } = sameFormat(file, info)
       const out = `out.${fmt.ext}`
       const blob = await hp.ffmpeg({
-        inputs: inputs(), args: ['-i', inName, '-vn', '-map', '0:a:0', '-map_metadata', '0', '-af', filter, ...audioArgs(fmt.id, { bitrate: Math.max(br, fmt.lossy ? 128 : 0) }), ...post, out], output: out, label: 'Adjusting the sound',
+        inputs: inputs(), args: ['-i', inName, '-vn', '-map', '0:a:0', '-map_metadata', '0', '-af', filter, ...audioArgs(fmt.id, { bitrate }), ...post, out], output: out, label: 'Adjusting the sound',
       }, span)
       return { blob, kind: 'audio', name: suffixName(file.name, 'volume', fmt.ext), inputSize: file.size, title: 'Volume adjusted', summary: note2 || 'The sound was changed and saved in the same format.' }
     },

@@ -21,5 +21,10 @@ export default [
   { id: 'add-subtitles', name: 'Add subtitles to video', desc: 'Burn in or attach an SRT/VTT subtitle track.', icon: 'captions', tags: 'srt vtt captions burn', ready: true },
   { id: 'rotate-video', name: 'Rotate & flip video', desc: 'Fix sideways videos by rotating or flipping them.', icon: 'rotate-cw', tags: 'turn orientation', ready: true },
   { id: 'video-speed', name: 'Change video speed', desc: 'Speed up or slow down a video (with audio pitch kept).', icon: 'fast-forward', tags: 'slow motion timelapse speed', ready: true },
+  { id: 'mov-to-mp4', name: 'MOV to MP4', module: 'video-converter', params: { to: 'mp4', from: 'mov' }, desc: 'Turn iPhone and Mac MOV videos into MP4 that plays everywhere.', icon: 'file-video', tags: 'mov quicktime iphone hevc mp4 convert', ready: true },
+  { id: 'video-to-webm', name: 'Video to WebM', module: 'video-converter', params: { to: 'webm' }, desc: 'Convert any video to WebM (VP8 or VP9) for websites.', icon: 'globe', tags: 'webm vp8 vp9 convert web', ready: true },
+  { id: 'video-to-images', name: 'Video to images', desc: 'Save a still from a video, or a frame every few seconds as a ZIP.', icon: 'images', tags: 'frames screenshot thumbnail extract jpg png', ready: true },
+  { id: 'media-info', name: 'Video & audio info', desc: 'See the codec, resolution, frame rate, bitrate and streams of any media file.', icon: 'info', tags: 'metadata codec bitrate details inspect mediainfo', ready: true },
+  { id: 'audio-speed', name: 'Change audio speed', desc: 'Speed up or slow down audio without changing its pitch.', icon: 'timer', tags: 'tempo podcast faster slower speed', ready: true },
   { id: 'audio-volume', name: 'Audio volume & normalize', desc: 'Boost, lower or normalize loudness of audio or video.', icon: 'volume-2', tags: 'louder normalize boost', ready: true },
 ]

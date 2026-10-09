@@ -2,7 +2,7 @@
 // different ones are scaled to a common size and frame rate and re-encoded to MP4.
 import { createMultiShell, storyboard } from './_multi.js'
 import { step, tilePicker, note, alert, h } from './_ui.js'
-import { inputName, streamSig, encodeArgs, capShortSide, fmtTime, X264_PRESETS, QUALITY_CRF } from './_media.js'
+import { inputName, encodeArgs, capShortSide, fmtTime, X264_PRESETS, QUALITY_CRF } from './_media.js'
 import { QUALITY_OPTIONS, firstThatWorks } from './_video.js'
 import { select, field, toggle, isAbort } from '../../lib/ui.js'
 import { baseName, ext } from '../../lib/files.js'

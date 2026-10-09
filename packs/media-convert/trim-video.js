@@ -20,10 +20,11 @@ export function mount(root, { signal }) {
     action: { label: 'Cut video', icon: 'scissors', busy: 'Cutting' },
     trust: [['shield-check', 'Stays on your device', 'Nothing is uploaded. The video is cut inside this tab.'], ['scissors', 'Drag, play, cut', 'Drag the handles, preview the selection, then save just that part.'], ['zap', 'Instant fast cut', 'Fast mode copies the video as it is, with no quality loss.']],
 
-    stageExtra(media) {
+    stageExtra(media, shell) {
       const dur = media.info.duration || media.el?.duration || 0
       if (!dur) return h('div', { class: 'mc-note', style: 'padding:10px' }, 'The length of this video could not be read, so the timeline is unavailable.')
       trimmer = createTrimmer({ media, duration: dur, start: 0, end: dur, minLen: 0.2, film: true, tall: true, onChange: () => update() })
+      shell.onDispose(trimmer.destroy)
       return trimmer.el
     },
 

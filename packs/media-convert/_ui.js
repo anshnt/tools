@@ -4,7 +4,7 @@ import { h, icon, button, dropzone, alert, clear, formatBytes, isAbort, toast, s
 import { MAX_INPUT_BYTES } from '../../lib/ffmpeg.js'
 import { ext, zip } from '../../lib/files.js'
 import { injectStyles } from './_style.js'
-import { engine, onEngine, warm, inspect, resetEngine, run as ffRun, friendlyError, needsReset, mediaDuration, saveData } from './_engine.js'
+import { engine, onEngine, warm, inspect, resetEngine, run as ffRun, friendlyError, needsReset, mediaDuration, saveData, engineFraction, loadScale } from './_engine.js'
 import { fmtTime, LARGE_FILE, MB, pctChange } from './_media.js'
 
 export { h, icon, button, alert, clear, formatBytes, toast, injectStyles }
@@ -228,6 +228,7 @@ export function createRunner({ signal, label, icon: ic, busyLabel, onRun, onBusy
     running = true
     api.clearResult()
     sync()
+    loadScale()
     const original = [...goBtn.childNodes]
     goBtn.replaceChildren(h('span', { class: 'spinner' }), h('span', busyLabel || 'Working'))
     onBusy?.(true)
@@ -285,7 +286,7 @@ export function createRunner({ signal, label, icon: ic, busyLabel, onRun, onBusy
             spec.onLog?.(m)
           },
           onProgress: (f, l) => {
-            if (/download|loading/i.test(l || '')) report(f, l)
+            if (/download|loading/i.test(l || '')) report(engineFraction(f), l)
             else if (!spec.total) report(f == null ? null : map(f), label)
           },
         })
@@ -325,7 +326,16 @@ export function createRunner({ signal, label, icon: ic, busyLabel, onRun, onBusy
       h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 3.2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, h('path', { d: 'm5 12.5 4.5 4.5L19 7.5' })))
     const head = h('div', { class: 'mc-done-head' }, check,
       h('div', h('h3', res.title || `${done.length} file${done.length === 1 ? '' : 's'} ready`), h('p', res.summary || `Finished in ${fmtTime(Math.max(1, seconds))}.${failed ? ` ${failed} could not be converted.` : ''}`)))
-    const rows = res.items.map((it, i) => {
+    const gallery = done.length >= 3 && res.items.every((i) => i.blob && (i.kind || kindOf(i.name)) === 'image')
+    const shots = !gallery ? [] : res.items.map((it, i) => {
+      const url = URL.createObjectURL(it.blob)
+      urls.push(url)
+      return h('figure', { class: 'mc-shot', style: { '--i': i } },
+        h('img', { src: url, alt: it.name, loading: 'lazy' }),
+        h('figcaption', h('span', it.note || it.name), h('span', formatBytes(it.blob.size))),
+        button('', { icon: 'download', variant: 'secondary', size: 'sm', ariaLabel: `Download ${it.name}`, onClick: () => download(it.blob, it.name) }))
+    })
+    const rows = gallery ? [] : res.items.map((it, i) => {
       if (!it.blob) return h('div', { class: 'mc-zip-row bad', style: { animationDelay: `${i * 50}ms` } }, h('div', { class: 'nm', title: it.name }, it.name, h('small', it.error || 'Could not be converted')), h('span'), h('span'))
       const url = URL.createObjectURL(it.blob)
       urls.push(url)
@@ -335,8 +345,9 @@ export function createRunner({ signal, label, icon: ic, busyLabel, onRun, onBusy
         previewAudio?.pause()
         previewAudio = new Audio(url)
         previewAudio.play().catch(() => {})
-      } }) : h('span')
-      return h('div', { class: 'mc-zip-row', style: { animationDelay: `${i * 50}ms` } },
+      } }) : null
+      const thumb = (it.kind || kindOf(it.name)) === 'image' ? h('img', { class: 'mc-thumb', src: url, alt: '', loading: 'lazy' }) : null
+      return h('div', { class: ['mc-zip-row', thumb && 'has-thumb'], style: { animationDelay: `${i * 50}ms` } }, thumb,
         h('div', { class: 'nm', title: it.name }, it.name, h('small', [formatBytes(it.blob.size), it.inputSize ? `${pctChange(it.inputSize, it.blob.size)} vs original` : '', it.note].filter(Boolean).join(' · '))),
         playBtn,
         button('Download', { icon: 'download', variant: 'secondary', size: 'sm', onClick: () => download(it.blob, it.name) }))
@@ -345,7 +356,7 @@ export function createRunner({ signal, label, icon: ic, busyLabel, onRun, onBusy
       done.length > 1 ? downloadButton(() => zip(done.map((i) => ({ name: i.name, data: i.blob }))), res.zipName || 'converted-files.zip', 'Download all (ZIP)', { size: 'lg' })
         : done.length === 1 ? downloadButton(done[0].blob, done[0].name, 'Download', { size: 'lg' }) : null)
     clear(resultEl, h('section', { class: 'mc-done', 'aria-label': 'Results' }, head,
-      h('div', { class: 'mc-list' }, rows),
+      gallery ? h('div', { class: 'mc-gallery' }, shots) : h('div', { class: 'mc-list' }, rows),
       done.length ? stats([{ label: 'Files', value: String(done.length), accent: true }, { label: 'Total size', value: formatBytes(total) }, ...(res.stats || [])]) : null, res.notes, actions))
     confetti(resultEl.querySelector('.mc-done'))
     resultEl.querySelector('.mc-done')?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
@@ -447,12 +458,17 @@ export function createShell(root, { signal }, cfg) {
   const wrap = h('div', { class: 'mc' })
   root.append(wrap)
   const st = { stage: null, runner: null, id: 0, offEngine: null }
+  const disposers = []
+  const runDisposers = () => { while (disposers.length) { try { disposers.pop()() } catch (e) { console.error(e) } } }
 
   const zone = dropzone({
     accept: cfg.accept || ACCEPT[kind], icon: cfg.dropIcon || (kind === 'video' ? 'film' : 'audio-lines'),
     label: cfg.dropLabel || (kind === 'video' ? 'Drop a video here or click to choose' : 'Drop an audio file or click to choose'),
     hint: cfg.dropHint || (kind === 'video' ? 'MP4, MOV, MKV, WebM, AVI and more' : 'MP3, WAV, M4A, OGG, FLAC and more (videos work too)'),
-    onFiles: ([f]) => load(f),
+    onFiles: ([f]) => {
+      if (st.runner?.running) { toast('Wait for the current job to finish, or cancel it, before choosing another file.', 'info'); return }
+      load(f)
+    },
   })
   const pill = enginePill()
   const trust = trustStrip(cfg.trust || TRUST[kind])
@@ -463,8 +479,14 @@ export function createShell(root, { signal }, cfg) {
   zone.addEventListener('pointerenter', warmUp, { once: true })
   zone.addEventListener('focus', warmUp, { once: true })
   wrap.addEventListener('dragenter', warmUp, { once: true })
-  wrap.addEventListener('dragover', (e) => { if (e.dataTransfer?.types?.includes('Files')) e.preventDefault() })
+  let dragDepth = 0
+  const isFiles = (e) => e.dataTransfer?.types?.includes('Files')
+  wrap.addEventListener('dragenter', (e) => { if (isFiles(e) && st.stage) { dragDepth++; wrap.classList.add('dragging') } })
+  wrap.addEventListener('dragleave', () => { if (st.stage && --dragDepth <= 0) { dragDepth = 0; wrap.classList.remove('dragging') } })
+  wrap.addEventListener('dragover', (e) => { if (isFiles(e)) e.preventDefault() })
   wrap.addEventListener('drop', (e) => {
+    dragDepth = 0
+    wrap.classList.remove('dragging')
     const files = [...(e.dataTransfer?.files || [])]
     if (!files.length || e.defaultPrevented) return
     e.preventDefault()
@@ -473,15 +495,19 @@ export function createShell(root, { signal }, cfg) {
 
   const shell = {
     get media() { return st.stage?.media || null },
+    get running() { return !!st.runner?.running },
     setInfo: (a, b) => st.runner?.setInfo(a, b),
     setEnabled: (on, why) => st.runner?.setEnabled(on, why),
     setLabel: (t) => st.runner?.setLabel(t),
     reset,
     destroy,
+    /** Run fn when this file is replaced or the tool is left (stop timers, close audio contexts, remove listeners). */
+    onDispose: (fn) => { disposers.push(fn) },
   }
 
   function reset() {
     st.id++
+    runDisposers()
     st.offEngine?.()
     st.offEngine = null
     st.runner?.destroy()
@@ -495,6 +521,7 @@ export function createShell(root, { signal }, cfg) {
 
   async function load(file) {
     const id = ++st.id
+    runDisposers()
     st.offEngine?.()
     st.runner?.destroy()
     st.stage?.destroy()
@@ -529,7 +556,8 @@ export function createShell(root, { signal }, cfg) {
     stage.setInfo(info)
     stage.setStatus()
     const warnings = []
-    if (cfg.require === 'video' && !info.hasVideo) warnings.push(alert('error', h('strong', 'No video found. '), 'This file only has audio. Pick a video file, or use the audio tools.'))
+    if (!info.hasVideo && !info.hasAudio) warnings.push(alert('error', h('strong', 'This does not look like audio or video. '), 'The file could not be read as media. It may be damaged, cut short, or a different kind of file.'))
+    else if (cfg.require === 'video' && !info.hasVideo) warnings.push(alert('error', h('strong', 'No video found. '), 'This file only has audio. Pick a video file, or use the audio tools.'))
     else if (cfg.require === 'audio' && !info.hasAudio) warnings.push(alert('error', h('strong', 'No sound found. '), 'This file has no audio track to use.'))
     if (warnings.length) { stage.setStatus(warnings); return }
     if (file.size > LARGE_FILE) {
@@ -539,16 +567,16 @@ export function createShell(root, { signal }, cfg) {
     try {
       const extra = cfg.stageExtra?.(media, shell)
       if (extra) stage.extra.append(extra)
-      const runner = createRunner({
+      const runner = cfg.action ? createRunner({
         signal, label: cfg.action.label, icon: cfg.action.icon, busyLabel: cfg.action.busy,
         onBusy: (on) => stage.busy(on),
         onRun: (helpers) => cfg.execute(media, helpers, shell),
-      })
+      }) : null
       st.runner = runner
       const opts = cfg.options?.(media, shell)
       const optNodes = [opts].flat().filter(Boolean)
       if (optNodes.length) work.append(h('div', { class: 'mc-panel' }, optNodes))
-      work.append(runner.el)
+      if (runner) work.append(runner.el)
       cfg.onMedia?.(media, shell)
     } catch (e) {
       console.error(e)
@@ -558,6 +586,7 @@ export function createShell(root, { signal }, cfg) {
 
   function destroy() {
     st.id++
+    runDisposers()
     st.offEngine?.()
     st.runner?.destroy()
     st.stage?.destroy()

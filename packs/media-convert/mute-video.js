@@ -1,5 +1,5 @@
 // Remove audio from video: strips the sound with a stream copy (no re-encoding), or swaps it for silence.
-import { createShell, step, tilePicker, alert, h } from './_ui.js'
+import { createShell, step, tilePicker, alert } from './_ui.js'
 import { inputName } from './_media.js'
 import { firstThatWorks } from './_video.js'
 import { isAbort } from '../../lib/ui.js'

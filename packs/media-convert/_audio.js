@@ -1,6 +1,7 @@
 // Audio output options shared by audio-converter, extract-audio and compress-audio.
 import { h, step, tilePicker, note } from './_ui.js'
 import { AUDIO_FORMATS, audioArgs } from './_media.js'
+import { ext as extOf } from '../../lib/files.js'
 import { select, field, formatBytes } from '../../lib/ui.js'
 
 const ICONS = { mp3: 'music', m4a: 'smartphone', ogg: 'waves', opus: 'mic', wav: 'audio-waveform', flac: 'gem' }
@@ -92,6 +93,13 @@ export function audioOptions({ formats = Object.keys(AUDIO_FORMATS), fmt = 'mp3'
     estimate(duration) { const o = get(); return o.fmt === 'copy' ? 0 : estimateBytes({ ...o, duration, info: info() }) },
     tiles,
   }
+}
+
+/** The format of the input file when we can write it (otherwise MP3), with a bitrate that does not lose quality. */
+export function sameFormat(file, info) {
+  const fmt = Object.values(AUDIO_FORMATS).find((f) => f.ext === extOf(file.name)) || AUDIO_FORMATS.mp3
+  const bitrate = fmt.lossy ? Math.max(128, fmt.bitrates.find((b) => b >= (info.audio?.bitrate || 0) * 0.95) || fmt.def) : 0
+  return { fmt, bitrate }
 }
 
 export const sizeText = (bytes) => (bytes ? `About ${formatBytes(bytes)}` : '')

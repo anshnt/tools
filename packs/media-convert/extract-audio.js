@@ -1,5 +1,5 @@
 // Extract audio from video (also serves video-to-mp3 via params.to). Keeps the original audio untouched or re-encodes it.
-import { createShell, step, fixedOutput, h, note } from './_ui.js'
+import { createShell, step, fixedOutput, note } from './_ui.js'
 import { audioOptions } from './_audio.js'
 import { AUDIO_FORMATS, copyExtFor, inputName } from './_media.js'
 import { select, field, formatBytes } from '../../lib/ui.js'

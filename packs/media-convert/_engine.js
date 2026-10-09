@@ -18,6 +18,24 @@ export function onEngine(fn) {
   return () => listeners.delete(fn)
 }
 
+// lib/ffmpeg.js reports bytes read divided by Content-Length. The CDN compresses the wasm (Content-Length is the
+// small compressed size, bytes read are the decompressed ones), so its fraction runs past 1. We rescale it with the
+// real decompressed size so the bar is honest. If the HEAD request fails we just clamp.
+const CORE_WASM = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm/ffmpeg-core.wasm'
+const CORE_BYTES = 32232419
+let scale = 1
+let scaling = null
+/** Learn the compressed size of the engine download (one tiny HEAD request, once). */
+export function loadScale() {
+  scaling ??= fetch(CORE_WASM, { method: 'HEAD' }).then((r) => {
+    const c = +r.headers.get('content-length')
+    if (c > 0 && c < CORE_BYTES * 1.2) scale = Math.min(1, c / CORE_BYTES)
+  }).catch(() => {})
+  return scaling
+}
+/** Engine download fraction from lib/ffmpeg.js, corrected for compression and clamped to 0..1 (null stays null). */
+export const engineFraction = (f) => (f == null || !Number.isFinite(f) ? null : Math.min(1, Math.max(0, f * scale)))
+
 /** Start (or join) the one-time engine download. Resolves when the engine is ready. */
 export function warm() {
   if (engine.state === 'ready') return Promise.resolve()
@@ -25,7 +43,8 @@ export function warm() {
   engine.state = 'loading'
   engine.frac = null
   emit()
-  warming = loadFFmpeg({ onProgress: (f, label) => { engine.frac = f; engine.label = label; emit() } })
+  loadScale()
+  warming = loadFFmpeg({ onProgress: (f, label) => { engine.frac = engineFraction(f); engine.label = label; emit() } })
     .then(() => { engine.state = 'ready'; engine.frac = 1; emit() })
     .catch((e) => { engine.state = 'error'; emit(); throw e })
     .finally(() => { warming = null })

@@ -1,5 +1,5 @@
 // Compress audio: pick a purpose (voice, podcast, music) or an exact size, with bitrate, mono and format controls.
-import { createShell, step, tilePicker, note, alert, h } from './_ui.js'
+import { createShell, step, tilePicker, alert, h } from './_ui.js'
 import { AUDIO_FORMATS, audioArgs, inputName, MB, fmtTime } from './_media.js'
 import { number, select, field, toggle, formatBytes } from '../../lib/ui.js'
 import { withExt } from '../../lib/files.js'

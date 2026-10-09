@@ -13,15 +13,27 @@ const QUALITY = [
 const SPEEDS = [['fast', 'Fastest (larger file)'], ['balanced', 'Balanced'], ['small', 'Slower (smaller file)']]
 const CAPS = [[2160, '4K (2160p)'], [1440, '1440p'], [1080, '1080p'], [720, '720p'], [480, '480p'], [360, '360p']]
 
+const FIXED_TEXT = {
+  mp4: ['smartphone', 'H.264 video and AAC audio. Plays on iPhone, Android, Windows, Mac, TVs and WhatsApp.'],
+  webm: ['globe', 'VP8 or VP9 video with Opus audio. Made for the web: plays in Chrome, Firefox, Edge and most browsers.'],
+}
+// Entries like mov-to-mp4 reuse this tool but start from one kind of file
+const FROM = {
+  mov: { accept: '.mov,video/quicktime', label: 'Drop a MOV video to make an MP4', hint: 'iPhone and Mac recordings (.mov)', note: 'iPhone videos are often HEVC (H.265), which many Windows, Android and web apps cannot play. They are converted to H.264 here.' },
+}
+
 export function mount(root, { params, signal }) {
   const fixed = params?.to
+  const from = FROM[params?.from]
   let get = null // set once a file is loaded: () => current settings
 
   createShell(root, { signal }, {
     kind: 'video',
     require: 'video',
-    dropIcon: fixed === 'mp4' ? 'file-video' : 'repeat-2',
-    dropLabel: fixed === 'mp4' ? 'Drop any video to make an MP4' : undefined,
+    dropIcon: fixed === 'mp4' ? 'file-video' : fixed === 'webm' ? 'globe' : 'repeat-2',
+    dropLabel: from?.label || (fixed ? `Drop any video to make a ${VIDEO_FORMATS[fixed].label}` : undefined),
+    dropHint: from?.hint,
+    accept: from?.accept,
     action: { label: fixed ? `Convert to ${VIDEO_FORMATS[fixed].label}` : 'Convert video', icon: 'repeat-2', busy: 'Converting' },
 
     options(media, shell) {
@@ -75,7 +87,7 @@ export function mount(root, { params, signal }) {
       return [
         formatPicker
           ? step(1, 'Convert to', formatPicker)
-          : step(1, 'Output', fixedOutput('smartphone', 'MP4', 'H.264 video and AAC audio. Plays on iPhone, Android, Windows, Mac, TVs and WhatsApp.')),
+          : step(1, 'Output', [fixedOutput(FIXED_TEXT[fixed][0], VIDEO_FORMATS[fixed].label, FIXED_TEXT[fixed][1]), from ? note(from.note) : null]),
         qualityStep,
         step(3, 'Fine tuning', [h('div', { class: 'mc-grid' }, capField, speedField, vpField), h('div', { class: 'mc-switches' }, smart), planNote]),
       ]

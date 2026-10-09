@@ -100,7 +100,7 @@ export function describe(info) {
   if (info.video?.fps) bits.push(`${+info.video.fps.toFixed(2)} fps`)
   if (info.video) bits.push(info.video.codec)
   if (info.audio) bits.push(info.audio.codec)
-  return bits.join(' · ')
+  return bits.join(' \u00B7 ')
 }
 
 // ---------- Formats ----------
@@ -277,7 +277,7 @@ const cueTime = (s) => {
 
 /** Parse SRT or WebVTT text into [{start, end, text}] (plain text, simple tags stripped). */
 export function parseSubtitles(src) {
-  const text = String(src || '').replace(/^﻿/, '').replace(/\r\n?/g, '\n')
+  const text = String(src || '').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n')
   const cues = []
   for (const block of text.split(/\n{2,}/)) {
     const lines = block.split('\n').filter((l) => l.trim() !== '')
@@ -314,19 +314,19 @@ const scriptFont = (pkg, ver, script, family) => ({
   files: [`${FS}/noto-sans-${pkg}@${ver}/files/noto-sans-${pkg}-${script}-400-normal.woff`, `${FS}/noto-sans-${pkg}@${ver}/files/noto-sans-${pkg}-latin-400-normal.woff`, `${FS}/noto-sans-${pkg}@${ver}/files/noto-sans-${pkg}-latin-ext-400-normal.woff`],
 })
 const SCRIPTS = [
-  ['Devanagari', /[ऀ-ॿ]/, scriptFont('devanagari', '5.2.8', 'devanagari', 'Noto Sans Devanagari')],
-  ['Bengali', /[ঀ-৿]/, scriptFont('bengali', '5.2.8', 'bengali', 'Noto Sans Bengali')],
-  ['Gujarati', /[઀-૿]/, scriptFont('gujarati', '5.2.8', 'gujarati', 'Noto Sans Gujarati')],
-  ['Gurmukhi', /[਀-੿]/, scriptFont('gurmukhi', '5.2.8', 'gurmukhi', 'Noto Sans Gurmukhi')],
-  ['Tamil', /[஀-௿]/, scriptFont('tamil', '5.2.8', 'tamil', 'Noto Sans Tamil')],
-  ['Telugu', /[ఀ-౿]/, scriptFont('telugu', '5.2.8', 'telugu', 'Noto Sans Telugu')],
-  ['Kannada', /[ಀ-೿]/, scriptFont('kannada', '5.2.8', 'kannada', 'Noto Sans Kannada')],
-  ['Malayalam', /[ഀ-ൿ]/, scriptFont('malayalam', '5.2.8', 'malayalam', 'Noto Sans Malayalam')],
-  ['Arabic', /[؀-ۿݐ-ݿ]/, scriptFont('arabic', '5.2.8', 'arabic', 'Noto Sans Arabic')],
-  ['Hebrew', /[֐-׿]/, scriptFont('hebrew', '5.2.8', 'hebrew', 'Noto Sans Hebrew')],
-  ['Thai', /[฀-๿]/, scriptFont('thai', '5.2.8', 'thai', 'Noto Sans Thai')],
+  ['Devanagari', /[\u0900-\u097F]/, scriptFont('devanagari', '5.2.8', 'devanagari', 'Noto Sans Devanagari')],
+  ['Bengali', /[\u0980-\u09FF]/, scriptFont('bengali', '5.2.8', 'bengali', 'Noto Sans Bengali')],
+  ['Gujarati', /[\u0A80-\u0AFF]/, scriptFont('gujarati', '5.2.7', 'gujarati', 'Noto Sans Gujarati')],
+  ['Gurmukhi', /[\u0A00-\u0A7F]/, scriptFont('gurmukhi', '5.2.8', 'gurmukhi', 'Noto Sans Gurmukhi')],
+  ['Tamil', /[\u0B80-\u0BFF]/, scriptFont('tamil', '5.2.7', 'tamil', 'Noto Sans Tamil')],
+  ['Telugu', /[\u0C00-\u0C7F]/, scriptFont('telugu', '5.2.8', 'telugu', 'Noto Sans Telugu')],
+  ['Kannada', /[\u0C80-\u0CFF]/, scriptFont('kannada', '5.2.8', 'kannada', 'Noto Sans Kannada')],
+  ['Malayalam', /[\u0D00-\u0D7F]/, scriptFont('malayalam', '5.2.8', 'malayalam', 'Noto Sans Malayalam')],
+  ['Arabic', /[\u0600-\u06FF\u0750-\u077F]/, scriptFont('arabic', '5.2.8', 'arabic', 'Noto Sans Arabic')],
+  ['Hebrew', /[\u0590-\u05FF]/, scriptFont('hebrew', '5.2.8', 'hebrew', 'Noto Sans Hebrew')],
+  ['Thai', /[\u0E00-\u0E7F]/, scriptFont('thai', '5.2.8', 'thai', 'Noto Sans Thai')],
 ]
-const UNSUPPORTED = [['Chinese, Japanese or Korean', /[぀-ヿ㐀-鿿가-힯]/]]
+const UNSUPPORTED = [['Chinese, Japanese or Korean', /[\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF]/]]
 
 /**
  * pickFonts(text) -> {family, files: [url], unsupported: ['Chinese, Japanese or Korean'] }
@@ -337,10 +337,10 @@ export function pickFonts(text) {
   const hit = SCRIPTS.find(([, re]) => re.test(text))
   if (hit) return { family: hit[2].family, script: hit[0], files: hit[2].files, unsupported }
   const files = [noto('latin')]
-  if (/[Ā-ɏḀ-ỿ]/.test(text)) files.push(noto('latin-ext'))
-  if (/[Ѐ-ӿ]/.test(text)) files.push(noto('cyrillic'))
-  if (/[Ͱ-Ͽ]/.test(text)) files.push(noto('greek'))
-  if (/[ĂăĐđĨĩŨũƠơƯưẠ-ỹ]/.test(text)) files.push(noto('vietnamese'))
+  if (/[\u0100-\u024F\u1E00-\u1EFF]/.test(text)) files.push(noto('latin-ext'))
+  if (/[\u0400-\u04FF]/.test(text)) files.push(noto('cyrillic'))
+  if (/[\u0370-\u03FF]/.test(text)) files.push(noto('greek'))
+  if (/[\u0102\u0103\u0110\u0111\u0128\u0129\u0168\u0169\u01A0\u01A1\u01AF\u01B0\u1EA0-\u1EF9]/.test(text)) files.push(noto('vietnamese'))
   return { family: 'Noto Sans', script: 'Latin', files, unsupported }
 }
 

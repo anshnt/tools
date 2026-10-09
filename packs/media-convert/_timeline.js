@@ -1,6 +1,6 @@
 // Trim timeline: two draggable handles over the media's length, optional waveform (audio) or filmstrip (video),
 // time fields, and play-the-selection preview. Used by trim-video, trim-audio and video-to-gif.
-import { h, icon, button, field, input, clear, onCleanup } from '../../lib/ui.js'
+import { h, icon, button, field, input, onCleanup } from '../../lib/ui.js'
 import { fmtTime, parseTime, MB } from './_media.js'
 import { runFFmpeg } from '../../lib/ffmpeg.js'
 import { inputName } from './_media.js'

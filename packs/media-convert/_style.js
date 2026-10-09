@@ -21,6 +21,9 @@ const CSS = `
 .mc-stage { position: relative; isolation: isolate; border-radius: 28px; padding: 12px; border: 1px solid color-mix(in srgb, var(--mc) 22%, var(--border)); background: linear-gradient(160deg, color-mix(in srgb, var(--mc) 11%, var(--surface)), var(--surface) 58%); box-shadow: var(--shadow); animation: rise .5s var(--ease) both; }
 .mc-stage::before { content: ""; position: absolute; inset: -1px; z-index: -1; border-radius: inherit; padding: 2px; pointer-events: none; opacity: 0; transition: opacity .5s; background: conic-gradient(from var(--mc-a), transparent 0 55%, var(--accent) 78%, var(--accent-2) 90%, transparent 100%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); mask-composite: exclude; animation: mc-turn 3.2s linear infinite; }
 .mc-stage.busy::before { opacity: 1; }
+.mc-stage.busy { animation: mc-glow 2.6s ease-in-out infinite; }
+@keyframes mc-glow { 50% { box-shadow: 0 0 70px -14px var(--accent), var(--shadow); } }
+.mc.dragging::after { content: "Drop to use this file"; position: absolute; inset: -8px; z-index: 30; display: grid; place-items: center; font-weight: 650; font-size: 18px; letter-spacing: -.02em; color: var(--accent); pointer-events: none; border-radius: 30px; border: 2px dashed var(--accent); background: color-mix(in srgb, var(--accent-soft) 85%, transparent); backdrop-filter: blur(3px); animation: rise .2s var(--ease) both; }
 @keyframes mc-turn { to { --mc-a: 360deg; } }
 .mc-view { position: relative; border-radius: 19px; overflow: hidden; background: #08080d; display: grid; place-items: center; min-height: 150px; }
 .mc-view video { display: block; width: 100%; height: auto; max-height: min(54vh, 460px); background: #000; object-fit: contain; }
@@ -73,6 +76,9 @@ const CSS = `
 
 .mc-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr)); gap: 10px; }
 .mc-tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-height: 84px; padding: 12px; text-align: left; border-radius: 17px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; color: var(--text); transition: transform .28s var(--spring), border-color .2s, background .2s, box-shadow .25s; }
+.mc-tile::before, .mc-trust > div::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .25s; background: radial-gradient(190px circle at var(--mx, 50%) var(--my, 0%), color-mix(in srgb, var(--mc) 17%, transparent), transparent 70%); }
+.mc-trust > div { position: relative; }
+.mc-tile:hover:not(:disabled)::before, .mc-trust > div:hover::before { opacity: 1; }
 .mc-tile:hover:not(:disabled) { transform: translateY(-3px); border-color: var(--border-strong); box-shadow: var(--shadow); }
 .mc-tile:active:not(:disabled) { transform: scale(.97); }
 .mc-tile:disabled { opacity: .45; cursor: not-allowed; }
@@ -181,6 +187,16 @@ const CSS = `
 .mc-zip-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); animation: rise .4s var(--ease) both; }
 .mc-zip-row .nm { min-width: 0; font-weight: 550; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mc-zip-row small { display: block; color: var(--muted); font-weight: 400; font-size: 12px; }
+.mc-gallery { columns: 3 170px; column-gap: 10px; }
+.mc-shot { position: relative; break-inside: avoid; margin: 0 0 10px; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); background: var(--surface-2); animation: rise .45s var(--ease) both; animation-delay: calc(var(--i, 0) * 45ms); transition: transform .3s var(--ease), box-shadow .3s; }
+.mc-shot:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.mc-shot img { display: block; width: 100%; height: auto; }
+.mc-shot figcaption { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; gap: 8px; padding: 22px 10px 8px; font-size: 12px; color: #fff; font-variant-numeric: tabular-nums; background: linear-gradient(transparent, rgba(0, 0, 0, .7)); pointer-events: none; }
+.mc-shot .btn { position: absolute; top: 8px; right: 8px; opacity: 0; transform: scale(.9); transition: opacity .2s, transform .25s var(--spring); }
+.mc-shot:hover .btn, .mc-shot:focus-within .btn { opacity: 1; transform: none; }
+@media (hover: none) { .mc-shot .btn { opacity: 1; transform: none; } }
+.mc-zip-row.has-thumb { grid-template-columns: 56px minmax(0, 1fr) auto auto; }
+.mc-thumb { width: 56px; height: 40px; object-fit: cover; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); }
 .mc-zip-row.bad { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); background: var(--danger-soft); }
 .mc-story { display: flex; gap: 3px; height: 40px; border-radius: 14px; overflow: hidden; }
 .mc-story > i { flex: var(--w, 1) 1 0; min-width: 26px; display: grid; place-items: center; font-style: normal; font-size: 12.5px; font-weight: 650; color: #fff; background: color-mix(in srgb, var(--accent) calc((1 - var(--k, 0)) * 100%), var(--accent-2)); transition: flex .45s var(--ease), background .3s; animation: mc-chip .45s var(--spring) both; }
@@ -215,10 +231,27 @@ const CSS = `
   .mc-preview-pane { grid-template-columns: minmax(0, 1fr); }
   .mc-zip-row { grid-template-columns: minmax(0, 1fr) auto; }
   .mc-zip-row > :nth-child(3) { grid-column: 1 / -1; }
+  .mc-zip-row.has-thumb { grid-template-columns: 48px minmax(0, 1fr) auto; }
+  .mc-zip-row.has-thumb > :nth-child(3) { grid-column: auto; }
 }
 `
 
+// Cursor spotlight on option tiles, like the cards on the home page (sets --mx and --my).
+let spot = false
+function enableSpotlight() {
+  if (spot || !matchMedia('(hover: hover)').matches) return
+  spot = true
+  document.addEventListener('pointermove', (e) => {
+    const t = e.target.closest?.('.mc-tile, .mc-trust > div')
+    if (!t) return
+    const r = t.getBoundingClientRect()
+    t.style.setProperty('--mx', `${e.clientX - r.left}px`)
+    t.style.setProperty('--my', `${e.clientY - r.top}px`)
+  }, { passive: true })
+}
+
 export function injectStyles() {
+  enableSpotlight()
   if (document.getElementById('mc-style')) return
   const el = document.createElement('style')
   el.id = 'mc-style'

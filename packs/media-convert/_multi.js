@@ -27,7 +27,7 @@ export function summarize(info) {
  * Files are probed one by one in the background; onChange fires when the list or any details change.
  */
 export function createFileSet(opts) {
-  const { kind = 'audio', sortable = true, max = 30, play = kind === 'audio', onChange } = opts
+  const { kind = 'audio', sortable = true, max = 30, play = kind === 'audio', onChange, busy = () => false } = opts
   const infos = new Map()
   const failed = new Map()
   let pending = 0
@@ -48,6 +48,7 @@ export function createFileSet(opts) {
   const el = h('div', { class: 'mc-over' }, zone, list.el, notice, detailBox)
 
   function add(files) {
+    if (busy()) { notice.replaceChildren(alert('info', 'Wait for the current job to finish, or cancel it, before adding more files.')); return }
     const room = max - list.files.length
     const take = files.slice(0, Math.max(0, room))
     if (take.length < files.length) notice.replaceChildren(alert('warn', `Only ${max} files can be added at once. Skipped ${files.length - take.length}.`))
@@ -149,7 +150,7 @@ export function createMultiShell(root, { signal }, cfg) {
   })
   runner.el.hidden = true
   const set = createFileSet({
-    kind, sortable: cfg.sortable ?? true, max: cfg.max || 30, play: cfg.play, accept: cfg.accept,
+    kind, sortable: cfg.sortable ?? true, max: cfg.max || 30, play: cfg.play, accept: cfg.accept, busy: () => runner.running,
     dropLabel: cfg.dropLabel, dropHint: cfg.dropHint, dropIcon: cfg.dropIcon,
     onChange: () => sync(),
   })

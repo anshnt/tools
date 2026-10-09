@@ -2,7 +2,7 @@
 import { createShell, step, tilePicker, note, alert, h } from './_ui.js'
 import { inputName, fmtTime } from './_media.js'
 import { createTrimmer } from './_timeline.js'
-import { select, field, toggle, formatBytes } from '../../lib/ui.js'
+import { select, field, toggle } from '../../lib/ui.js'
 import { baseName } from '../../lib/files.js'
 
 const WIDTHS = [[240, 'Small, 240 px'], [320, '320 px'], [480, 'Medium, 480 px'], [640, '640 px'], [800, 'Large, 800 px']]
@@ -29,10 +29,11 @@ export function mount(root, { signal }) {
     action: { label: 'Make GIF', icon: 'film', busy: 'Making the GIF' },
     trust: [['shield-check', 'Stays on your device', 'Nothing is uploaded. The GIF is made inside this tab.'], ['scissors', 'Pick the moment', 'Drag the handles to choose exactly which seconds become the GIF.'], ['palette', 'Clean colors', 'A custom palette is generated for your clip, so it looks sharper than a quick convert.']],
 
-    stageExtra(media) {
+    stageExtra(media, shell) {
       const dur = media.info.duration || media.el?.duration || 0
       if (!dur) return h('div', { class: 'mc-note', style: 'padding:10px' }, 'The length of this video could not be read, so the timeline is unavailable.')
       trimmer = createTrimmer({ media, duration: dur, start: 0, end: Math.min(dur, 5), minLen: 0.3, maxLen: 60, film: true, onChange: () => update() })
+      shell.onDispose(trimmer.destroy)
       return trimmer.el
     },
 
