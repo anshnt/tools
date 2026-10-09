@@ -1,6 +1,6 @@
 // Tools for Vector Studio. Each tool is {cursor, down, move, up, cancel, dblclick, hover, overlay, activate, deactivate}.
 // Events carry screen coords (sx, sy), document coords (p), modifier keys and the artwork node id under the pointer (id).
-import { I, inv, ap, P, tr, sc, rot, about, dist, rdp, fitSmooth, polygonSubs, starSubs, lineSubs, nearestOnSub, splitSegment, makeSmooth, makeCorner, isSmooth, hasIn, hasOut, subsToD, transformSubs, DEG } from './_geom.js'
+import { I, inv, ap, P, tr, sc, rot, about, dist, rdp, fitSmooth, polygonSubs, starSubs, lineSubs, nearestOnSub, splitSegment, makeSmooth, makeCorner, isSmooth, hasIn, hasOut, subsToD, transformSubs, reverseSub, segIsLine, clamp, DEG } from './_geom.js'
 import { mk, get, leaves, bboxOf, localBBox, applyMatrix, restoreNode, convertToPath, toSubs, solid, pickStyle, lineage, cloneNode } from './_model.js'
 
 const f = (v) => Math.round(v * 100) / 100
@@ -267,10 +267,19 @@ export function createTools(cv) {
       return null
     }
     const ensure = (nodes) => { for (const n of new Set(nodes)) if (n.type !== 'path') convertToPath(n) }
+    // the segment of a selected shape under the pointer (drag it to reshape the curve)
+    const hitSegment = (ev) => {
+      let best = null
+      for (const n of targets()) subsOf(n).forEach((sub, s) => {
+        const h = nearestOnSub(sub, ev.p)
+        if (h && h.dist * cv.z < (ev.touch ? 14 : 7) && (!best || h.dist < best.h.dist)) best = { n, s, h }
+      })
+      return best
+    }
 
     return {
       cursor: 'default',
-      hover(ev) { cv.updateCursor(hitAnchor(ev) || hitHandle(ev) ? 'pointer' : ev.id ? 'move' : 'default') },
+      hover(ev) { cv.updateCursor(hitAnchor(ev) || hitHandle(ev) ? 'pointer' : ed.sel.length && hitSegment(ev) ? 'crosshair' : ev.id ? 'move' : 'default') },
       down(ev) {
         const hd = hitHandle(ev)
         if (hd) {
@@ -286,6 +295,16 @@ export function createTools(cv) {
           ensure([...ed.anchors].map((k) => get(ed.doc, k.split('|')[0])).filter(Boolean))
           const refs = [...ed.anchors].map((k) => ed.anchorRef(k)).filter(Boolean)
           st = { mode: 'anchors', tx, start: ev.p, s0: [ev.sx, ev.sy], refs: refs.map((r) => ({ r, x: r.pt.x, y: r.pt.y })), lead: refs.find((r) => key(r.node, r.s, r.i) === a.key) || refs[0], moved: false, T: cv.targets() }
+          ed.emit('sel')
+          return
+        }
+        const sg = ed.sel.length && !ev.shift ? hitSegment(ev) : null
+        if (sg) {
+          const tx = ed.begin('Reshape segment')
+          ensure([sg.n])
+          const n = get(ed.doc, sg.n.id), sub = n.subs[sg.s], a0 = sub.pts[sg.h.seg], a1 = sub.pts[(sg.h.seg + 1) % sub.pts.length]
+          st = { mode: 'segment', tx, start: ev.p, s0: [ev.sx, ev.sy], moved: false, line: segIsLine(a0, a1), t: clamp(sg.h.t, 0.15, 0.85), a0, a1, o0: { ...a0 }, o1: { ...a1 } }
+          ed.anchors.clear(); ed.anchors.add(key(n, sg.s, sg.h.seg)); ed.anchors.add(key(n, sg.s, (sg.h.seg + 1) % sub.pts.length))
           ed.emit('sel')
           return
         }
@@ -314,6 +333,15 @@ export function createTools(cv) {
             const l = Math.hypot(dx, dy) || 1, len = st.smooth ? st.olen : Math.hypot(dx, dy)
             pt[o + 'x'] = (-dx / l) * len; pt[o + 'y'] = (-dy / l) * len
           }
+          ed.touch(); cv.scheduleOv()
+          return
+        }
+        if (st.mode === 'segment') {
+          if (!st.moved && Math.hypot(ev.sx - st.s0[0], ev.sy - st.s0[1]) < 3) return
+          st.moved = true
+          const dx = ev.p.x - st.start.x, dy = ev.p.y - st.start.y, { a0, a1, o0, o1, t } = st
+          if (st.line) { a0.x = o0.x + dx; a0.y = o0.y + dy; a1.x = o1.x + dx; a1.y = o1.y + dy } // a straight edge moves with both its points
+          else { const k = 1 / (3 * t * (1 - t)); a0.ox = o0.ox + dx * k; a0.oy = o0.oy + dy * k; a1.ix = o1.ix + dx * k; a1.iy = o1.iy + dy * k }
           ed.touch(); cv.scheduleOv()
           return
         }
@@ -417,6 +445,24 @@ export function createTools(cv) {
         let p = cv.snapPoint(ev.p, T, ev.ctrl)
         if (b && ev.shift) { const q = b.sub.pts.at(-1), a = Math.round(Math.atan2(p.y - q.y, p.x - q.x) / (45 * DEG)) * 45 * DEG, l = dist(p, q); p = { x: q.x + Math.cos(a) * l, y: q.y + Math.sin(a) * l } }
         if (!b) {
+          // click an end point of the selected open path to keep drawing it
+          for (const n of leaves({ type: 'group', kids: ed.nodes })) {
+            if (n.type !== 'path' || n.lock) continue
+            for (const sub of n.subs) {
+              if (sub.closed || !sub.pts.length) continue
+              const ends = [[sub.pts[0], true], [sub.pts.at(-1), false]]
+              for (const [pt, first] of ends) {
+                const [ex, ey] = cv.S(pt.x, pt.y)
+                if (Math.hypot(ex - ev.sx, ey - ev.sy) < (ev.touch ? 16 : 9)) {
+                  const tx = ed.begin('Pen path')
+                  if (first && sub.pts.length > 1) reverseSub(sub)
+                  b = { node: n, sub, tx, T: cv.targets([n.id]) }
+                  drag = null
+                  return
+                }
+              }
+            }
+          }
           const tx = ed.begin('Pen path')
           const node = mk(ed.doc, 'path', { subs: [{ closed: false, pts: [P(p.x, p.y)] }] }, lineStyle())
           ed.add(node)
