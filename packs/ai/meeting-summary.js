@@ -1,6 +1,6 @@
 // Meeting summarizer (also Meeting transcript to summary via params.transcript): minutes, decisions, action items and open
 // questions from a pasted transcript or a recording (transcribed on this device with Whisper, then summarized).
-import { h, button, field, input, select, textarea, dropzone, alert, clear, panel, split, row, progress, tabs, download, formatDuration, errorMessage } from '../../lib/ui.js'
+import { h, button, field, input, select, textarea, dropzone, alert, clear, panel, split, row, progress, tabs, download, formatDuration } from '../../lib/ui.js'
 import * as ai from '../../lib/ai.js'
 import { baseName } from '../../lib/files.js'
 import { transcribe, WHISPER_MODELS, WHISPER_LANGS } from '../../lib/whisper.js'

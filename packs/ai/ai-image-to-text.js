@@ -1,6 +1,6 @@
 // AI image to text (and Handwriting to text via params.handwriting): faithful transcription with Claude vision,
 // plus a free on-device OCR fallback that works without an API key.
-import { h, button, field, select, segmented, toggle, dropzone, fileList, alert, clear, panel, row, textarea, progress, busy, download, copyText, copyButton, icon, isAbort, errorMessage } from '../../lib/ui.js'
+import { h, button, field, select, segmented, toggle, dropzone, fileList, alert, clear, panel, row, textarea, progress, busy, download, copyButton, isAbort, errorMessage } from '../../lib/ui.js'
 import * as ai from '../../lib/ai.js'
 import { baseName } from '../../lib/files.js'
 import { loadImage, toCanvas } from '../../lib/image.js'

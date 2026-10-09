@@ -1,6 +1,6 @@
 // Resume to job matching: fit score, strengths, gaps, keywords, tailored bullets and a cover letter opener (structured JSON from Claude).
 // Without an API key a free on-device keyword check still shows which job terms your resume covers.
-import { h, button, field, input, textarea, dropzone, alert, clear, panel, split, row, tabs, copyButton, icon, busy, formatNumber } from '../../lib/ui.js'
+import { h, button, field, input, textarea, dropzone, alert, clear, panel, split, row, tabs, copyButton, icon, busy } from '../../lib/ui.js'
 import * as ai from '../../lib/ai.js'
 import { openPdf, extractText } from '../../lib/pdf.js'
 import { injectStyle, exportBar, runner, readSource, fileChips, fetchPage, DOC_ACCEPT, UNTRUSTED } from './_shared.js'
@@ -69,7 +69,6 @@ export function mount(root, { signal }) {
   let resume = null
   let data = null
   let rTab = 'file'
-  let jTab = 'paste'
   const status = h('div')
   const results = h('div', { class: 'stack' })
   const chips = h('div')
@@ -141,7 +140,7 @@ fit_score (0-100) is how likely a recruiter would shortlist this resume for this
   }
 
   const resumeTabs = tabs([{ id: 'file', label: 'Upload', render: () => h('div', { class: 'stack' }, zone, chips) }, { id: 'paste', label: 'Paste text', render: () => rText }], 'file', (id) => { rTab = id })
-  const tabApiJ = tabs([{ id: 'paste', label: 'Paste', render: () => jd }, { id: 'url', label: 'From a link', render: () => h('div', { class: 'stack' }, field('Job posting link', jUrl, 'Read through r.jina.ai. If a site blocks it, paste the text instead.'), row(fetchBtn)) }], 'paste', (id) => { jTab = id })
+  const tabApiJ = tabs([{ id: 'paste', label: 'Paste', render: () => jd }, { id: 'url', label: 'From a link', render: () => h('div', { class: 'stack' }, field('Job posting link', jUrl, 'Read through r.jina.ai. If a site blocks it, paste the text instead.'), row(fetchBtn)) }], 'paste', () => {})
 
   root.append(h('div', { class: 'stack' }, ai.notice(),
     split(

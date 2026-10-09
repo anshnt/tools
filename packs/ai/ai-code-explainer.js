@@ -1,5 +1,5 @@
 // Code explainer: paste code (or load a file) and get an explanation, line-by-line notes, complexity, bugs and improvements.
-import { h, button, field, select, segmented, toggle, textarea, dropzone, alert, clear, panel, split, row, icon } from '../../lib/ui.js'
+import { h, button, field, select, segmented, toggle, textarea, dropzone, alert, clear, panel, split, row } from '../../lib/ui.js'
 import * as ai from '../../lib/ai.js'
 import { injectStyle, resultView, exportBar, runner, streamAsk, LANGUAGES, UNTRUSTED } from './_shared.js'
 

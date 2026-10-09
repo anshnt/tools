@@ -1,6 +1,6 @@
 // Text to diagram: Claude writes Mermaid code, rendered live with mermaid (MIT). Edit the code by hand or with follow-up
 // instructions, fix errors with AI, and export SVG or PNG.
-import { h, button, field, select, segmented, toggle, textarea, alert, clear, panel, split, row, download, copyButton, debounce, busy, icon, toast, isAbort, errorMessage } from '../../lib/ui.js'
+import { h, button, field, select, segmented, toggle, textarea, clear, panel, split, row, download, copyButton, debounce, busy, icon } from '../../lib/ui.js'
 import * as ai from '../../lib/ai.js'
 import { loadImage } from '../../lib/image.js'
 import { injectStyle, runner, UNTRUSTED } from './_shared.js'

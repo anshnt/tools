@@ -26,4 +26,7 @@ export default [
   { id: 'ai-spreadsheet-analysis', name: 'AI spreadsheet analysis', desc: 'Upload CSV/Excel and ask questions; get answers, stats and charts.', icon: 'sheet', also: ['data'], tags: 'analyze excel csv insights', ready: true },
   { id: 'ai-diagram', name: 'Text to diagram', desc: 'Describe a process and get a flowchart or diagram (Mermaid).', icon: 'workflow', also: ['dev', 'career'], tags: 'diagram flowchart mermaid', ready: true },
   { id: 'ai-code-explainer', name: 'Code explainer', also: ['dev'], desc: 'Paste code and get a plain-English explanation and improvements.', icon: 'code', tags: 'explain code review', ready: true },
+  { id: 'ai-image-to-excel', name: 'Table image to Excel', desc: 'Turn a photo, screenshot or scan of a table into an editable grid and an .xlsx file.', icon: 'table', also: ['data'], tags: 'table photo screenshot scan excel csv ocr extract', ready: true },
+  { id: 'ai-alt-text', name: 'Image alt text and caption writer', desc: 'Alt text, a longer description, a social caption, hashtags and a file name for any image.', icon: 'captions', also: ['image'], tags: 'alt text accessibility caption hashtags describe seo', ready: true },
+  { id: 'ai-text-to-sql', name: 'Text to SQL', desc: 'Describe what you need and get a query for your tables, with an explanation. Can also fix a query.', icon: 'database', also: ['dev', 'data'], tags: 'sql query generate natural language database fix', ready: true },
 ]

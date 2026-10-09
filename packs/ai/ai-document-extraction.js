@@ -1,9 +1,9 @@
 // AI document data extraction: invoices, receipts, bank statements, ID cards, business cards or custom fields.
 // A template becomes a JSON schema (structured output), several files can be processed in a batch, results are editable
 // in a table with simple consistency checks, and export as CSV, JSON or Excel.
-import { h, button, field, select, textarea, input, dropzone, fileList, alert, clear, panel, split, row, progress, busy, download, icon, isAbort, errorMessage, segmented } from '../../lib/ui.js'
+import { h, button, field, textarea, input, dropzone, fileList, alert, clear, panel, row, progress, busy, download, icon, isAbort, errorMessage, segmented } from '../../lib/ui.js'
 import * as ai from '../../lib/ai.js'
-import { baseName } from '../../lib/files.js'
+import {  } from '../../lib/files.js'
 import { xlsx } from '../../lib/libs.js'
 import { injectStyle, runner, readSource, UNTRUSTED } from './_shared.js'
 

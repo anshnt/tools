@@ -1,6 +1,6 @@
 // Email reply writer: paste an email, say what you want to do and in which tone, get up to three ready-to-send replies
 // that you can edit, refine ("shorter", "warmer"), copy or open in your mail app.
-import { h, button, field, input, select, segmented, textarea, alert, clear, panel, split, row, copyButton, icon, busy, isAbort, errorMessage, toast } from '../../lib/ui.js'
+import { h, button, field, input, select, segmented, textarea, alert, clear, panel, split, row, copyButton, icon, busy } from '../../lib/ui.js'
 import * as ai from '../../lib/ai.js'
 import { load, save } from '../../lib/store.js'
 import { injectStyle, runner, LANGUAGES, UNTRUSTED } from './_shared.js'

@@ -24,7 +24,7 @@ const CSS = `
 .ai-md pre code { background: none; padding: 0; }
 .ai-md blockquote { border-left: 3px solid var(--accent); margin-left: 0; padding: 2px 0 2px 14px; color: var(--muted); }
 .ai-md table { border-collapse: collapse; display: block; overflow-x: auto; max-width: 100%; font-size: .95em; }
-.ai-md th, .ai-md td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+.ai-md th, .ai-md td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; overflow-wrap: normal; word-break: normal; min-width: 5em; }
 .ai-md th { background: var(--surface-2); color: var(--text); }
 .ai-md hr { border: 0; border-top: 1px solid var(--border); margin: 1.2em 0; }
 .ai-md strong { color: var(--text); }

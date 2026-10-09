@@ -1,6 +1,6 @@
 // Document translator: PDF, Word or pasted text to any language, keeping headings, lists and tables.
 // Long documents are translated in parts (text split at paragraph boundaries, PDFs a few pages at a time) so nothing gets cut off.
-import { h, button, field, select, segmented, toggle, textarea, dropzone, alert, clear, panel, split, row, progress, tabs, isAbort, errorMessage } from '../../lib/ui.js'
+import { h, button, field, select, segmented, toggle, textarea, dropzone, alert, clear, panel, split, row, progress, tabs, isAbort } from '../../lib/ui.js'
 import * as ai from '../../lib/ai.js'
 import { baseName } from '../../lib/files.js'
 import { injectStyle, resultView, exportBar, runner, readSource, fileChips, DOC_ACCEPT, LANGUAGES, RTL_LANGS, UNTRUSTED } from './_shared.js'

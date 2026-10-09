@@ -1,7 +1,7 @@
 // YouTube video summarizer (and YouTube video to notes via params.preset 'notes').
 // Browsers cannot download YouTube transcripts, so the visitor pastes the transcript from YouTube's "Show transcript" panel.
 // The title comes from noembed.com; timestamps in the answer become links that open the video at that moment.
-import { h, button, field, input, select, segmented, textarea, dropzone, alert, clear, panel, split, row, debounce, icon } from '../../lib/ui.js'
+import { h, button, field, input, select, segmented, textarea, dropzone, alert, clear, panel, split, row, debounce } from '../../lib/ui.js'
 import * as ai from '../../lib/ai.js'
 import { injectStyle, resultView, exportBar, runner, streamAsk, readSource, LANGUAGES, UNTRUSTED } from './_shared.js'
 
@@ -73,7 +73,7 @@ export function mount(root, { params, signal }) {
   injectStyle()
   const notes = params.preset === 'notes'
   let meta = null
-  const view = resultView({ emptyIcon: notes ? 'notebook-pen' : 'circle-play', emptyTitle: notes ? 'Study notes appear here' : 'Your video summary appears here', emptyText: 'Paste the video link and its transcript (the steps are on the left). You get key takeaways, chapters and timestamps that jump to the right moment.' })
+  const view = resultView({ emptyIcon: notes ? 'notebook-pen' : 'circle-play', emptyTitle: notes ? 'Study notes appear here' : 'Your video summary appears here', emptyText: 'Paste the video link and its transcript (the steps are shown). You get key takeaways, chapters and timestamps that jump to the right moment.' })
   const status = h('div')
   const card = h('div')
   const url = input({ placeholder: 'https://www.youtube.com/watch?v=...', inputmode: 'url', 'aria-label': 'YouTube link' })
