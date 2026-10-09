@@ -146,8 +146,8 @@ export async function mount(root, { signal }) {
   again.addEventListener('click', () => busy(again, () => run(true), { label: 'Rewriting', errorTo: status }))
 
   root.append(shell(
-    banner({ icon: 'pen-line', text: '<b>Same email, better words.</b> Pick a tone and length, let Claude rewrite it, then compare changes word by word. Instant local checks work even without a key.', steps: ['Paste email', 'Pick tone', 'Compare'] }),
-    ai.notice('Rewrites use Claude'),
+    banner({ icon: 'pen-line', text: '<b>Same email, better words.</b> Pick a tone and length, let AI rewrite it, then compare changes word by word. Instant local checks work even without a key.', steps: ['Paste email', 'Pick tone', 'Compare'] }),
+    ai.notice('Rewrites use AI'),
     h('div', { class: 'cr-work' },
       h('div', { class: 'stack' },
         card('Your email', 'mail', h('div', { class: 'stack tight' }, src, h('div', { class: 'row' }, button('Try a sample', { icon: 'sparkles', variant: 'ghost', size: 'sm', onClick: () => { src.value = SAMPLE; keep(); drawCheck() } }), button('Clear', { icon: 'eraser', variant: 'ghost', size: 'sm', onClick: () => { src.value = ''; keep(); drawCheck() } })))),

@@ -127,9 +127,9 @@ export function mount(root) {
   const examples = h('div', { class: 'dt-feat' }, EXAMPLES.map(([label, f]) => h('button', { type: 'button', class: 'dt-chip', title: f, onclick: () => { input.value = f; render(); input.focus({ preventScroll: true }) } }, h('span', label))))
   root.append(h('style', {}, CSS), h('div', { class: 'stack' },
     h('div', { class: 'panel stack' }, h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Your formula'), input), examples,
-      h('div', { class: 'row small muted' }, icon('shield-check'), 'The formula is read in your browser. It is only sent to Claude if you press the AI button.')),
+      h('div', { class: 'row small muted' }, icon('shield-check'), 'The formula is read in your browser. It is only sent to AI if you press the AI button.')),
     out,
-    h('div', { class: 'panel stack' }, h('h2', icon('sparkles'), 'Want a deeper explanation?'), ai.notice('Optional AI explanation uses Claude'), aiQ, h('div', { class: 'row' }, aiBtn), aiOut)))
+    h('div', { class: 'panel stack' }, h('h2', icon('sparkles'), 'Want a deeper explanation?'), ai.notice('Optional AI explanation uses AI'), aiQ, h('div', { class: 'row' }, aiBtn), aiOut)))
   render()
   return () => controller?.abort()
 }

@@ -13,7 +13,7 @@ export default [
   { id: 'spell-checker', name: 'Spell checker', module: 'grammar-checker', params: { spelling: true }, desc: 'Catch spelling mistakes in English and other languages.', icon: 'spell-check', mode: 'online', tags: 'spelling typos', ready: true },
   { id: 'paraphraser', name: 'Paraphraser', desc: 'Rewrite text in a different tone: simpler, formal, shorter or friendlier.', icon: 'repeat-2', mode: 'ai', tags: 'rewrite rephrase reword', ready: true },
   { id: 'text-summarizer', name: 'Text summarizer', desc: 'Summarize long text into key points, on-device or with AI.', icon: 'list-collapse', tags: 'summary tldr key points', ready: true },
-  { id: 'text-translator', name: 'Text translator', desc: 'Translate text between 70+ languages, on-device in Chrome or online with MyMemory or Claude.', icon: 'languages', mode: 'online', tags: 'translate language hindi english', ready: true },
+  { id: 'text-translator', name: 'Text translator', desc: 'Translate text between 70+ languages, on-device in Chrome or online with MyMemory or AI.', icon: 'languages', mode: 'online', tags: 'translate language hindi english', ready: true },
   { id: 'readability-checker', name: 'Readability checker', desc: 'Flesch reading ease, grade level, long sentences and passive voice.', icon: 'gauge', tags: 'flesch grade level reading', ready: true },
   { id: 'plagiarism-checker', name: 'Plagiarism checker', desc: 'Find overlap between texts and run exact-phrase web searches for suspect sentences.', icon: 'shield-check', tags: 'similarity duplicate copied', ready: true },
   { id: 'text-editor', name: 'Online notepad', desc: 'A distraction-free notepad that autosaves on this device.', icon: 'notebook-pen', tags: 'notes notepad write autosave', ready: true },

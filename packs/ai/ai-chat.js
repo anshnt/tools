@@ -24,7 +24,7 @@ export function mount(root, { signal }) {
   const thread = h('div', { class: 'ai-thread', role: 'log', 'aria-live': 'polite', 'aria-label': 'Conversation' })
   const status = h('div')
   const attachEl = h('div')
-  const ta = h('textarea', { rows: 1, placeholder: 'Message Claude. Paste or attach images, PDFs or documents.', 'aria-label': 'Message' })
+  const ta = h('textarea', { rows: 1, placeholder: 'Message AI. Paste or attach images, PDFs or documents.', 'aria-label': 'Message' })
   const send = button('Send', { icon: 'arrow-up', variant: 'primary' })
   const stop = button('Stop', { icon: 'square' })
   stop.hidden = true
@@ -36,7 +36,7 @@ export function mount(root, { signal }) {
   const cp = button('Copy chat', { icon: 'copy', size: 'sm', onClick: () => copyText(transcript()) })
   const rememberToggle = toggle('Save this chat on this device', remember, (on) => { remember = on; save(`${STORE}:remember`, on); on ? persist() : remove(`${STORE}:log`) })
 
-  const transcript = () => log.map((m) => `**${m.role === 'user' ? 'You' : 'Claude'}:**\n\n${m.text}`).join('\n\n---\n\n')
+  const transcript = () => log.map((m) => `**${m.role === 'user' ? 'You' : 'AI'}:**\n\n${m.text}`).join('\n\n---\n\n')
   const persist = () => { if (remember) save(`${STORE}:log`, log.map(({ role, text, files }) => ({ role, text, files }))) }
   const scroll = () => { thread.scrollTop = thread.scrollHeight }
   const hasChat = () => log.length > 0
@@ -75,7 +75,7 @@ export function mount(root, { signal }) {
     clear(thread)
     if (!log.length) {
       clear(thread, h('div', { class: 'empty', style: 'margin:auto;width:100%' }, icon('message-circle'), h('strong', { style: 'color:var(--text-2);font-size:16px' }, 'Ask anything'),
-        h('div', 'Chat with Claude, attach images, PDFs or documents, and copy the answers. Your conversation stays in this tab unless you save it.'),
+        h('div', 'Chat with AI, attach images, PDFs or documents, and copy the answers. Your conversation stays in this tab unless you save it.'),
         h('div', { class: 'ai-chips', style: 'justify-content:center;margin-top:6px' }, STARTERS.map(([label, text]) => h('button', { type: 'button', class: 'ai-chip', onclick: () => { ta.value = text; grow(); ta.focus() } }, icon('sparkles'), h('span', label))))))
       syncBar(); return
     }

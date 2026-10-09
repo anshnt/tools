@@ -15,7 +15,7 @@ const SUGGEST = [
 const SUGGEST_MULTI = ['What do these documents have in common?', 'Where do the documents disagree?', 'Summarize each document in two sentences', ...SUGGEST.slice(1, 3)]
 const MAX_DOCS = 6
 
-/** Turn Claude citations (or Gemini-style [p. 3] text) into chip descriptors: {doc, page, to, quote, label}. Exported for tests. */
+/** Turn AI citations (or Gemini-style [p. 3] text) into chip descriptors: {doc, page, to, quote, label}. Exported for tests. */
 export function collectRefs(blocks, names, claude) {
   const out = new Map()
   const label = (d, p, to) => `${names.length > 1 ? `${names[d] || 'Doc'} · ` : ''}${to > p ? `pp. ${p}-${to}` : `p. ${p}`}`

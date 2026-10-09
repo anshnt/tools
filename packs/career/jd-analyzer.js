@@ -69,7 +69,7 @@ export async function mount(root, { signal }) {
     const cloud = a.terms.length ? h('div', { class: 'cr-chips' }, a.terms.slice(0, 24).map((t, i) => h('span', { class: 'cr-chip info', style: { '--i': i, fontSize: `${12 + Math.round((t.count / maxC) * 5)}px` } }, h('span', t.term), h('small', `x${t.count}`)))) : h('div', { class: 'small muted' }, 'Not enough text to find repeated terms yet.')
 
     const aiOut = h('div', { class: 'cr-md' })
-    const aiBtn = button('Summarize with Claude', { icon: 'sparkles', variant: 'secondary' })
+    const aiBtn = button('Summarize with AI', { icon: 'sparkles', variant: 'secondary' })
     aiBtn.addEventListener('click', () => busy(aiBtn, async () => {
       if (!(await ai.ensureKey())) return
       let acc = ''
@@ -98,7 +98,7 @@ export async function mount(root, { signal }) {
         h('a', { class: 'btn btn-primary', href: '#/ats-checker' }, icon('scan-search'), h('span', 'Check my resume against this job')),
         h('a', { class: 'btn btn-secondary', href: '#/cover-letter' }, icon('mail-open'), h('span', 'Write a cover letter')),
         button('Copy analysis', { icon: 'copy', variant: 'ghost', onClick: () => copyText(toMarkdown(a)) })),
-      card('AI summary and interview prep', 'sparkles', h('div', { class: 'stack' }, ai.notice('Optional: uses Claude'), h('div', { class: 'row' }, aiBtn), aiOut))))
+      card('AI summary and interview prep', 'sparkles', h('div', { class: 'stack' }, ai.notice('Optional: uses AI'), h('div', { class: 'row' }, aiBtn), aiOut))))
   }
 
   root.append(shell(

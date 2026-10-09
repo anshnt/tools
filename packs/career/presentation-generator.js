@@ -123,7 +123,7 @@ export async function mount(root, { signal }) {
   const aud = input({ placeholder: 'Audience, e.g. leadership team, students', 'aria-label': 'Audience' })
   const count = select([['5', '5 slides'], ['8', '8 slides'], ['10', '10 slides'], ['12', '12 slides'], ['15', '15 slides']], '8', (v) => { ag.count = v })
   const toneSeg = segmented([['professional', 'Professional'], ['friendly', 'Friendly'], ['persuasive', 'Persuasive'], ['educational', 'Educational']], 'professional', (v) => { ag.tone = v }, 'Tone')
-  const aiBtn = button('Generate outline with Claude', { icon: 'sparkles', variant: 'primary' })
+  const aiBtn = button('Generate outline with AI', { icon: 'sparkles', variant: 'primary' })
   const aiErr = h('div')
   aiBtn.addEventListener('click', () => busy(aiBtn, async () => {
     if (topic.value.trim().length < 3) { toast('Enter a topic first', 'error'); return }
@@ -154,7 +154,7 @@ export async function mount(root, { signal }) {
           h('div', { class: 'small muted' }, 'Lines starting with # become the title or a section, ## a slide, - a bullet (indent to nest), 1. a numbered step, Notes: speaker notes.'),
           h('div', { class: 'row' }, structure, button('Clear', { icon: 'eraser', variant: 'ghost', size: 'sm', onClick: () => { ta.value = ''; keep(); draw(); ta.focus() } })))),
         card('Start from an example', 'layout-template', starters),
-        card('Draft with AI', 'sparkles', h('div', { class: 'stack tight' }, ai.notice('Optional: uses Claude'), field('Topic', topic), h('div', { class: 'grid-2' }, field('Audience', aud), field('Length', count)), field('Tone', toneSeg), h('div', { class: 'row' }, aiBtn), aiErr))),
+        card('Draft with AI', 'sparkles', h('div', { class: 'stack tight' }, ai.notice('Optional: uses AI'), field('Topic', topic), h('div', { class: 'grid-2' }, field('Audience', aud), field('Length', count)), field('Tone', toneSeg), h('div', { class: 'row' }, aiBtn), aiErr))),
       h('div', { class: 'stack cr-sticky-lite' },
         card('Preview', 'monitor-play', h('div', { class: 'stack tight' },
           stage,

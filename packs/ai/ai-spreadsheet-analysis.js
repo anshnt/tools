@@ -315,7 +315,7 @@ Reply as JSON. answer is Markdown (short, specific, lead with the finding, use e
   clear(thread, hint('Ask questions about a spreadsheet', 'Add a CSV or Excel file. You get answers, exact stats and charts.'))
   root.append(h('div', { class: 'stack' }, ai.notice(),
     panel(h('div', { class: 'stack' }, zone, sheetSel, info, status,
-      h('p', { class: 'small muted' }, 'The file is read on your device. Claude receives the column profile and a sample of rows (all rows when the data is small), never the file itself. Charts are computed here from every row.'))),
+      h('p', { class: 'small muted' }, 'The file is read on your device. AI receives the column profile and a sample of rows (all rows when the data is small), never the file itself. Charts are computed here from every row.'))),
     h('div', { class: 'ai-chatbox' }, thread, sugg,
       h('div', { class: 'ai-composer' }, ta, h('div', { class: 'ai-compbar' }, h('span', { class: 'small muted' }, 'Answers can contain mistakes. Check key numbers against the Columns tab.'), h('div', { class: 'row' }, stop, send))))))
 }

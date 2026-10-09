@@ -74,7 +74,7 @@ async function myMemory(text, src, tgt, signal, onProgress) {
     const msg = String(json.responseData?.translatedText || json.responseDetails || '')
     if (status === 429 || json.quotaFinished || /MYMEMORY WARNING/i.test(msg)) {
       const t = /(\d+)\s*HOURS?(?:\s*(\d+)\s*MINUTES?)?/i.exec(msg)
-      throw new Error(`The free MyMemory daily limit (about ${MM_DAILY.toLocaleString()} characters per network) has been reached.${t ? ` It resets in about ${t[1]} hour${t[1] === '1' ? '' : 's'}${t[2] ? ` ${t[2]} min` : ''}.` : ''} Try Chrome's on-device engine or Claude, or come back later.`)
+      throw new Error(`The free MyMemory daily limit (about ${MM_DAILY.toLocaleString()} characters per network) has been reached.${t ? ` It resets in about ${t[1]} hour${t[1] === '1' ? '' : 's'}${t[2] ? ` ${t[2]} min` : ''}.` : ''} Try Chrome's on-device engine or AI, or come back later.`)
     }
     if (status === 403 && /INVALID LANGUAGE PAIR/i.test(msg)) throw new Error(`MyMemory does not have the ${nameOf(src)} to ${nameOf(tgt)} pair.`)
     if (status !== 200) throw new Error(`The translation service returned an error (${status || res.status}). Please try again in a moment.`)
@@ -144,7 +144,7 @@ export function mount(root, { signal }) {
   const tgtSel = select(LANGS, prefs.tgt, (v) => { prefs.tgt = v; save('translator', prefs); live() })
   const swap = button('', { icon: 'arrow-left-right', variant: 'secondary', ariaLabel: 'Swap languages', onClick: swapLangs })
   swap.classList.add('tw-swap')
-  const engineChips = chips([['auto', 'Automatic', 'wand-sparkles'], ['chrome', 'Chrome on-device', 'cpu'], ['mymemory', 'MyMemory', 'cloud'], ['claude', 'Claude', 'sparkles']], prefs.engine, (v) => { prefs.engine = v; save('translator', prefs); engineNote(); live() }, { ariaLabel: 'Translation engine' })
+  const engineChips = chips([['auto', 'Automatic', 'wand-sparkles'], ['chrome', 'Chrome on-device', 'cpu'], ['mymemory', 'MyMemory', 'cloud'], ['claude', 'AI', 'sparkles']], prefs.engine, (v) => { prefs.engine = v; save('translator', prefs); engineNote(); live() }, { ariaLabel: 'Translation engine' })
   const outBox = h('div', { class: 'tw-trans ph', 'aria-live': 'polite' }, 'The translation appears here.')
   const meta = h('div', { class: 'row' })
   const engNote = h('div', { class: 'tw-sub' })
@@ -206,7 +206,7 @@ export function mount(root, { signal }) {
     } else if (engine === 'chrome') {
       if (!st.chrome) throw new Error('This browser does not have the on-device Translator API. Pick Automatic or MyMemory.')
       if (src === 'auto') { const d = await chromeDetect(text); if (!d) throw new Error('Could not tell which language this is. Pick the source language.'); src = LANGS.find((l) => l[0] === d || l[0].split('-')[0] === d.split('-')[0])?.[0] || d; detected = src }
-      if (!(await chromeSupports(src, tgt))) throw new Error(`Chrome's on-device translator does not support ${nameOf(src)} to ${nameOf(tgt)}. Try MyMemory or Claude.`)
+      if (!(await chromeSupports(src, tgt))) throw new Error(`Chrome's on-device translator does not support ${nameOf(src)} to ${nameOf(tgt)}. Try MyMemory or AI.`)
     }
     let text2 = ''
     if (engine === 'chrome') text2 = await chromeTranslate(text, src, tgt, setProg)
@@ -218,7 +218,7 @@ export function mount(root, { signal }) {
     st.last = { engine, detected, src, tgt, chars: text.length }
     outBox.classList.remove('ph')
     outBox.textContent = text2
-    const label = { chrome: 'Chrome on-device', mymemory: 'MyMemory (online)', claude: `Claude (${ai.MODELS.find((m) => m[0] === ai.config().model)?.[1].split(' - ')[0] || 'AI'})` }[engine]
+    const label = { chrome: 'Chrome on-device', mymemory: 'MyMemory (online)', claude: `${ai.PROVIDERS?.[ai.config().provider]?.name || 'AI'} (${[...ai.MODELS, ...(ai.GEMINI_MODELS || [])].find((m) => m[0] === ai.config().model)?.[1].split(' - ')[0] || 'AI'})` }[engine]
     clear(meta, h('span', { class: 'tw-eng' }, icon(engine === 'chrome' ? 'cpu' : engine === 'claude' ? 'sparkles' : 'cloud'), `Translated with ${label}`),
       detected ? h('span', { class: 'tw-eng' }, icon('scan-search'), `Detected ${nameOf(detected.split('-')[0] === 'zh' ? detected : detected) || detected}`) : null,
       h('span', { class: 'tw-sub' }, `${wordCount(text2)} words`))
@@ -243,6 +243,6 @@ export function mount(root, { signal }) {
     h('section', { class: 'tw-stage' }, h('div', { class: 'stack' }, h('div', { class: 'tw-pair' }, field('From', srcSel), swap, field('To', tgtSel)), field('Engine', engineChips), engNote)),
     h('div', { class: 'tool-split' }, h('section', { class: 'tw-stage' }, h('div', { class: 'stack' }, kicker('Original', 'type'), inp.el)), outCard),
     h('div', { class: 'tw-bar' }, go, matchMedia('(hover: hover)').matches && h('span', { class: 'tw-sub' }, 'Ctrl+Enter to translate')), result,
-    ai.notice('Claude engine'),
-    note('MyMemory and Claude send the text you translate to their servers. Chrome on-device translation keeps it on your computer. MyMemory is free but rate limited, and short phrases can come back oddly.', 'cloud')))
+    ai.notice('AI engine'),
+    note('MyMemory and AI send the text you translate to their servers. Chrome on-device translation keeps it on your computer. MyMemory is free but rate limited, and short phrases can come back oddly.', 'cloud')))
 }

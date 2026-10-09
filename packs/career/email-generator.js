@@ -77,7 +77,7 @@ export async function mount(root, { signal }) {
     const full = () => `Subject: ${subject.value}\n\n${body.value}`
     const mail = () => ({ to: toMail.value.trim(), subject: subject.value, body: body.value })
     const mk = (label, ic, variant, fn, size) => { const b = button(label, { icon: ic, variant, size }); b.addEventListener('click', fn); return b }
-    const aiBtn = button('Polish with Claude', { icon: 'sparkles', variant: 'secondary', size: 'sm' })
+    const aiBtn = button('Polish with AI', { icon: 'sparkles', variant: 'secondary', size: 'sm' })
     const aiErr = h('div')
     aiBtn.addEventListener('click', () => busy(aiBtn, async () => {
       if (!(await ai.ensureKey())) return
@@ -91,7 +91,7 @@ export async function mount(root, { signal }) {
           prompt: `Tone: ${state.tone}. Situation: ${tpl.name}.\n\nSubject: ${subject.value}\n\n${prev}`, effort: 'low', maxTokens: 2000, signal, onText: (t) => { body.value = t; upStats() },
         })
         body.value = text.trim(); upStats()
-        clear(note, alert('success', 'Polished by Claude. Check the details before you send. ', h('button', { type: 'button', class: 'link', style: 'background:none;border:0;padding:0;font:inherit;cursor:pointer', onclick: regen }, 'Back to the template version'), '.'))
+        clear(note, alert('success', 'Polished by AI. Check the details before you send. ', h('button', { type: 'button', class: 'link', style: 'background:none;border:0;padding:0;font:inherit;cursor:pointer', onclick: regen }, 'Back to the template version'), '.'))
       } catch (e) { body.value = prev; throw e }
     }, { label: 'Polishing', errorTo: aiErr }))
 
@@ -99,7 +99,7 @@ export async function mount(root, { signal }) {
       h('div', { class: 'row' }, button('All templates', { icon: 'arrow-left', variant: 'ghost', size: 'sm', onClick: pick }), h('h2', { class: 'cr-h', style: 'margin:0' }, h('span', { class: 'tile' }, icon(tpl.icon)), tpl.name)),
       h('div', { class: 'cr-work' },
         h('div', { class: 'stack' }, card('Details', 'pencil-line', h('div', { class: 'stack tight' }, field('Tone', toneSeg), ...controls)),
-          card('Polish with AI', 'sparkles', h('div', { class: 'stack tight' }, ai.notice('Optional: uses Claude'), h('div', { class: 'row' }, aiBtn, h('span', { class: 'small muted' }, 'Rewrites your draft with the same facts.')), aiErr))),
+          card('Polish with AI', 'sparkles', h('div', { class: 'stack tight' }, ai.notice('Optional: uses AI'), h('div', { class: 'row' }, aiBtn, h('span', { class: 'small muted' }, 'Rewrites your draft with the same facts.')), aiErr))),
         h('div', { class: 'cr-sticky stack tight' }, card('Your email', 'mail', h('div', { class: 'stack tight' },
           field('To (optional, used by the mail buttons)', toMail),
           field('Subject', subject), note, field('Message', body),
