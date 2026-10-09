@@ -246,13 +246,26 @@ export function normName(name) {
   const words = n.split(' ')
   const last = words.at(-1) || ''
   const keep = /(ss|us|is|ous)$/i.test(last) || ['molasses', 'hummus', 'couscous', 'asparagus', 'lemongrass', 'swiss', 'citrus'].includes(last)
-  if (!keep && last.length > 3) {
+  if (last === 'chillies') words[words.length - 1] = 'chilli'
+  else if (last === 'leaves') words[words.length - 1] = 'leaf'
+  else if (!keep && last.length > 3) {
     if (/ies$/.test(last)) words[words.length - 1] = last.replace(/ies$/, 'y')
     else if (/(oes)$/.test(last)) words[words.length - 1] = last.replace(/oes$/, 'o')
     else if (/(ches|shes|xes|sses)$/.test(last)) words[words.length - 1] = last.replace(/es$/, '')
     else if (/s$/.test(last)) words[words.length - 1] = last.replace(/s$/, '')
   }
   return words.join(' ').trim()
+}
+/** "tomato" -> "tomatoes", "chilli" -> "chillies", "curry leaf" -> "curry leaves", "egg" -> "eggs". Only the last word changes. */
+export function pluralName(name) {
+  const w = String(name).split(' ')
+  const l = w.at(-1)
+  const irregular = { leaf: 'leaves', chilli: 'chillies', tomato: 'tomatoes', potato: 'potatoes', mango: 'mangoes', loaf: 'loaves' }
+  if (irregular[l]) w[w.length - 1] = irregular[l]
+  else if (/(s|x|z|ch|sh)$/.test(l)) w[w.length - 1] = l + 'es'
+  else if (/[^aeiou]y$/.test(l)) w[w.length - 1] = l.slice(0, -1) + 'ies'
+  else w[w.length - 1] = l + 's'
+  return w.join(' ')
 }
 /**
  * Merge scaled ingredient items [{qty:{min,max}, unit, name}] into one list: same ingredient and unit family are added up
@@ -264,13 +277,20 @@ export function mergeIngredients(items) {
     const key0 = normName(it.name)
     if (!key0) continue
     if (!it.qty) { const k = `${key0}|free`; if (!map.has(k)) map.set(k, { name: key0, display: key0, kind: 'free', base: 0, top: 0 }); continue }
-    const kind = it.unit ? UNITS[it.unit].kind : 'none'
+    let kind = it.unit ? UNITS[it.unit].kind : 'none'
+    let base = kind === 'vol' || kind === 'mass' ? it.qty.max * UNITS[it.unit].base : it.qty.max
+    // known densities let cups and grams of the same ingredient add up (solids in grams, liquids in millilitres)
+    const dn = densityOf(key0)
+    if (dn && kind === 'vol' && !dn.liquid) { base = (base / 240) * dn.gPerCup; kind = 'mass' }
+    else if (dn && kind === 'mass' && dn.liquid) { base = base / (dn.gPerCup / 240); kind = 'vol' }
     const group = kind === 'count' ? `c:${it.unit}` : kind
     const key = `${key0}|${group}`
-    const base = kind === 'vol' || kind === 'mass' ? it.qty.max * UNITS[it.unit].base : it.qty.max
-    const cur = map.get(key) || { name: key0, display: '', kind, countUnit: kind === 'count' ? it.unit : '', base: 0, top: 0 }
+    const cur = map.get(key) || { name: key0, display: '', kind, countUnit: kind === 'count' ? it.unit : '', base: 0, top: 0, metric: false }
     cur.base += base
-    if (it.qty.max >= cur.top) { cur.top = it.qty.max; cur.display = String(it.name).split(',')[0].replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim() }
+    if (['ml', 'l', 'g', 'kg', 'mg'].includes(it.unit)) cur.metric = true
+    if (it.unit && UNITS[it.unit].kind === 'mass') cur.massOrig = true
+    if (dn && kind === 'mass' && it.unit && UNITS[it.unit].kind === 'vol') cur.fromVol = true
+    if (it.qty.max >= cur.top) { cur.top = it.qty.max; cur.display = String(it.name).split(',')[0].replace(/\(.*?\)/g, '').replace(DESCRIPTORS, ' ').replace(/\s+/g, ' ').trim() }
     map.set(key, cur)
   }
   const have = new Set([...map.values()].filter((c) => c.kind !== 'free').map((c) => c.name))
@@ -278,11 +298,21 @@ export function mergeIngredients(items) {
   for (const c of map.values()) {
     if (c.kind === 'free' && have.has(c.name)) continue
     let qty = c.base, unit = ''
-    if (c.kind === 'vol') { if (qty < 14.9) { qty /= 5; unit = 'tsp' } else if (qty < 59.9) { qty /= 15; unit = 'tbsp' } else [qty, unit] = normalizeUnit(qty, 'ml') }
-    else if (c.kind === 'mass') [qty, unit] = normalizeUnit(qty, 'g')
-    else if (c.kind === 'count') unit = c.countUnit
+    const d = densityOf(c.name)
+    const spoon = (ml) => (ml < 14.9 ? [ml / 5, 'tsp'] : [ml / 15, 'tbsp'])
+    if (c.kind === 'vol') {
+      if (!c.metric && qty < 59.9) [qty, unit] = spoon(qty)
+      else if (c.metric || d) [qty, unit] = normalizeUnit(qty, 'ml')
+      else { qty /= 240; unit = 'cup' }
+    } else if (c.kind === 'mass') {
+      const ml = d ? qty / (d.gPerCup / 240) : Infinity
+      if (c.fromVol && !c.massOrig && ml < 59.9) [qty, unit] = spoon(ml)
+      else [qty, unit] = normalizeUnit(qty, 'g')
+    } else if (c.kind === 'count') { unit = c.countUnit; if (unit !== 'inch') qty = Math.ceil(qty - 1e-9) }
+    else if (c.kind === 'none') qty = Math.ceil(qty - 1e-9)
     const text = c.kind === 'free' ? '' : c.kind === 'none' ? fmtFraction(qty) : `${fmtQtyValue(qty, unit)} ${unitName(unit, qty > 1.0001)}`
-    out.push({ name: c.name, display: c.display || c.name, qty: c.kind === 'free' ? null : qty, unit, kind: c.kind, text })
+    const display = c.kind === 'none' ? (qty > 1.0001 ? pluralName(c.name) : c.name) : c.display || c.name
+    out.push({ name: c.name, display: c.kind === 'free' ? c.display : display, qty: c.kind === 'free' ? null : qty, unit, kind: c.kind, text })
   }
   return out.sort((a, b) => a.name.localeCompare(b.name))
 }
