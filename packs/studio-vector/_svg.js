@@ -71,7 +71,7 @@ export function nodeSvg(n, ctx) {
   let out = `<${tag}${idAttr(n, ctx)} ${geom}${styleAttrs(n, ctx)}${matrixAttr(n.t)}${o}${ed}/>`
   if (ctx.canvas && n.stroke && n.sw > 0 && n.sw < 10) {
     // transparent, wider copy of the stroke so thin lines are easy to click (constant on-screen width)
-    out += `<${tag} ${geom} fill="none" stroke="transparent" stroke-width="12" vector-effect="non-scaling-stroke" pointer-events="stroke"${matrixAttr(n.t)}${ed} data-hit="1"/>`
+    out += `<${tag} ${geom} fill="none" stroke="transparent" stroke-width="9" vector-effect="non-scaling-stroke" pointer-events="stroke"${matrixAttr(n.t)}${ed} data-hit="1"/>`
   }
   return out
 }

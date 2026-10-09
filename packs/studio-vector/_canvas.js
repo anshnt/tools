@@ -71,7 +71,7 @@ export class Canvas {
     const { w, h: ht, bg, transparent } = doc.ab
     for (const r of [this.board, this.shadow]) { r.setAttribute('width', w); r.setAttribute('height', ht) }
     this.board.setAttribute('fill', transparent ? 'url(#vs-checker)' : bg)
-    this.hint.hidden = doc.nodes.length > 0 || !!this.hintOff
+    this.updateHint()
     this.drawOverlay()
   }
   applyView() {
@@ -92,9 +92,11 @@ export class Canvas {
     this.tool = this.tools[this.ed.tool] || this.tools.select
     this.guides = { x: [], y: [] }
     this.tool.activate?.()
+    this.updateHint()
     this.updateCursor()
     this.scheduleOv()
   }
+  updateHint() { this.hint.hidden = this.ed.doc.nodes.length > 0 || !!this.hintOff || !['select', 'direct', 'hand'].includes(this.ed.tool) }
   updateCursor(c) { this.root.style.cursor = this.space || this.ed.tool === 'hand' ? (this.state === 'pan' ? 'grabbing' : 'grab') : c || this.tool?.cursor || 'default' }
 
   // ----- coordinates and hit testing -----
