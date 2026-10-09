@@ -189,7 +189,7 @@ export function mount(root) {
   const left = h('div', { class: 'stack' },
     tile({ tint: TINTS[0], title: 'Your lecture', icon: 'audio-lines' }, h('div', { class: 'stack' }, h('div', { class: 'row' }, sourceSeg), srcBox, h('div', { class: 'row' }, go), prog.el)), result)
   const right = tile({ tint: TINTS[4], title: 'Notes', icon: 'notebook-pen', actions: statsRow },
-    h('div', { class: 'stack' }, h('div', { class: 'row' }, viewSeg, aiBtn, localBtn), ai.notice('AI notes use Claude'), aiOut, body, exportRow))
+    h('div', { class: 'stack' }, h('div', { class: 'row' }, viewSeg, aiBtn, localBtn), ai.notice('AI notes use AI'), aiOut, body, exportRow))
   root.append(stage('t-ln', h('div', { class: 'stu-bento' }, h('div', { class: 's5', style: 'min-width:0' }, left), h('div', { class: 's7', style: 'min-width:0' }, right))))
   drawSource(); showView()
 }

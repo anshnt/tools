@@ -19,7 +19,7 @@ export const SYSTEM = 'You convert images of mathematics (typed, printed or hand
 
 export function mount(root) {
   toolStyle('mocr', CSS)
-  root.append(ai.notice('Equation reading uses Claude vision'))
+  root.append(ai.notice('Equation reading uses AI vision'))
   const hist = load('mocr:hist', [])
   const st = { file: null, latex: load('mocr:latex', '') }
   const out = h('div')

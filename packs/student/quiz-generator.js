@@ -177,7 +177,7 @@ export function mount(root) {
       rangeField('Fill in the blank', { min: 0, max: 20, step: 1, value: prefs.nBlank, format: (v) => `${v} questions`, onInput: (v) => { prefs.nBlank = v; savePrefs(); regen() } }),
       rangeField('Short answer', { min: 0, max: 12, step: 1, value: prefs.nShort, format: (v) => `${v} questions`, onInput: (v) => { prefs.nShort = v; savePrefs(); regen() } }),
       h('div', { class: 'row' }, toggle('Show marks', prefs.showMarks, (v) => { prefs.showMarks = v; savePrefs(); paint() }), toggle('Answer key on sheet', prefs.showKey, (v) => { prefs.showKey = v; savePrefs(); paint() })),
-      h('div', { class: 'row' }, more, aiBtn), ai.notice('AI rewrite uses Claude'), aiOut)))
+      h('div', { class: 'row' }, more, aiBtn), ai.notice('AI rewrite uses AI'), aiOut)))
   const right = h('div', { class: 'stack', style: 'min-width:0' },
     tile({ tint: TINTS[4], title: 'Your quiz', icon: 'list-checks', actions: info }, h('div', { class: 'stack' }, h('div', { class: 'row' }, viewSeg), paper)),
     h('div', { class: 'row' }, pr(true), pr(false),
