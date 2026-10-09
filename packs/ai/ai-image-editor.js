@@ -419,5 +419,5 @@ Order matters little: the editor applies tone and filters first, then blur_regio
         h('div', { class: 'ai-chips' }, EXAMPLES.map((ex) => h('button', { type: 'button', class: 'ai-chip', onclick: () => { instr.value = ex; instr.focus() } }, icon('sparkles'), h('span', ex)))),
         row(go, run.stop), status,
         planBox,
-        h('p', { class: 'small muted' }, 'Claude looks at the picture and writes an edit plan. The edits run on your device, so nothing is regenerated or invented: only the steps listed are applied. You can keep giving instructions and undo any step.'))), 'wide-left')))
+        h('p', { class: 'small muted' }, 'AI looks at the picture and writes an edit plan. The edits run on your device, so nothing is regenerated or invented: only the steps listed are applied. You can keep giving instructions and undo any step.'))), 'wide-left')))
 }

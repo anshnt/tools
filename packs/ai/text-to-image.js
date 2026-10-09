@@ -165,7 +165,7 @@ export function mount(root, { signal }) {
     h('details', { class: 'panel', style: 'padding:12px 16px' }, h('summary', { style: 'cursor:pointer;font-weight:600' }, 'SVG code (editable)'), h('div', { style: 'margin-top:10px' }, codeArea)))
 
   root.append(h('div', { class: 'stack' }, ai.notice(),
-    alert('info', h('strong', 'Vector art, not photos. '), 'Claude writes SVG code, so you get crisp illustrations, icons, logos and scenes that you can edit and scale. It cannot make photographs or realistic faces.'),
+    alert('info', h('strong', 'Vector art, not photos. '), 'AI writes SVG code, so you get crisp illustrations, icons, logos and scenes that you can edit and scale. It cannot make photographs or realistic faces.'),
     split(
       panel(h('div', { class: 'stack' },
         field('What should it draw?', prompt),
