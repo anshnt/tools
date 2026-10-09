@@ -115,7 +115,7 @@ export function toTypeScript(d, o = {}) {
     return name
   }
   const ro = readonly ? 'readonly ' : ''
-  const arrayOf = (elem) => (/[|&]/.test(elem) || elem.includes(' => ') ? `${ro}(${elem})[]` : `${ro}${elem}[]`)
+  const arrayOf = (elem) => (/[|&]/.test(elem) || elem.includes(' => ') || elem.startsWith('readonly ') ? `${ro}(${elem})[]` : `${ro}${elem}[]`)
 
   function objectType(x, hint) {
     if (!x.props.size) return 'Record<string, unknown>'

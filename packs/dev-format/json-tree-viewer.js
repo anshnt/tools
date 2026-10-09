@@ -288,5 +288,6 @@ export function mount(root) {
     h('div', { class: 'df-head' }, h('div', { class: 'df-title' }, icon('list-tree'), h('span', 'Tree'), chipHost)), treeEl, resultsEl, detail, h('div', { class: 'df-foot' }, sizeEl))
   showDetail()
   root.append(h('div', { class: 't-df' }, aurora(), bar, sampleRow, errHost, h('div', { class: 'df-grid', style: 'align-items:start' }, ed.el, treeFrame)))
+  ed.el.style.setProperty('--df-h', 'clamp(200px, 34vh, 420px)')
   focusOnDesktop(ed)
 }

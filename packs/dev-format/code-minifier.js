@@ -143,7 +143,7 @@ export function mount(root, { params }) {
       const [gb, ga] = await Promise.all([gzipSize(text), gzipSize(out)])
       const saved = before ? (1 - after / before) * 100 : 0
       return {
-        output: out, lang, chip: `${LANGS[lang]} ${formatNumber(Math.max(0, saved), 0)}% smaller`, notice, meter: { before, after, gb, ga },
+        output: out, lang, chip: `${formatNumber(Math.max(0, saved), 0)}% smaller`, notice, meter: { before, after, gb, ga },
         stats: [
           { label: 'Minified size', value: formatBytes(after), accent: true, hint: `${formatBytes(before)} before` },
           { label: saved >= 0 ? 'Saved' : 'Grew by', value: `${formatNumber(Math.abs(saved), 1)}%`, hint: `${formatBytes(Math.abs(before - after))} ${saved >= 0 ? 'less' : 'more'}` },

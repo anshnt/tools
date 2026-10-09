@@ -31,13 +31,21 @@ export function detectLang(text) {
   if (/^[{[]/.test(t)) { try { JSON.parse(t); return 'json' } catch { /* maybe JS */ } }
   if (/^<template[\s>]|^<script\s+setup|^<script[^>]*lang=/.test(t) && /<\/template>|<\/script>/.test(t)) return 'vue'
   if (/^<!doctype html|^<html[\s>]|^<(div|section|main|body|head|p|ul|nav|header|footer|span|table|form|h[1-6]|a|img|button|script|style)[\s>/]/i.test(t)) return 'html'
+  const lines = t.split('\n').filter((l) => l.trim() && !/^\s*#/.test(l))
+  // Markdown-only markers: code fences, table rules, links, bold text, block quotes
+  const mdOnly = /^```|^\s*\|?\s*:?-{3,}:?\s*\|/m.test(t) || /\[[^\]]+\]\([^)]+\)/.test(t) || /(\*\*|__)\S.*?\1/.test(t) || /^>\s/m.test(t)
+  const yamlLine = (l) => /^\s*(-\s+)?("[^"]*"|'[^']*'|[\w.$/@-][\w .$/@-]*):(\s|$)/.test(l) || /^\s*-\s+\S/.test(l) || /^\s*---\s*$/.test(l) || /^\s+\S/.test(l)
+  const yamlLike = lines.length > 0 && !mdOnly && lines.every((l) => !/;\s*$|=>/.test(l) && !/^\s*(const|let|var|function|import|export|return|if|for|while|class|interface|type|enum|query|mutation)\b(?!\s*:)/.test(l))
+    && lines.filter(yamlLine).length / lines.length >= 0.8 && lines.some((l) => /^([\w"'.-][\w .$/@"'-]*:(\s|$)|---)/.test(l))
+  if (yamlLike) return 'yaml'
+  // TypeScript-only syntax. Plain ES modules (import/export) stay JavaScript.
+  if (/:\s*(string|number|boolean|unknown|any|void|never)\b|\bas\s+(const|string|number|unknown|any)\b|\btype\s+\w+(<[^>]*>)?\s*=|<[A-Z]\w*>\(|\b(implements|readonly|abstract)\s+\w|^\s*(declare|namespace)\s/m.test(t)) return 'typescript'
   if (/^(query|mutation|subscription|fragment|schema|type|input|enum|interface|union|scalar|directive|extend)\b[^=;]*[{(@]/m.test(t) && !/\b(const|let|var|function|=>|import|export)\b/.test(t)) return 'graphql'
-  if (/^(import|export)\s.+\sfrom\s|^\s*(interface|enum|declare|namespace)\s|:\s*(string|number|boolean|unknown|any|void)\b|\bas\s+(const|string|number|unknown)\b|<[A-Z]\w*>\(|type\s+\w+\s*=/m.test(t)) return 'typescript'
+  if (/^\s*(interface|enum)\s+\w+[^{]*\{[^}]*;/m.test(t)) return 'typescript'
   if (/^\s*(@(use|import|mixin|include|function)|\$[\w-]+\s*:)|^\s*[.#]?[\w-]+\s*\{[^}]*&:|@mixin|@include/m.test(t)) return 'scss'
   if (/^\s*@[\w-]+\s*:\s*[^;]+;|\.[\w-]+\s*\(.*\)\s*;?$/m.test(t) && /^\s*[.#@][\w-]/m.test(t) && !/\b(function|const|let)\b/.test(t)) return 'less'
-  if (/^\s*[@.#:\w\][*>~+, -]+\s*\{[^}]*:[^}]*\}/m.test(t) && !/\b(function|const|let|var|=>|return)\b/.test(t)) return 'css'
+  if (/^\s*[@.#:\w\][*>~+, -]+\s*\{\s*[\w-]+\s*:/m.test(t) && !/\b(function|const|let|var|=>|return)\b/.test(t)) return 'css'
   if (/^#{1,6}\s\S|^\s*[-*+]\s\S.*\n|^```|^\[[^\]]+\]\([^)]+\)|^>\s/m.test(t) && !/[;{}]\s*$/m.test(t)) return 'markdown'
-  if (/^---\s*$|^[\w.-]+:\s*(\S.*)?$/m.test(t) && !/[;{}]\s*$/m.test(t) && !/\b(function|const|let|var|return)\b/.test(t)) return 'yaml'
   return 'javascript'
 }
 

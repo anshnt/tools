@@ -61,6 +61,7 @@ export const CSS = `
 .df-title span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .df-actions { margin-left: auto; display: flex; gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
 .df-head .btn-sm { height: 32px; padding: 0 10px; }
+@media (max-width: 520px) { .df-head { flex-wrap: wrap; padding-right: 10px; } .df-title span { overflow: visible; white-space: normal; } .df-actions { margin-left: -6px; width: 100%; justify-content: flex-start; } }
 .df-copied .icon { color: var(--success); animation: df-pop .4s var(--spring); }
 .df-body { position: relative; display: flex; height: var(--df-h); min-height: 0; background: var(--surface); }
 .df-gutter { flex: none; position: relative; overflow: hidden; min-width: calc(var(--df-gw, 2ch) + 22px); background: color-mix(in srgb, var(--surface-2) 80%, var(--surface)); border-right: 1px solid var(--border);

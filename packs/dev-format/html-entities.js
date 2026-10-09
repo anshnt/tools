@@ -1,6 +1,6 @@
 // HTML entity encoder and decoder with a searchable entity reference. Encoding writes named, decimal or hex references;
 // decoding uses the browser's HTML parser so every named entity works (see _entities.js).
-import { studio, opt, seg, focusOnDesktop, h } from './_shared.js'
+import { studio, opt, seg, focusOnDesktop, h, button } from './_shared.js'
 import { ENTITIES, encodeEntities, decodeEntities, groupOf } from './_entities.js'
 import { copyText, input, formatNumber } from '../../lib/ui.js'
 
@@ -50,13 +50,15 @@ export function mount(root) {
 
   // ---- reference ----
   const grid = h('div', { class: 'df-ent-grid' })
-  let group = 'all', q = ''
+  let group = 'all', q = '', expanded = false
   const list = ENTITIES.map(([name, cp]) => ({ name, cp, ch: String.fromCodePoint(cp), group: groupOf(name, cp) }))
   function renderGrid() {
     const needle = q.trim().toLowerCase().replace(/^&|;$/g, '')
     const shown = list.filter((e) => (group === 'all' || e.group === group) && (!needle || e.name.toLowerCase().includes(needle) || e.ch === q.trim() || String(e.cp) === needle || `u+${e.cp.toString(16)}` === needle))
-    grid.replaceChildren(...shown.map((e) => h('button', { type: 'button', class: 'df-ent', title: `Copy &${e.name};`, 'aria-label': `Copy &${e.name};, the ${e.name} character`, onclick: () => copyText(`&${e.name};`) },
+    const cut = !expanded && group === 'all' && !needle && shown.length > 60 // the full table is long, so start with the first rows
+    grid.replaceChildren(...(cut ? shown.slice(0, 60) : shown).map((e) => h('button', { type: 'button', class: 'df-ent', title: `Copy &${e.name};`, 'aria-label': `Copy &${e.name};, the ${e.name} character`, onclick: () => copyText(`&${e.name};`) },
       h('span', { class: 'g' }, e.ch === ' ' ? '␣' : e.ch), h('span', { class: 'nm' }, `&${e.name};`), h('span', { class: 'nu' }, `&#${e.cp};`))))
+    if (cut) grid.append(button(`Show all ${shown.length} entities`, { icon: 'chevrons-down', attrs: { style: 'grid-column:1/-1' }, onClick: () => { expanded = true; renderGrid() } }))
     if (!shown.length) grid.append(h('div', { class: 'muted', style: 'grid-column:1/-1;padding:14px' }, 'No entity matches that. Try a name like "copy", a character, or a number like 169.'))
   }
   renderGrid()

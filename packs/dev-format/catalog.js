@@ -21,7 +21,7 @@ export default [
   { id: 'markdown-to-html', name: 'Markdown to HTML', module: 'markdown-editor', params: { output: 'html' }, desc: 'Convert Markdown to clean HTML.', icon: 'file-code', tags: 'md html convert', ready: true },
   { id: 'diff-checker', name: 'Diff checker', desc: 'Compare two texts or files side by side with highlighted changes.', icon: 'diff', also: ['text', 'files'], tags: 'diff compare difference text files', ready: true },
   { id: 'html-entities', name: 'HTML entity encoder', desc: 'Encode and decode HTML entities like &amp; and &#x1F600;.', icon: 'ampersand', tags: 'html entities escape', ready: true },
-  { id: 'string-escape', name: 'String escaper', desc: 'Escape and unescape strings for JSON, JavaScript, CSV, SQL and regex.', icon: 'quote', tags: 'escape unescape string', ready: true },
+  { id: 'string-escape', name: 'String escaper', desc: 'Escape and unescape text for JSON, JavaScript, HTML, XML, CSV, SQL, regex, URL and shell at once.', icon: 'quote', tags: 'escape unescape string', ready: true },
   { id: 'js-minifier', name: 'JavaScript minifier', module: 'code-minifier', params: { lang: 'js' }, desc: 'Minify and mangle JavaScript with Terser and see the size savings.', icon: 'minimize', tags: 'javascript minify uglify terser compress', ready: true },
   { id: 'css-minifier', name: 'CSS minifier', module: 'code-minifier', params: { lang: 'css' }, desc: 'Minify CSS and merge duplicate rules with csso.', icon: 'minimize', tags: 'css minify compress csso', ready: true },
   { id: 'html-minifier', name: 'HTML minifier', module: 'code-minifier', params: { lang: 'html' }, desc: 'Minify HTML, inline CSS and inline JavaScript.', icon: 'minimize', tags: 'html minify compress whitespace', ready: true },

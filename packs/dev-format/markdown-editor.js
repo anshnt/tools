@@ -243,5 +243,8 @@ export function mount(root, { params }) {
   root.append(h('div', { class: 't-df' }, aurora(), bar, grid))
   applyView()
   render()
+  ta.setSelectionRange(0, 0) // start at the top of the document, not at the end
+  ta.scrollTop = 0
+  ta.dispatchEvent(new Event('click'))
   focusOnDesktop(ed)
 }
