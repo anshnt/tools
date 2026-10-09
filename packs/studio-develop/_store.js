@@ -6,8 +6,9 @@ import { fileType } from '../../lib/ui.js'
 import { jszip } from '../../lib/libs.js'
 import { baseName, ext } from '../../lib/files.js'
 import { defaults, normalize } from './_model.js'
+import { readExif } from './_exif.js'
 
-const K = { order: 'pdev:order', presets: 'pdev:presets', meta: (id) => `pdev:meta:${id}`, blob: (id) => `pdev:blob:${id}`, thumb: (id) => `pdev:thumb:${id}` }
+const K = { order: 'pdev:order', presets: 'pdev:presets', meta: (id) => `pdev:meta:${id}`, blob: (id) => `pdev:blob:${id}`, thumb: (id) => `pdev:thumb:${id}`, ethumb: (id) => `pdev:ethumb:${id}` }
 export const THUMB = 360
 export const ACCEPT = 'image/*,.heic,.heif,.jpg,.jpeg,.png,.webp,.avif,.gif,.bmp'
 
@@ -19,7 +20,14 @@ function cleanMeta(m) {
     w: Number(m.w) || 1, h: Number(m.h) || 1, added: Number(m.added) || Date.now(), taken: Number(m.taken) || 0,
     rating: Math.min(5, Math.max(0, Math.round(Number(m.rating) || 0))), flag: m.flag === 'pick' || m.flag === 'reject' ? m.flag : '',
     edits: normalize(m.edits || defaults()),
+    exif: cleanExif(m.exif),
   }
+}
+function cleanExif(x) {
+  if (!x || typeof x !== 'object') return null
+  const str = (v) => (typeof v === 'string' ? v.slice(0, 80) : '')
+  const out = { camera: str(x.camera), lens: str(x.lens), shutter: str(x.shutter), aperture: str(x.aperture), iso: str(x.iso), focal: str(x.focal) }
+  return Object.values(out).some(Boolean) ? out : null
 }
 
 /** Everything saved on this device: photos in order, plus user presets. */
@@ -35,8 +43,11 @@ export const saveOrder = (ids) => idb.set(K.order, ids)
 export const savePresets = (list) => idb.set(K.presets, list)
 export const getBlob = (id) => idb.get(K.blob(id))
 export const getThumb = (id) => idb.get(K.thumb(id))
+export const getEditedThumb = (id) => idb.get(K.ethumb(id))
+export const setEditedThumb = (id, blob) => (blob ? idb.set(K.ethumb(id), blob) : idb.del(K.ethumb(id)))
+export const editedThumbIds = () => idb.keys('pdev:ethumb:').then((k) => new Set(k.map((x) => x.slice('pdev:ethumb:'.length))))
 export async function deletePhoto(id) {
-  await Promise.all([idb.del(K.meta(id)), idb.del(K.blob(id)), idb.del(K.thumb(id))])
+  await Promise.all([idb.del(K.meta(id)), idb.del(K.blob(id)), idb.del(K.thumb(id)), idb.del(K.ethumb(id))])
 }
 export async function clearLibrary(ids) {
   await Promise.all(ids.map(deletePhoto))
@@ -62,7 +73,8 @@ export async function importFile(file) {
   const w = img.naturalWidth, h = img.naturalHeight
   if (w * h > MAX_PIXELS) throw new Error(`${file.name} is too large for this device (${w} x ${h}). Try a smaller copy.`)
   const thumb = await makeThumb(img)
-  const meta = cleanMeta({ id: uid(), name: file.name, type: working.type || 'image/jpeg', size: file.size, w, h, added: Date.now(), taken: file.lastModified || 0, edits: defaults() })
+  const exif = /jpe?g/i.test(working.type || file.name) ? await readExif(working) : null
+  const meta = cleanMeta({ id: uid(), name: file.name, type: working.type || 'image/jpeg', size: file.size, w, h, added: Date.now(), taken: exif?.taken || file.lastModified || 0, edits: defaults(), exif })
   const ok = await Promise.all([idb.set(K.blob(meta.id), working), idb.set(K.thumb(meta.id), thumb), saveMeta(meta)])
   if (ok.includes(false)) throw new Error('Could not save this photo on the device (storage may be full or blocked).')
   return { meta, thumb }

@@ -48,7 +48,8 @@ export function createGrid(app, { mode = 'grid', onOpen, minCell = mode === 'str
     h('span', { class: 'pd-edited', title: 'Edited' }, icon('sliders-horizontal')),
     h('div', { class: 'pd-cell-foot' }, h('span', { class: 'pd-cell-name' }, m.name), star))
     c._img = img; c._star = star
-    app.thumbUrl(id).then((u) => { if (u && c.isConnected !== false) img.src = u })
+    c._ver = app.thumbVersion(id)
+    app.thumbUrl(id).then((u) => { if (u) img.src = u })
     return c
   }
 
@@ -65,6 +66,8 @@ export function createGrid(app, { mode = 'grid', onOpen, minCell = mode === 'str
     c.classList.toggle('edited', app.isEdited(id))
     c.setAttribute('aria-selected', String(on))
     c._star.set(m.rating)
+    const ver = app.thumbVersion(id)
+    if (c._ver !== ver) { c._ver = ver; app.thumbUrl(id).then((u) => { if (u && cells.get(id) === c) c._img.src = u }) } // the edited preview was refreshed
   }
 
   function update() {
@@ -132,7 +135,7 @@ export function createGrid(app, { mode = 'grid', onOpen, minCell = mode === 'str
   const offs = [
     app.on('library', () => { frame = 0; update() }),
     app.on('selection', schedule), app.on('meta', schedule), app.on('active', () => { schedule(); if (strip) setTimeout(scrollToActive, 0) }),
-    app.on('edit', schedule),
+    app.on('edit', schedule), app.on('thumb', schedule),
   ]
   update()
   return {

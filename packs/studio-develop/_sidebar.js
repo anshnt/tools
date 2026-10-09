@@ -141,9 +141,18 @@ export function createSidebar(app, stage) {
   function drawInfo() {
     const m = app.active()
     if (!m) { infoBox.replaceChildren(); return }
-    const row = (k, v) => [h('dt', k), h('dd', v)]
-    infoBox.replaceChildren(...row('File', m.name), ...row('Size', `${m.w} x ${m.h} px (${((m.w * m.h) / 1e6).toFixed(1)} MP)`), ...row('Stored', formatBytes(m.size)),
-      ...(m.taken ? row('Modified', new Date(m.taken).toLocaleDateString()) : []))
+    const rows = []
+    const row = (k, v) => { if (v) rows.push(h('dt', k), h('dd', v)) }
+    const x = m.exif || {}
+    row('File', m.name)
+    row('Size', `${m.w} x ${m.h} px (${((m.w * m.h) / 1e6).toFixed(1)} MP)`)
+    row('Stored', formatBytes(m.size))
+    row('Date', m.taken ? new Date(m.taken).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: x.camera || x.shutter ? 'short' : undefined }) : '')
+    row('Camera', x.camera)
+    row('Lens', x.lens)
+    row('Exposure', [x.shutter, x.aperture, x.iso].filter(Boolean).join('  '))
+    row('Focal length', x.focal)
+    infoBox.replaceChildren(...rows)
   }
   const infoSec = sec('info', { title: 'Info', icon: 'info', open: false, body: infoBox })
 
@@ -152,6 +161,7 @@ export function createSidebar(app, stage) {
   const offs = [
     app.on('history', drawHistory),
     app.on('active', () => { drawHistory(); drawInfo() }),
+    app.on('view', () => { drawHistory(); drawInfo() }), app.on('library', drawInfo),
     app.on('presets', drawPresets),
     app.on('source', () => { prevSrcId = null; schedulePreviews() }),
     app.on('edit', (e) => {

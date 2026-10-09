@@ -312,7 +312,7 @@ export function createApp() {
   app.thumbUrl = (id) => {
     if (thumbs.has(id)) return Promise.resolve(thumbs.get(id))
     if (!pendingThumb.has(id)) {
-      pendingThumb.set(id, store.getThumb(id).then((b) => {
+      pendingThumb.set(id, store.getEditedThumb(id).then((b) => b || store.getThumb(id)).then((b) => {
         pendingThumb.delete(id)
         if (!b || disposed) return null
         const u = URL.createObjectURL(b)
@@ -322,6 +322,19 @@ export function createApp() {
       }))
     }
     return pendingThumb.get(id)
+  }
+
+  /** Save (or with null, drop) the thumbnail that shows the photo with its edits applied. */
+  const thumbVer = new Map()
+  app.thumbVersion = (id) => thumbVer.get(id) || 0
+  app.setEditedThumb = async (id, blob) => {
+    if (disposed || !app.photos.has(id)) return
+    await store.setEditedThumb(id, blob)
+    const u = thumbs.get(id)
+    if (u) { URL.revokeObjectURL(u); thumbs.delete(id) }
+    pendingThumb.delete(id)
+    thumbVer.set(id, app.thumbVersion(id) + 1)
+    app.emit('thumb', id)
   }
 
   // ---------- Persistence ----------

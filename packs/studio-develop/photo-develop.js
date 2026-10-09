@@ -12,6 +12,7 @@ import { createGrid, createFilterBar } from './_library.js'
 import { iconBtn, stars } from './_controls.js'
 import { openExportDialog } from './_export.js'
 import { makeSample, SAMPLE_KINDS } from './_sample.js'
+import { createThumbs } from './_thumbs.js'
 import { exportCatalog, importCatalog, ACCEPT, clearLibrary } from './_store.js'
 import { BUILTIN } from './_presets.js'
 import { GROUPS, GROUP_LABELS, LOOK_GROUPS, clone, pick } from './_model.js'
@@ -29,6 +30,7 @@ const SHORTCUTS = [
 export async function mount(root, { tool, params = {} }) {
   injectCss()
   const app = createApp()
+  const thumbs = createThumbs(app)
   let disposed = false
 
   // ---------- skeleton ----------
@@ -300,6 +302,8 @@ export async function mount(root, { tool, params = {} }) {
   const offs = [
     app.on('view', syncView), app.on('library', syncMeta), app.on('selection', syncMeta), app.on('meta', syncMeta), app.on('active', syncMeta),
     app.on('history', syncMeta), app.on('edit', syncMeta), app.on('clipboard', syncMeta),
+    app.on('edit', (e) => thumbs.queue([e.id])),
+    app.on('library', (e) => { if (e?.added?.length) thumbs.queue(e.added.filter((id) => app.isEdited(id)), 400) }),
     app.on('compare', (m) => { compareBtn.setPressed(m === 'split'); beforeBtn.setPressed(m === 'before') }),
     app.on('clip', (on) => clipBtn.setPressed(on)),
     app.on('crop', (on) => {
@@ -370,6 +374,7 @@ export async function mount(root, { tool, params = {} }) {
   app.activeId = app.photos.has(last.id) ? last.id : app.order[0] || null
   if (app.activeId) { app.selection = new Set([app.activeId]); app.anchor = app.activeId }
   libGrid.update(); filters.update()
+  thumbs.backfill()
   syncView()
   if ((params.view || last.view) === 'develop' && app.activeId) app.setView('develop')
   const remember = () => lstore.save('pdev:last', { id: app.activeId, view: app.view })
@@ -389,7 +394,7 @@ export async function mount(root, { tool, params = {} }) {
     dz.disconnect()
     offs.forEach((o) => o())
     closeMenu()
-    stage.dispose(); sidebar.dispose(); libGrid.dispose(); film.dispose(); filters.dispose()
+    stage.dispose(); sidebar.dispose(); libGrid.dispose(); film.dispose(); filters.dispose(); thumbs.dispose()
     app.dispose()
   }
   onCleanup(cleanup)
