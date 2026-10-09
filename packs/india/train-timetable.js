@@ -76,6 +76,6 @@ export function mount(root) {
   root.append(stack(
     panel(t),
     alert('info', h('strong', 'Live train data comes from Indian Railways. '), 'Timetables and running status are published only by the Railways (NTES) and IRCTC, so this page prepares your search and opens the official page instead of scraping it. Railway helpline: 139.'),
-    note('The station list covers about 190 major stations; use NTES for any other code. Official sites: ', link('https://enquiry.indianrail.gov.in/mntes/', 'NTES'), ', ', link('https://www.irctc.co.in/', 'IRCTC'), '. Nothing you type here leaves your device.')))
+    note('The station list covers about 170 major stations; use NTES for any other code. Official sites: ', link('https://enquiry.indianrail.gov.in/mntes/', 'NTES'), ', ', link('https://www.irctc.co.in/', 'IRCTC'), '. Nothing you type here leaves your device.')))
   renderNum(); renderRoute(); renderList()
 }
