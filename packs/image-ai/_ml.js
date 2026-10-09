@@ -550,6 +550,12 @@ export async function fetchModel(url, { size = 0, onProgress, signal, label = 'D
 }
 
 const sessions = new Map()
+/** Free ONNX sessions (large models hold hundreds of MB of memory). Call when leaving a tool that used ortSession. */
+export async function releaseSessions() {
+  const all = [...sessions.values()]
+  sessions.clear()
+  for (const p of all) { try { (await p).session.release() } catch { /* already gone */ } }
+}
 /**
  * Create (or reuse) an ONNX session. spec: {id, urls: {webgpu, wasm} | url, size}.
  * Tries WebGPU first when the spec allows it, then WebAssembly.

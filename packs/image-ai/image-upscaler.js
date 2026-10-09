@@ -363,5 +363,9 @@ export function mount(root, { signal }) {
     toast(`Saved ${lastInfo?.w} x ${lastInfo?.h} (${formatBytes(blob.size)})`, 'success')
   }
 
-  return () => ctl.abort()
+  return () => {
+    ctl.abort()
+    for (const p of pipes.values()) p.then((h2) => h2.pipe.dispose?.()).catch(() => {})
+    pipes.clear()
+  }
 }

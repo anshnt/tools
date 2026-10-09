@@ -3,9 +3,9 @@
 import { h, icon, button, busy, alert, clear, segmented, rangeField, toggle, toast, download, progress, debounce, fileType } from '../../lib/ui.js'
 import { suffixName, zip } from '../../lib/files.js'
 import { canvas as makeCanvas, canEncode } from '../../lib/image.js'
-import { loadWorking, fitCanvas, thumbOf, canvasBlob, boxBlurU8, checkAbort, friendlyError } from './_ml.js'
+import { loadWorking, fitCanvas, thumbOf, canvasBlob, boxBlurU8, friendlyError } from './_ml.js'
 import { detectFaces } from './_face.js'
-import { shell, steps, heroDrop, panelOf, section, stage, scanFx, strip, note, burst, doneCard, drag } from './_ui.js'
+import { shell, steps, heroDrop, panelOf, section, stage, scanFx, strip, note, burst, drag } from './_ui.js'
 
 const PREV_MAX = 1400
 const MAX_FILES = 30

@@ -315,7 +315,14 @@ export function mount(root, { params, signal }) {
     el('line', { x1: 0, x2: w, y1: lo, y2: lo, stroke: 'rgba(34,197,94,.9)', 'stroke-width': 1, 'stroke-dasharray': '4 3' })
     el('line', { x1: 0, x2: w, y1: hi, y2: hi, stroke: 'rgba(34,197,94,.9)', 'stroke-width': 1, 'stroke-dasharray': '4 3' })
     el('line', { x1: w / 2, x2: w / 2, y1: 0, y2: hh, stroke: 'rgba(255,255,255,.55)', 'stroke-width': 1 })
-    const ln = (y, c2, label) => { el('line', { x1: 0, x2: w, y1: y, y2: y, stroke: c2, 'stroke-width': 1.5 }); const t = el('text', { x: 6, y: y - 4, fill: c2, 'font-size': 11, 'font-weight': 600, style: 'paint-order:stroke;stroke:rgba(0,0,0,.55);stroke-width:2.5px' }); t.textContent = label }
+    const ln = (y, c2, label) => {
+      el('line', { x1: 0, x2: w, y1: y, y2: y, stroke: c2, 'stroke-width': 1.5 })
+      const tw = label.length * 6.4 + 12
+      el('rect', { x: w - tw - 6, y: y - 17, width: tw, height: 15, rx: 7.5, fill: 'rgba(10,10,20,.7)' })
+      const t = el('text', { x: w - tw / 2 - 6, y: y - 6, fill: '#fff', 'font-size': 10.5, 'font-weight': 600, 'text-anchor': 'middle' })
+      t.textContent = label
+      el('circle', { cx: w - tw - 6, cy: y - 9.5, r: 3.2, fill: c2 })
+    }
     ln(crownY, '#fbbf24', 'Crown')
     ln(q0y, '#38bdf8', 'Eyes')
     ln(chinY, '#f472b6', 'Chin')

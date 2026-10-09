@@ -4,7 +4,7 @@
 import { h, icon, button, busy, alert, clear, segmented, rangeField, toast, download, formatBytes } from '../../lib/ui.js'
 import { suffixName } from '../../lib/files.js'
 import { canvas as makeCanvas, canEncode } from '../../lib/image.js'
-import { loadWorking, canvasBlob, friendlyError, isReady } from './_ml.js'
+import { loadWorking, canvasBlob, friendlyError, isReady, releaseSessions } from './_ml.js'
 import { inpaint, MODELS } from './_inpaint.js'
 import { shell, steps, heroDrop, panelOf, section, stage, scanFx, optionCards, note, drag, burst } from './_ui.js'
 
@@ -293,7 +293,7 @@ export function mount(root, { params, signal }) {
   }
   document.addEventListener('keydown', onKey)
   sync()
-  return () => { ctl.abort(); document.removeEventListener('keydown', onKey) }
+  return () => { ctl.abort(); document.removeEventListener('keydown', onKey); releaseSessions() }
 }
 
 let styled = false

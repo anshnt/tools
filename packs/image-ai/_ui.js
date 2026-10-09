@@ -190,10 +190,12 @@ const CSS = `
 @media (max-width: 1020px) {
   .ia-studio { grid-template-columns: minmax(0, 1fr); }
   .ia-side { position: static; }
+  .ia-side > .stack { order: -1; }
 }
 @media (max-width: 720px) {
   .ia-hero .dropzone { min-height: 250px; }
   .ia-art i { width: 44px; height: 44px; border-radius: 14px; }
+  .ia-art i:nth-child(n + 3) { display: none; }
   .ia-art i .icon { width: 19px; height: 19px; }
   .ia-stage { padding: 8px; border-radius: 20px; min-height: 220px; }
   .ia-panel { padding: 4px 13px; border-radius: 18px; }

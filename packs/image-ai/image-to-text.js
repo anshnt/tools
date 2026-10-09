@@ -121,14 +121,15 @@ export function mount(root, { params, signal }) {
   const hero = heroDrop({
     accept: 'image/*', multiple: true, label: pasteMode ? 'Press Ctrl+V to paste a screenshot' : 'Drop images with text here',
     hint: pasteMode ? 'Or drop, click to choose, or tap "Paste from clipboard". We read the text right away.' : 'Photos, scans and screenshots in 25+ languages. Paste with Ctrl+V works too.',
-    icons: ['scan-text', 'clipboard-paste', 'languages', 'file-text'],
+    icons: ['scan-text', 'clipboard-paste', 'languages', 'file-text'], icon: pasteMode ? 'clipboard-paste' : 'scan-text',
     features: [['shield-check', 'Reads on your device'], ['languages', '25+ languages'], ['copy', 'Copy or download']],
     onFiles: addFiles,
   })
   const pasteBtn = button('Paste from clipboard', { icon: 'clipboard-paste', variant: pasteMode ? 'primary' : 'secondary', onClick: pasteFromClipboard })
   const keys = h('div', { class: 'ia-kbd', 'aria-hidden': 'true' }, h('kbd', 'Ctrl'), h('span', '+'), h('kbd', 'V'))
   const pasteRow = h('div', { class: 'ia-ocr-pasterow' }, pasteMode ? keys : null, pasteBtn)
-  shell(root, stepper, langBar, hero, pasteRow, studioEl)
+  shell(root, stepper, langBar, hero, studioEl)
+  hero.querySelector('.ia-feats')?.before(pasteRow)
   renderLangs()
 
   async function pasteFromClipboard() {

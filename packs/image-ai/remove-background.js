@@ -1,5 +1,5 @@
 // Remove background: on-device AI cutout with edge refinement, preview backgrounds, batch and ZIP download.
-import { h, button, busy, segmented, toast, downloadButton, download, progress, clear } from '../../lib/ui.js'
+import { h, button, busy, segmented, toast, downloadButton, download, progress } from '../../lib/ui.js'
 import { suffixName, zip } from '../../lib/files.js'
 import { canEncode } from '../../lib/image.js'
 import { canvasBlob, handoff } from './_ml.js'
