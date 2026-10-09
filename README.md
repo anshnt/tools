@@ -15,7 +15,7 @@ Tools are marked by how they run:
 | On-device | Runs fully in your browser. |
 | On-device AI | Downloads an ML model once (OCR, Whisper speech-to-text, background removal) and runs it locally. |
 | Online | Calls a public, key-free web service for lookups (DNS, exchange rates, IFSC...). |
-| Claude AI | Uses Claude with your own Anthropic API key, stored only in your browser. |
+| AI | Uses Claude (Anthropic) or Gemini (Google) with your own API key, stored only in your browser. |
 
 ## Categories
 

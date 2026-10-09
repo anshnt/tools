@@ -41,7 +41,7 @@ export const CATEGORIES = [
   { id: 'student', name: 'Student', title: 'Student tools', icon: 'graduation-cap', color: '#e2a336', blurb: 'Notes, flashcards, quizzes, citations and maths.' },
   { id: 'personal', name: 'Everyday Life', title: 'Everyday life tools', icon: 'heart', color: '#e54666', blurb: 'Lists, planners, budgets, timers and health.' },
   { id: 'india', name: 'India', title: 'India tools', icon: 'landmark', color: '#ef7d1a', blurb: 'Govt form photos, income tax, GST, IFSC, PIN and more.' },
-  { id: 'ai', name: 'AI', title: 'AI tools', icon: 'sparkles', color: '#8b5cf6', blurb: 'Summarize, chat with PDFs, extract data and more with Claude.' },
+  { id: 'ai', name: 'AI', title: 'AI tools', icon: 'sparkles', color: '#8b5cf6', blurb: 'Summarize, chat with PDFs, extract data and more with Claude or Gemini.' },
 ]
 
 const PACKS = [
@@ -81,7 +81,7 @@ export const MODES = {
   local: { label: 'On-device', icon: 'shield-check', cls: 'local', title: 'Runs entirely in your browser. Your files never leave your device.' },
   model: { label: 'On-device AI', icon: 'cpu', cls: 'model', title: 'Runs an AI model in your browser. The model downloads once; your files stay on your device.' },
   online: { label: 'Online', icon: 'cloud', cls: 'online', title: 'Uses a public web service for lookups. Only what you type is sent.' },
-  ai: { label: 'Claude AI', icon: 'sparkles', cls: 'ai', title: 'Uses Claude with your own Anthropic API key. Content you submit is sent to Anthropic.' },
+  ai: { label: 'AI', icon: 'sparkles', cls: 'ai', title: 'Uses Claude or Gemini with your own API key. Content you submit is sent to the provider you choose.' },
 }
 
 /** Simple ranked search over name, tags, description and category. */
