@@ -22,7 +22,7 @@ lib/                       shared helpers every tool uses (do not edit from a pa
   ffmpeg.js                runFFmpeg, loadFFmpeg, probe, terminateFFmpeg, MAX_INPUT_BYTES (single-thread ffmpeg.wasm)
   ocr.js                   recognize(image, {lang, onProgress}), OCR_LANGS
   whisper.js               transcribe(blob, {model, language, task, onProgress}), decodeAudio, toSRT, toVTT, WHISPER_MODELS, WHISPER_LANGS
-  ai.js                    Claude: ensureKey(), ask({...}), notice(), imageBlock, pdfBlock, textBlock, openSettings, isConfigured
+  ai.js                    Claude or Gemini: ensureKey(), ask({...}), notice(), imageBlock, pdfBlock, textBlock, openSettings, isConfigured, config
   store.js                 load/save/remove/persisted for localStorage (namespaced, never throws)
 packs/<pack>/catalog.js    the pack's tool entries (owned by the pack)
 packs/<pack>/<module>.js   tool modules (owned by the pack)
@@ -130,7 +130,7 @@ Handle rate limits and outages with a readable message. If something cannot work
 
 ## AI tools
 
-Claude only, through `lib/ai.js`. The default model is `claude-opus-5-5`; visitors can pick Sonnet 5.5 or Haiku 5.5.
+Always through `lib/ai.js`, which is provider-agnostic: in AI settings the visitor picks **Claude** (Anthropic; default `claude-opus-5-5`, or Sonnet 5.5 / Haiku 5.5) or **Gemini** (Google; default `gemini-3.8-flash`, or 3.1 Pro preview / 3.5 Flash-Lite) and saves their own key. Write tools against `ask()` only. Claude-only extras (citations via `raw`, `cache_control`, `effort`) are ignored on Gemini, so treat them as optional; Gemini allows about 20 MB of attachments per request.
 
 ```js
 import * as ai from '../../lib/ai.js'
