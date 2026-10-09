@@ -13,4 +13,6 @@ export default [
   { id: 'screen-test', ready: true, name: 'Dead pixel & screen test', desc: 'Full-screen color tests for dead pixels, bleed and uniformity.', icon: 'monitor', tags: 'dead pixel monitor test' },
   { id: 'webcam-mic-test', ready: true, name: 'Webcam & mic test', desc: 'Check your camera and microphone before a call.', icon: 'webcam', also: ['media'], tags: 'camera microphone test' },
   { id: 'teleprompter', ready: true, name: 'Teleprompter', desc: 'Scroll your script at a steady speed for videos and talks.', icon: 'scroll-text', also: ['career', 'media'], tags: 'teleprompter script autocue' },
+  { id: 'mouse-tester', name: 'Mouse tester', desc: 'Test every mouse button, the wheel and double clicks, and measure click speed.', icon: 'mouse', also: ['dev'], tags: 'mouse test buttons double click scroll wheel cps polling rate', ready: true },
+  { id: 'gamepad-tester', name: 'Gamepad tester', desc: 'See every button, trigger and stick of your controller live, and check for stick drift.', icon: 'gamepad-2', also: ['dev'], tags: 'gamepad controller joystick xbox playstation drift buttons rumble', ready: true },
 ]
