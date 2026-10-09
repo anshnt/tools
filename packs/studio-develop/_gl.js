@@ -199,7 +199,7 @@ void main() {
       float dark = min(min(B.r, B.g), B.b);
       float hz = clamp(dark / 0.95, 0.0, 0.95);
       if (u_dehaze > 0.0) {
-        float tt = max(1.0 - u_dehaze * 0.9 * hz, 0.14);
+        float tt = max(1.0 - u_dehaze * 0.75 * hz, 0.2);
         c = (c - 0.95 * (1.0 - tt)) / tt;
         c = mix(vec3(luma(c)), c, 1.0 + u_dehaze * 0.22);
       } else {

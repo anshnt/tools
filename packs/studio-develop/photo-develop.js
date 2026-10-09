@@ -1,6 +1,6 @@
 // Photo Develop: a Lightroom-style photo editor in the browser. Library, non-destructive develop (WebGL), presets and batch export.
 // Clean-room take on the same category as the open-source LightCraft by ArtCraft (https://github.com/storytold/lightcraft).
-import { h, icon, button, modal, toast, dropzone, onCleanup, clear, errorMessage, download } from '../../lib/ui.js'
+import { h, icon, button, modal, toast, dropzone, onCleanup, errorMessage, download, formatBytes } from '../../lib/ui.js'
 import { pickFiles } from '../../lib/files.js'
 import * as lstore from '../../lib/store.js'
 import { injectCss } from './_css.js'
@@ -131,7 +131,8 @@ export async function mount(root, { tool, params = {} }) {
     const had = app.order.length
     const ids = await app.import(files)
     if (!ids.length) return
-    if (params.look) { const p = BUILTIN.find((x) => x.id === params.look); if (p) app.applyPreset(p.s, `Preset: ${p.name}`, ids) }
+    navigator.storage?.persist?.().catch(() => {}) // ask the browser not to evict the library under storage pressure
+    if (params.look) { const p = BUILTIN.find((x) => x.id === params.look); if (p) app.applyPreset(p.s, `Preset: ${p.name}`, ids, true) }
     if (ids.length === 1 && !had) app.open(ids[0])
     else if (ids.length === 1) app.select(ids[0])
   }
@@ -196,7 +197,10 @@ export async function mount(root, { tool, params = {} }) {
   function openMenu(anchor) {
     if (menuEl) return closeMenu()
     const item = (ic, label, fn, kbd, cls) => h('button', { type: 'button', role: 'menuitem', class: cls, onclick: () => { closeMenu(); fn() } }, icon(ic), h('span', label), kbd && h('kbd', kbd))
+    const usage = h('div', { class: 'small muted', style: 'padding:6px 10px' }, `${app.order.length} photo${app.order.length === 1 ? '' : 's'} in this library`)
+    navigator.storage?.estimate?.().then((e) => { if (e?.usage) usage.textContent = `${app.order.length} photo${app.order.length === 1 ? '' : 's'}, ${formatBytes(e.usage)} stored on this device` }).catch(() => {})
     menuEl = h('div', { class: 'pd-menu', role: 'menu' },
+      usage, h('hr'),
       item('plus', 'Add photos...', () => addBtn.click()),
       item('image-plus', 'Add a sample photo', () => addSamples([SAMPLE_KINDS[Math.floor(Math.random() * SAMPLE_KINDS.length)]])),
       item('check-check', 'Select all photos', () => app.selectAll(), 'Ctrl+A'),
@@ -224,7 +228,7 @@ export async function mount(root, { tool, params = {} }) {
     app.busy = { label: 'Backing up', fraction: 0 }; app.emit('busy', app.busy)
     try {
       const blob = await exportCatalog(app.order.map((id) => app.get(id)), app.presets, (f) => { app.busy = { label: 'Backing up', fraction: f }; app.emit('busy', app.busy) })
-      download(blob, `photo-develop-library-${new Date().toISOString().slice(0, 10)}.zip`)
+      download(blob, `photo-develop-library-${new Date().toLocaleDateString('sv')}.zip`)
       toast('Backup saved', 'success')
     } catch (e) { toast(errorMessage(e), 'error') } finally { app.busy = null; app.emit('busy', null) }
   }
@@ -254,6 +258,10 @@ export async function mount(root, { tool, params = {} }) {
     })
   }
 
+  const phone = matchMedia('(max-width: 900px)')
+  const onPhone = () => syncMeta()
+  phone.addEventListener('change', onPhone)
+
   // ---------- view and state sync ----------
   const syncView = () => {
     const dev = app.view === 'develop'
@@ -279,7 +287,7 @@ export async function mount(root, { tool, params = {} }) {
     barStars.set(m?.rating || 0)
     pickBtn.setPressed(m?.flag === 'pick'); rejectBtn.setPressed(m?.flag === 'reject')
     const sel = app.selection.size
-    selbar.hidden = !(n > 0 && sel > 0)
+    selbar.hidden = !(n > 0 && sel > (phone.matches ? 1 : 0))
     selLabel.textContent = `${sel} selected`
     selRating.set(sel === 1 && m ? m.rating : 0)
     viewBtns.develop.disabled = !app.activeId
@@ -312,6 +320,7 @@ export async function mount(root, { tool, params = {} }) {
     if (document.querySelector('dialog[open]')) return
     const t = e.target
     const typing = t.closest?.('input:not([type=range]):not([type=checkbox]), textarea, select, [contenteditable]:not([contenteditable="false"])')
+    if (e.key === 'Escape' && menuEl) { closeMenu(); return }
     if (typing) { if (e.key === 'Escape') t.blur?.(); return }
     const k = e.key, ctrl = e.ctrlKey || e.metaKey
     const dev = app.view === 'develop'
@@ -376,6 +385,7 @@ export async function mount(root, { tool, params = {} }) {
     disposed = true
     document.removeEventListener('keydown', onKey)
     document.removeEventListener('pointerdown', outside, true)
+    phone.removeEventListener('change', onPhone)
     dz.disconnect()
     offs.forEach((o) => o())
     closeMenu()

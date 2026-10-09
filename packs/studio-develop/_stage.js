@@ -9,7 +9,7 @@ import { createCrop } from './_crop.js'
 const MAX_ZOOM = 4 // device pixels per image pixel
 
 export function createStage(app) {
-  const gl = h('canvas', { class: 'pd-gl' })
+  let gl = h('canvas', { class: 'pd-gl' })
   const before = h('canvas', { class: 'pd-before' })
   const tagBefore = h('span', { class: 'pd-tag left' }, 'Before')
   const tagAfter = h('span', { class: 'pd-tag right' }, 'After')
@@ -39,6 +39,16 @@ export function createStage(app) {
     renderer = createRenderer(gl)
   } catch (e) {
     fail(e.message)
+  }
+  /** The browser can reset the GPU context (driver reset, too many contexts). A canvas cannot reuse a lost context, so start a new one and reload the photo. */
+  function recover() {
+    const id = cur?.id
+    const next = h('canvas', { class: 'pd-gl' })
+    gl.replaceWith(next)
+    gl = next
+    try { renderer = createRenderer(gl); api.renderer = renderer } catch (e) { renderer = null; fail(e.message); return }
+    cur = null
+    if (id) load(id)
   }
 
   // ---------- geometry of what is shown ----------
@@ -96,7 +106,8 @@ export function createStage(app) {
   // ---------- rendering ----------
   function renderNow() {
     raf = 0
-    if (disposed || !renderer || !cur || !settings() || renderer.lost) return
+    if (disposed || !renderer || !cur || !settings()) return
+    if (renderer.lost) { recover(); return }
     if (vp().w < 10) return
     const s = frameSettings()
     const [pw, ph] = procSize(s)

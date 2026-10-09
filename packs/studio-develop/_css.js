@@ -281,27 +281,40 @@ const CSS = `
 /* export dialog */
 .pd-export .seg { width: 100%; } .pd-export .seg button { flex: 1; }
 
-/* phones and small tablets */
+/* phones and small tablets: the page scrolls, the photo stays pinned while the panels move underneath */
 @media (max-width: 900px) {
-  .pd { --pd-h: clamp(600px, calc(100dvh - var(--header-h) - 96px), 1000px); }
-  .pd-develop { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: auto minmax(150px, 1fr) auto minmax(150px, 44%); grid-template-areas: "rail" "center" "tabs" "panel"; }
-  .pd-rail { flex-direction: row; justify-content: center; padding: 3px 6px; border-right: 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .pd { --stage-h: clamp(210px, 38vh, 400px); --pin: calc(var(--header-h) + 2px); height: auto; overflow: clip; }
+  .pd-main { display: block; flex: none; }
+  .pd-view.on { display: block; }
+  .pd-library.on { display: flex; flex-direction: column; }
+  .pd-libbody { flex: none; height: clamp(320px, 64vh, 640px); }
+  .pd-develop.on { display: flex; flex-direction: column; }
+  .pd-center { display: contents; }
+  .pd-rail { order: 0; } .pd-stage { order: 1; } .pd-bar { order: 2; } .pd-film { order: 3; } .pd-tabs { order: 4; } .pd-side, .pd-inspector-wrap { order: 5; }
+  .pd-rail { position: sticky; top: var(--pin); z-index: 9; height: 44px; flex: none; flex-direction: row; justify-content: center; padding: 3px 6px; border-right: 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
   .pd-rail .pd-sep { width: 1px; height: 22px; margin: 0 4px; }
   .pd-rail .pd-ib { flex: none; }
-  .pd-tabs { display: flex; border-top: 1px solid var(--border); background: var(--pd-panel); }
-  .pd-tabs button { flex: 1; height: 38px; border: 0; background: transparent; font-weight: 650; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; border-bottom: 2px solid transparent; }
+  .pd-stage { position: sticky; top: calc(var(--pin) + 44px); z-index: 8; height: var(--stage-h); min-height: 0; flex: none; }
+  .pd-bar { position: sticky; top: calc(var(--pin) + 44px + var(--stage-h)); z-index: 8; background: var(--pd-panel); }
+  .pd-bar .name, .pd-zoomlabel, .pd-bar .pd-ib[data-tip^="Zoom in"], .pd-bar .pd-ib[data-tip^="Zoom out"] { display: none; }
+  .pd .pd-film.pd-grid { height: 76px; }
+  .pd-tabs { display: flex; border-top: 1px solid var(--border); background: var(--pd-panel); position: relative; z-index: 6; }
+  .pd-tabs button { flex: 1; height: 42px; border: 0; background: transparent; font-weight: 650; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; border-bottom: 2px solid transparent; }
   .pd-tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
-  .pd-develop .pd-side, .pd-develop .pd-inspector-wrap { grid-area: panel; border: 0; border-top: 1px solid var(--border); display: none !important; }
+  .pd-develop .pd-side, .pd-develop .pd-inspector-wrap { display: none !important; border: 0; border-top: 1px solid var(--border); overflow: visible; }
   .pd-develop[data-tab="presets"] .pd-side { display: block !important; }
   .pd-develop[data-tab="edit"] .pd-inspector-wrap { display: block !important; }
-  .pd .pd-film.pd-grid { height: 76px; }
+  .pd-viewport.cropping ~ .pd-cropbar { bottom: 8px; }
   .pd-toolbar { padding: 6px 8px; gap: 4px; flex-wrap: wrap; }
   .pd-brand span, .pd-title, .pd-ib.with-text span.lbl { display: none; }
   .pd-views button { padding: 0 9px; }
-  .pd-filters { gap: 8px; }
-  .pd-filter-item.size, .pd-filter-item.sort-item { display: none; }
+  .pd-filters { gap: 8px; padding: 8px; }
+  .pd-filter-item.size, .pd-filter-item.sort-item, .pd-filter-item.rate-item, .pd-library > .dropzone, .pd-selbar .pd-hide-s { display: none !important; }
+  .pd-search { max-width: none; }
   .pd-bar { padding: 4px 8px; }
   .pd-hide-s { display: none !important; }
+  .pd-empty { padding: 14px; }
+  .pd-empty .dropzone { min-height: 130px; }
 }
 @media (max-width: 480px) {
   .pd-ib { min-width: 32px; height: 32px; }

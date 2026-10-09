@@ -69,6 +69,7 @@ export function createGrid(app, { mode = 'grid', onOpen, minCell = mode === 'str
 
   function update() {
     frame = 0
+    if (!el.clientWidth) return // hidden view: nothing to draw, and the next resize or view change redraws
     measure()
     ids = app.visible()
     const n = ids.length
@@ -152,7 +153,7 @@ export function createFilterBar(app, grid) {
   const size = h('input', { type: 'range', class: 'pd-range', min: 110, max: 320, step: 10, value: 168, 'aria-label': 'Thumbnail size', oninput: (e) => grid.setMin(e.target.valueAsNumber) })
   const count = h('span', { class: 'pd-count' })
   const el = h('div', { class: 'pd-filters' },
-    search, h('div', { class: 'pd-filter-item' }, h('span', 'Rating'), minStars), flags, edited, h('div', { class: 'pd-filter-item' }, h('span', 'Sort'), sortSel),
+    search, h('div', { class: 'pd-filter-item rate-item' }, h('span', 'Rating'), minStars), flags, edited, h('div', { class: 'pd-filter-item sort-item' }, h('span', 'Sort'), sortSel),
     h('div', { class: 'pd-filter-item size' }, icon('image'), size, icon('image', 'big')), count)
   const upd = () => { count.textContent = `${app.visible().length} of ${app.order.length}` }
   const offs = [app.on('library', upd)]

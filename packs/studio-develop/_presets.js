@@ -1,5 +1,5 @@
 // Built-in looks. Each preset lists only what it changes; applying one replaces the current look but keeps the crop and rotation.
-import { LOOK_GROUPS, clone, defaults, normalize, pick } from './_model.js'
+import { GROUPS, LOOK_GROUPS, clone, defaults, merge, normalize, pick } from './_model.js'
 
 const arr = (o) => { const a = [0, 0, 0, 0, 0, 0, 0, 0]; for (const [i, v] of Object.entries(o)) a[i] = v; return a }
 const grade = (sh, mid, hi, blend = 50, balance = 0) => ({ sh: { h: 0, s: 0, l: 0, ...sh }, mid: { h: 0, s: 0, l: 0, ...mid }, hi: { h: 0, s: 0, l: 0, ...hi }, blend, balance })
@@ -31,12 +31,20 @@ export const BUILTIN = [
   { id: 'crisp-detail', group: 'Creative', name: 'Crisp detail', s: { texture: 35, clarity: 20, sharpen: 55, sharpMask: 20, nrLuma: 8 } },
 ]
 
-/** Settings after applying a preset look to `current` (geometry is kept). */
-export function applyLook(current, look) {
-  const base = defaults()
-  const out = { ...base, ...clone(look), ...pick(current, ['geometry']) }
-  return normalize(out)
-}
-/** A saved preset's look = everything except the crop and rotation. */
-export const lookOf = (s) => pick(s, LOOK_GROUPS)
+const LOOK_KEYS = new Set(LOOK_GROUPS.flatMap((g) => GROUPS[g]))
 
+/**
+ * Settings after applying a look to `current`. Built-in looks replace the whole look (everything except crop and rotation);
+ * a saved preset with only some groups (replace = false) changes just the settings it contains.
+ */
+export function applyLook(current, look, replace = true) {
+  if (!replace) return merge(current, cleanLook(look))
+  return normalize({ ...defaults(), ...clone(look), ...pick(current, ['geometry']) })
+}
+/** A saved preset's look = the chosen groups, never the crop and rotation. */
+export const lookOf = (s, groups = LOOK_GROUPS) => pick(s, groups)
+/** Keep only known look keys, with values clamped (for presets read from files). */
+export function cleanLook(look) {
+  const full = normalize({ ...defaults(), ...(look && typeof look === 'object' ? look : {}) })
+  return Object.fromEntries(Object.keys(look || {}).filter((k) => LOOK_KEYS.has(k)).map((k) => [k, full[k]]))
+}

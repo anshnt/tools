@@ -1,5 +1,5 @@
 // Batch export: render each photo's saved edits at full quality with the same WebGL pipeline, resize, name and zip them.
-import { h, icon, modal, button, segmented, select, number, input, toggle, progress, alert, stats, download, formatBytes, yieldToMain, toast, errorMessage } from '../../lib/ui.js'
+import { h, modal, button, segmented, select, number, input, toggle, progress, alert, download, formatBytes, yieldToMain, toast, errorMessage } from '../../lib/ui.js'
 import { loadImage, toCanvas, toBlob, canEncode, MAX_PIXELS } from '../../lib/image.js'
 import { zip, withExt } from '../../lib/files.js'
 import * as store from '../../lib/store.js'
@@ -9,6 +9,8 @@ import { cropPixels, exportSize, renderName } from './_model.js'
 
 const FORMATS = { jpeg: ['image/jpeg', 'jpg', 'JPEG'], png: ['image/png', 'png', 'PNG'], webp: ['image/webp', 'webp', 'WebP'] }
 export const DEFAULT_EXPORT = { format: 'jpeg', quality: 90, mode: 'original', value: 2048, value2: 2048, upscale: false, pattern: '{name}-edit', zip: true }
+
+const localDate = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 
 /** Render one photo with its settings to a Blob. Throws a readable Error when it cannot. */
 export async function renderPhoto(renderer, meta, opts, signal) {
@@ -71,7 +73,7 @@ export async function exportPhotos(photos, opts, { onProgress, signal } = {}) {
   if (entries.length === 1 && !opts.zip) return { blob: entries[0].data, filename: entries[0].name, count: 1, bytes, failed }
   onProgress?.(0.98, 'Packing the ZIP')
   const blob = await zip(entries, (p) => onProgress?.(0.98 + p * 0.02, 'Packing the ZIP'))
-  return { blob, filename: `photo-develop-export-${new Date().toISOString().slice(0, 10)}.zip`, count: entries.length, bytes, failed }
+  return { blob, filename: `photo-develop-export-${localDate()}.zip`, count: entries.length, bytes, failed }
 }
 
 /** The export dialog. `scopes` is [{id, label, ids}] and the first non-empty one is selected. */

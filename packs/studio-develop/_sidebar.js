@@ -86,9 +86,9 @@ export function createSidebar(app, stage) {
   }
   function tile(p) {
     const cv = h('canvas', { class: 'pd-preset-cv', width: PREVIEW_W, height: Math.round(PREVIEW_W * 0.68) })
-    tiles.set(p.id, { cv, look: p.look })
+    tiles.set(p.id, { cv, look: p.look, replace: !p.user })
     const b = h('button', { type: 'button', class: 'pd-preset', 'aria-label': `Apply preset ${p.name}`, title: p.name,
-      onclick: () => { if (!app.activeId) return; app.applyPreset(p.look, `Preset: ${p.name}`, app.selectedIds()); toast(`Applied ${p.name}${app.selectedIds().length > 1 ? ` to ${app.selectedIds().length} photos` : ''}`) } },
+      onclick: () => { if (!app.activeId) return; app.applyPreset(p.look, `Preset: ${p.name}`, app.selectedIds(), !p.user); toast(`Applied ${p.name}${app.selectedIds().length > 1 ? ` to ${app.selectedIds().length} photos` : ''}`) } },
     cv, h('span', p.name))
     if (!p.user) return b
     return h('div', { class: 'pd-preset-wrap' }, b, h('button', { type: 'button', class: 'pd-preset-del', 'aria-label': `Delete preset ${p.name}`, 'data-tip': 'Delete preset', onclick: () => app.deletePreset(p.id) }, icon('x')))
@@ -105,6 +105,7 @@ export function createSidebar(app, stage) {
     if (!src || !m || ui.presets === false) return
     const my = ++prevToken
     try {
+      if (prevRenderer?.lost) { prevRenderer = null; prevSrcId = null }
       if (!prevRenderer) { prevCanvas = document.createElement('canvas'); prevRenderer = createRenderer(prevCanvas) }
       if (prevSrcId !== stage.source) { prevRenderer.setSource(src, src.width, src.height); prevSrcId = stage.source }
     } catch { return }
@@ -114,7 +115,7 @@ export function createSidebar(app, stage) {
       if (my !== prevToken) return
       const w = t.cv.width, hh = Math.round(w / Math.max(0.4, Math.min(2.5, aspect * (base.crop.w / base.crop.h))))
       const [cw, ch] = [w, Math.min(t.cv.height, hh)]
-      prevRenderer.render(applyLook(base, t.look), cw, ch, { opaque: true })
+      prevRenderer.render(applyLook(base, t.look, t.replace), cw, ch, { opaque: true })
       const c2 = t.cv.getContext('2d')
       c2.clearRect(0, 0, t.cv.width, t.cv.height)
       c2.drawImage(prevCanvas, 0, 0, t.cv.width, t.cv.height)
