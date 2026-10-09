@@ -196,7 +196,7 @@ export function canRemux(info, fmtId) {
   if (fmtId === 'mov') return v === 'h264' && H264_PIX.test(info.video.pix || 'yuv420p') && (!hasA || a === 'aac' || a === 'mp3')
   if (fmtId === 'mkv') return !['wmv1', 'wmv2', 'wmv3', 'vc1'].includes(v)
   if (fmtId === 'webm') return ['vp8', 'vp9', 'av1'].includes(v) && (!hasA || a === 'opus' || a === 'vorbis')
-  if (fmtId === 'avi') return ['mpeg4', 'h264', 'mjpeg'].includes(v) && (!hasA || ['mp3', 'ac3', 'pcm_s16le', 'aac'].includes(a))
+  if (fmtId === 'avi') return ['mpeg4', 'mjpeg'].includes(v) && (!hasA || ['mp3', 'ac3', 'pcm_s16le'].includes(a)) // H.264 and AAC in AVI break on B-frames and seeking, so those are re-encoded
   return false
 }
 
