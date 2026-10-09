@@ -42,7 +42,7 @@ export function splitSentences(text) {
     const clean = stripMd(raw)
     if (!clean) continue
     const wordsN = clean.split(/\s+/).length
-    if (isMdHeading || (wordsN <= 6 && /^\p{Lu}/u.test(clean) && !/[.!?:;,=]$/.test(clean) && !/\s[-–—]\s|[:=]/.test(clean) && !/^\s*(?:[-*+•]|\d+[.)])\s/.test(raw) && (lines[li + 1] ?? '').trim() && !/\b(?:is|are|was|were)\b/i.test(clean))) { heading = clean; continue }
+    if (isMdHeading || (wordsN <= 6 && /^\p{Lu}/u.test(clean) && !/[.!?:;,=]$/.test(clean) && !/\s[-–\u2014]\s|[:=]/.test(clean) && !/^\s*(?:[-*+•]|\d+[.)])\s/.test(raw) && (lines[li + 1] ?? '').trim() && !/\b(?:is|are|was|were)\b/i.test(clean))) { heading = clean; continue }
     const parts = protect(clean).split(/(?<=[.!?…।])["')\]]*\s+(?=["'(\[]?[\p{Lu}\p{N}])/u).map((p) => restore(p).trim()).filter(Boolean)
     for (const p of parts) out.push({ text: p, heading })
   }
@@ -111,7 +111,7 @@ export function extractDefinitions(text) {
     out.push({ term, definition: upperFirst(definition), sentence, kind, low })
   }
   // 1) delimited lines
-  const lineRe = /^\s*(?:[-*+•·▪●]\s+|\d{1,3}[.)]\s+)?(?:\*\*|__)?([^:=→\t|–—]{2,70}?)(?:\*\*|__)?\s*(?::|=|\s-\s|\s–\s|\s—\s|→|->|\t|\s\|\s)\s*(.{3,})$/
+  const lineRe = /^\s*(?:[-*+•·▪●]\s+|\d{1,3}[.)]\s+)?(?:\*\*|__)?([^:=→\t|–\u2014]{2,70}?)(?:\*\*|__)?\s*(?::|=|\s-\s|\s–\s|\s\u2014\s|→|->|\t|\s\|\s)\s*(.{3,})$/
   for (const raw of String(text).replace(/\r/g, '').split('\n')) {
     const m = lineRe.exec(raw)
     if (!m) continue
@@ -276,7 +276,7 @@ export function parsePairs(text) {
     if (raw.includes('\t')) parts = raw.split('\t')
     else if (/^"[^"]*"\s*,/.test(raw) || (raw.includes(',') && raw.split(',').length === 2 && !/\s-\s|:/.test(raw))) parts = splitCsvLine(raw)
     else {
-      const m = /^(.+?)\s+(?:-|–|—|=|:|→|->)\s+(.+)$/.exec(raw) || /^([^:=]{1,80}?)\s*[:=]\s*(.+)$/.exec(raw)
+      const m = /^(.+?)\s+(?:-|–|\u2014|=|:|→|->)\s+(.+)$/.exec(raw) || /^([^:=]{1,80}?)\s*[:=]\s*(.+)$/.exec(raw)
       parts = m ? [m[1], m[2]] : null
     }
     if (!parts || parts.length < 2) continue
