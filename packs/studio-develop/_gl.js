@@ -257,7 +257,6 @@ export function createRenderer(canvas) {
   const gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true })
   if (!gl) throw new Error('This photo editor needs WebGL2, which is not available in this browser.')
   const floatRT = !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'))
-  gl.getExtension('OES_texture_float_linear')
   const maxSize = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), gl.getParameter(gl.MAX_RENDERBUFFER_SIZE), 16384)
   const aniso = gl.getExtension('EXT_texture_filter_anisotropic')
 

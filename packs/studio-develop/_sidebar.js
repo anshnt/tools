@@ -2,7 +2,7 @@
 import { h, icon, modal, button, toast, yieldToMain, formatBytes, download, input } from '../../lib/ui.js'
 import * as store from '../../lib/store.js'
 import { pickFiles } from '../../lib/files.js'
-import { section, iconBtn } from './_controls.js'
+import { section, iconBtn, slider } from './_controls.js'
 import { createRenderer } from './_gl.js'
 import { BUILTIN, applyLook } from './_presets.js'
 import { GROUP_LABELS, LOOK_GROUPS, pick } from './_model.js'
@@ -26,6 +26,7 @@ export function createSidebar(app, stage) {
   let prevRenderer = null, prevCanvas = null, prevSrcId = null
   let prevToken = 0
 
+  const strength = slider({ label: 'Preset strength', min: 0, max: 100, step: 1, def: 100, value: 100, unit: '%' })
   const saveBtn = button('Save current look', { icon: 'plus', size: 'sm', onClick: openSaveDialog })
   const ioBtns = h('div', { class: 'pd-row' },
     iconBtn({ icon: 'upload', tip: 'Import presets (JSON)', onClick: async () => {
@@ -88,7 +89,7 @@ export function createSidebar(app, stage) {
     const cv = h('canvas', { class: 'pd-preset-cv', width: PREVIEW_W, height: Math.round(PREVIEW_W * 0.68) })
     tiles.set(p.id, { cv, look: p.look, replace: !p.user })
     const b = h('button', { type: 'button', class: 'pd-preset', 'aria-label': `Apply preset ${p.name}`, title: p.name,
-      onclick: () => { if (!app.activeId) return; app.applyPreset(p.look, `Preset: ${p.name}`, app.selectedIds(), !p.user); toast(`Applied ${p.name}${app.selectedIds().length > 1 ? ` to ${app.selectedIds().length} photos` : ''}`) } },
+      onclick: () => { if (!app.activeId) return; app.applyPreset(p.look, `Preset: ${p.name}`, app.selectedIds(), !p.user, strength.value() / 100); toast(`Applied ${p.name}${app.selectedIds().length > 1 ? ` to ${app.selectedIds().length} photos` : ''}`) } },
     cv, h('span', p.name))
     if (!p.user) return b
     return h('div', { class: 'pd-preset-wrap' }, b, h('button', { type: 'button', class: 'pd-preset-del', 'aria-label': `Delete preset ${p.name}`, 'data-tip': 'Delete preset', onclick: () => app.deletePreset(p.id) }, icon('x')))
@@ -125,7 +126,7 @@ export function createSidebar(app, stage) {
 
   const presetsSec = sec('presets', {
     title: 'Presets', icon: 'wand-sparkles', open: true,
-    body: h('div', { class: 'pd-stack' }, search, h('div', { class: 'pd-row' }, saveBtn, ioBtns), list),
+    body: h('div', { class: 'pd-stack' }, search, strength, h('div', { class: 'pd-row' }, saveBtn, ioBtns), list),
   })
 
   // ---------- History ----------

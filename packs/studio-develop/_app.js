@@ -2,7 +2,7 @@
 // UI modules subscribe with app.on(event, fn); nothing here touches the DOM except object URLs for thumbnails.
 import { toast, yieldToMain, errorMessage } from '../../lib/ui.js'
 import * as store from './_store.js'
-import { GROUPS, LOOK_GROUPS, clone, defaults, merge, pick, same } from './_model.js'
+import { GROUPS, LOOK_GROUPS, clone, defaults, lerpSettings, merge, pick, same } from './_model.js'
 import { applyLook, cleanLook } from './_presets.js'
 
 const HISTORY_MAX = 120
@@ -268,9 +268,14 @@ export function createApp() {
     }
     return n
   }
-  /** replace = true for built-in looks (whole look), false for saved presets that only hold some groups. */
-  app.applyPreset = (look, label = 'Preset', ids = [app.activeId], replace = true) => {
-    for (const id of ids) { const m = app.photos.get(id); if (m) app.commit(id, label, applyLook(m.edits, look, replace), { coalesce: false }) }
+  /** replace = true for built-in looks (whole look), false for saved presets that only hold some groups. amount 0..1 blends from the current settings. */
+  app.applyPreset = (look, label = 'Preset', ids = [app.activeId], replace = true, amount = 1) => {
+    for (const id of ids) {
+      const m = app.photos.get(id)
+      if (!m) continue
+      const full = applyLook(m.edits, look, replace)
+      app.commit(id, label, amount >= 1 ? full : lerpSettings(m.edits, full, amount), { coalesce: false })
+    }
   }
   app.savePreset = async (name, groups = LOOK_GROUPS) => {
     const m = app.active()

@@ -54,7 +54,7 @@ export async function clearLibrary(ids) {
   await idb.del(K.order)
 }
 
-export const isImageFile = (f) => /^image\//.test(fileType(f)) || /\.(heic|heif|jpe?g|png|webp|avif|gif|bmp)$/i.test(f.name)
+export const isImageFile = (f) => (/^image\//.test(fileType(f)) && !/svg/.test(fileType(f))) || /\.(heic|heif|jpe?g|png|webp|avif|gif|bmp)$/i.test(f.name)
 
 async function makeThumb(img) {
   const { width, height } = fitSize(img.naturalWidth, img.naturalHeight, THUMB, THUMB)
