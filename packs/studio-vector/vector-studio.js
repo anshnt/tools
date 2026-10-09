@@ -51,6 +51,7 @@ export async function mount(root, { tool, params = {}, signal }) {
 
   // ---------- chrome ----------
   const tb = (iconName, label, tip, onClick, opts = {}) => h('button', { type: 'button', class: ['vs-tb', opts.primary && 'primary', opts.cls], 'data-tip': tip, 'data-key': opts.key || '', 'aria-label': tip, onclick: onClick, disabled: opts.disabled }, icon(iconName), label && h('span', { class: 'vs-hide-m' }, label))
+  const newDoc2 = () => newDialog(ed, (d) => { ed.loadDoc(d, 'New document'); ed.fit(); ed.emit('grid') })
   const undoBtn = tb('undo-2', '', 'Undo', () => doUndo(), { key: 'Ctrl+Z' })
   const redoBtn = tb('redo-2', '', 'Redo', () => doRedo(), { key: 'Ctrl+Shift+Z' })
   const zoomBtn = h('button', { type: 'button', class: 'vs-tb vs-zoom', 'data-tip': 'Zoom: click to toggle fit and 100%', 'aria-label': 'Zoom level, click to toggle fit and actual size', onclick: () => { Math.abs(ed.view.z - 1) < 0.01 ? ed.fit() : ed.zoomTo(1) } }, '100%')
@@ -58,11 +59,11 @@ export async function mount(root, { tool, params = {}, signal }) {
   const snapBtn = tb('magnet', '', 'Snap to grid and guides', () => { ed.grid.snap = !ed.grid.snap; ed.emit('grid') }, { cls: 'vs-hide-m' })
   const panelsBtn = tb('sliders-horizontal', 'Panels', 'Show or hide panels', () => side.classList.toggle('open'), { cls: 'vs-only-m' })
   const bar = h('div', { class: 'vs-bar', role: 'toolbar', 'aria-label': 'Main toolbar' },
-    tb('file-plus', 'New', 'New document', () => newDialog(ed, (d) => { ed.loadDoc(d, 'New document'); ed.fit(); ed.emit('grid') })),
+    tb('file-plus', 'New', 'New document', () => newDoc2(), { cls: 'vs-hide-m' }),
     tb('folder-open', 'Open', 'Open or import an SVG, image or project', () => openFiles(), { key: 'Ctrl+O' }),
     tb('save', 'Save', 'Save project file', () => saveProject(), { key: 'Ctrl+S', cls: 'vs-hide-m' }),
     h('span', { class: 'vs-sepv' }), undoBtn, redoBtn, h('span', { class: 'vs-sepv' }),
-    tb('zoom-out', '', 'Zoom out', () => ed.zoomAt(1 / 1.25), { key: 'Ctrl+-', cls: 'vs-hide-m' }), zoomBtn, tb('zoom-in', '', 'Zoom in', () => ed.zoomAt(1.25), { key: 'Ctrl++', cls: 'vs-hide-m' }), tb('scan', '', 'Fit artboard', () => ed.fit(), { key: 'Ctrl+0' }),
+    tb('zoom-out', '', 'Zoom out', () => ed.zoomAt(1 / 1.25), { key: 'Ctrl+-', cls: 'vs-hide-m' }), zoomBtn, tb('zoom-in', '', 'Zoom in', () => ed.zoomAt(1.25), { key: 'Ctrl++', cls: 'vs-hide-m' }), tb('scan', '', 'Fit artboard', () => ed.fit(), { key: 'Ctrl+0', cls: 'vs-hide-m' }),
     h('span', { class: 'vs-sepv vs-hide-m' }), gridBtn, snapBtn, h('span', { class: 'vs-grow' }),
     tb('keyboard', '', 'Keyboard shortcuts', () => shortcutsDialog(), { cls: 'vs-hide-m' }), panelsBtn,
     tb('download', 'Export', 'Export SVG, PNG or PDF', () => exportDialog(ed, fileName), { primary: true, key: 'Ctrl+E' }))
@@ -92,7 +93,7 @@ export async function mount(root, { tool, params = {}, signal }) {
   const saved = h('span', { class: 'vs-saved', 'aria-live': 'polite' }, h('i'), h('span', 'Saved on this device'))
   const status = h('div', { class: 'vs-status' }, statusMsg, selInfo, coords, saved)
   const main = h('div', { class: 'vs-main' }, cv.root, status)
-  const api = { toast: (m) => toast(m), boolean: (op) => ed.boolean(op).catch((e) => toast(errorMessage(e), 'error')), clip: () => { if (!ed.group(true)) toast('Select two or more objects. The top one becomes the mask.') }, exportDialog: () => exportDialog(ed, fileName), open: () => openFiles(), save: () => saveProject() }
+  const api = { toast: (m) => toast(m), boolean: (op) => ed.boolean(op).catch((e) => toast(errorMessage(e), 'error')), new: () => newDoc2(), clip: () => { if (!ed.group(true)) toast('Select two or more objects. The top one becomes the mask.') }, exportDialog: () => exportDialog(ed, fileName), open: () => openFiles(), save: () => saveProject() }
   const sidePanel = buildSide(ed, api)
   const side = h('aside', { class: 'vs-side', 'aria-label': 'Properties panels' }, sidePanel.el)
   const body = h('div', { class: 'vs-body' }, rail, main, side)

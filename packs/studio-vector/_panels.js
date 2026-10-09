@@ -286,7 +286,9 @@ function documentTab(ed, api) {
     section('Files', h('p', { class: 'vs-hint' }, 'Export SVG, PNG at any scale, or a vector PDF. Your work is saved in this browser automatically.'),
       h('button', { type: 'button', class: 'vs-wide primary', onclick: () => api.exportDialog() }, icon('download'), h('span', 'Export...')),
       h('div', { class: 'vs-row2' },
-        h('button', { type: 'button', class: 'vs-wide', onclick: () => api.open() }, icon('folder-open'), h('span', 'Open')),
+        h('button', { type: 'button', class: 'vs-wide', onclick: () => api.new() }, icon('file-plus'), h('span', 'New')),
+        h('button', { type: 'button', class: 'vs-wide', onclick: () => api.open() }, icon('folder-open'), h('span', 'Open'))),
+      h('div', { class: 'vs-row2' },
         h('button', { type: 'button', class: 'vs-wide', onclick: () => api.save() }, icon('save'), h('span', 'Save project')))))
   function update() {
     const { ab } = ed.doc
