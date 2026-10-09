@@ -47,7 +47,8 @@ const CSS = `
 .wt-pill.accent { color: var(--accent); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 28%, transparent); }
 
 .wt-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.wt-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font-size: 13.5px; cursor: pointer; transition: transform .25s var(--spring), border-color .2s, background .2s, color .2s; }
+.wt-chip-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.wt-chip { max-width: 100%; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); font-size: 13.5px; cursor: pointer; transition: transform .25s var(--spring), border-color .2s, background .2s, color .2s; }
 .wt-chip:hover { border-color: var(--border-strong); transform: translateY(-1px); }
 .wt-chip:active { transform: scale(.96); }
 .wt-chip .icon { width: 15px; height: 15px; }
@@ -274,7 +275,7 @@ export function recentChips(rec, onPick, { label = 'Recent', fmt = (v) => v } = 
     clear(el)
     el.hidden = !list.length
     if (!list.length) return
-    el.append(h('span', { class: 'wt-kicker' }, label), ...list.map((v) => h('button', { type: 'button', class: 'wt-chip', onclick: () => onPick(v) }, fmt(v))),
+    el.append(h('span', { class: 'wt-kicker' }, label), ...list.map((v) => h('button', { type: 'button', class: 'wt-chip', onclick: () => onPick(v), title: String(fmt(v)) }, h('span', { class: 'wt-chip-t' }, fmt(v)))),
       button('', { icon: 'x', variant: 'ghost', size: 'sm', ariaLabel: `Clear ${label.toLowerCase()}`, title: 'Clear', onClick: () => { rec.clear(); render() } }))
   }
   render()
