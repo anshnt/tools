@@ -107,7 +107,7 @@ export function humanTime(sec) {
   if (sec < 31557600) return N(sec / 2629800, 'month')
   const years = sec / 31557600
   if (years < 1000) return N(years, 'year')
-  for (const [v, name] of BIG) if (years >= v) return `${formatNumber(years / v, years / v < 10 ? 1 : 0)} ${name} years`
+  if (years < 1e36) for (const [v, name] of BIG) if (years >= v) return `${formatNumber(years / v, years / v < 10 ? 1 : 0)} ${name} years`
   return `${years.toExponential(1).replace('e+', ' x 10^')} years`
 }
 /** Average time to find a secret with `bits` of entropy at `perSecond` guesses per second (half the space on average). */

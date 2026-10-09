@@ -36,6 +36,17 @@ export function charsetEntropy(pw) {
   const pool = used.reduce((a, c) => a + c.size, 0)
   return { length: len, used, pool, bits: pool > 1 ? len * Math.log2(pool) : 0 }
 }
+/**
+ * zxcvbn prices unmatched ("random") stretches at only 10 guesses per character, which is far too low for a genuinely random 16-character password.
+ * When nothing in a password of 10+ characters matches a pattern, price it by the character pool it actually uses (half the space on average).
+ */
+export function refine(pw, r) {
+  const seq = r.sequence || []
+  if (!seq.length || [...pw].length < 10 || !seq.every((m) => m.pattern === 'bruteforce')) return r
+  const bits = Math.min(charsetEntropy(pw).bits, 1000)
+  if (bits - 1 <= r.guessesLog10 / Math.log10(2)) return r
+  return { ...r, guesses: 2 ** (bits - 1), guessesLog10: (bits - 1) * Math.log10(2), charsetPriced: true }
+}
 const sci = (bits) => {
   const x = bits * Math.log10(2)
   const e = Math.floor(x)
@@ -140,7 +151,7 @@ export function mount(root, { params, signal }) {
   async function analyse(pw) {
     const e = await enginePromise
     if (e?.error) throw e.error
-    return e.check(pw.slice(0, 256))
+    return refine(pw.slice(0, 256), e.check(pw.slice(0, 256)))
   }
 
   // ---------- shared: password box ----------
@@ -179,7 +190,8 @@ export function mount(root, { params, signal }) {
           svg('svg', { viewBox: '0 0 100 100' }, svg('circle', { class: 'bg', cx: 50, cy: 50, r: 44 }), ring),
           h('div', { class: 'sx-ring-c' }, h('div', num, h('small', 'of 4')))),
         h('div', h('div', { class: 'sx-ps-title' }, rating.label),
-          h('div', { class: 'sx-ps-sub' }, crackedIn(g / fast.rate), ' by a GPU rig attacking a fast hash. It takes about ', h('b', `10^${Math.max(0, r.guessesLog10).toFixed(1)}`), ' guesses.')))
+          h('div', { class: 'sx-ps-sub' }, crackedIn(g / fast.rate), ' by a GPU rig attacking a fast hash. It takes about ', h('b', `10^${Math.max(0, r.guessesLog10).toFixed(1)}`), ' guesses.'),
+          r.charsetPriced ? h('div', { class: 'sx-hint', style: 'margin-top:6px' }, 'No patterns were found, so the guess count assumes random characters from the pool you used.') : null))
       requestAnimationFrame(() => { ring.style.strokeDashoffset = String(276.46 * (1 - Math.max(0.06, (r.score + 0.0) / 4))) })
       countUp(num, r.score, (n) => String(Math.round(n)), 500)
 
