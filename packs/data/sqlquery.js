@@ -73,6 +73,10 @@ export function mount(root) {
         defs.push({ name: sqlName(sh == null || sheets.length === 1 ? base : `${base}_${sh}`, used), table: t })
       }
     }
+    const usable = defs.filter((d) => d.table.headers.length)
+    if (!usable.length) { db.close(); clear(schemaHost); clear(ideas); resultWrap.hidden = true; throw new Error('No columns were found in these files. Check the delimiter and the header setting.') }
+    defs.length = 0
+    defs.push(...usable)
     for (const d of defs) {
       const types = inferTypes(d.table)
       const colNames = new Set()

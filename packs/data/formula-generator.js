@@ -121,7 +121,7 @@ export function mount(root) {
   const count = h('div', { class: 'small muted' })
   function paint() {
     const list = searchFormulas(search.value, group)
-    clear(grid, list.length ? list.map(libraryCard) : h('div', { class: 'empty', style: 'grid-column:1/-1' }, icon('search-x'), 'No ready-made formula matches that. Try the AI tab and describe it in your own words.'))
+    clear(grid, list.length ? list.map(libraryCard) : h('div', { class: 'empty' }, icon('search-x'), 'No ready-made formula matches that. Try the AI tab and describe it in your own words.'))
     count.textContent = `${list.length} of ${FORMULAS.length} formulas. Change the cell ranges to match your sheet.`
   }
   search.addEventListener('input', debounce(paint, 120))
@@ -142,8 +142,9 @@ export function mount(root) {
 
 const CSS = `
 .dt-fcode { font-family: var(--mono); font-size: 13px; color: var(--accent); overflow-wrap: anywhere; white-space: pre-wrap; }
-.dt-lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px; }
-.dt-lib { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); min-width: 0; animation: dtIn .45s calc(var(--i, 0) * 35ms) var(--ease) both; transition: transform .3s var(--ease), box-shadow .3s, border-color .3s; }
+.dt-lib-grid { columns: 3 300px; column-gap: 12px; }
+.dt-lib-grid > .empty { column-span: all; }
+.dt-lib { break-inside: avoid; margin: 0 0 12px; display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); min-width: 0; animation: dtIn .45s calc(var(--i, 0) * 35ms) var(--ease) both; transition: transform .3s var(--ease), box-shadow .3s, border-color .3s; }
 .dt-lib:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
 .dt-lib-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .dt-lib-top h3 { font-size: 14.5px; letter-spacing: -.01em; }

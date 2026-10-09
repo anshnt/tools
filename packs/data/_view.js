@@ -97,10 +97,10 @@ const CSS = `
 .dt-t tbody tr:hover td { background: var(--accent-soft); }
 .dt-t td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .dt-t td.dt-e::after { content: ""; display: inline-block; width: 12px; height: 2px; border-radius: 2px; background: var(--border-strong); vertical-align: middle; opacity: .8; }
-.dt-t td.dt-hot { background: color-mix(in srgb, var(--warning) 18%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 45%, transparent); }
-.dt-t td.dt-chg { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); box-shadow: inset 0 -2px 0 var(--accent); }
-.dt-t td.dt-bad { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); }
-.dt-t td.dt-good { background: color-mix(in srgb, var(--success) 14%, var(--surface)); }
+.dt-t tbody tr td.dt-hot { background: color-mix(in srgb, var(--warning) 18%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 45%, transparent); }
+.dt-t tbody tr td.dt-chg { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); box-shadow: inset 0 -2px 0 var(--accent); }
+.dt-t tbody tr td.dt-bad { background: color-mix(in srgb, var(--danger) 14%, var(--surface)); }
+.dt-t tbody tr td.dt-good { background: color-mix(in srgb, var(--success) 14%, var(--surface)); }
 .dt-t td.dt-rn, .dt-t th.dt-rn { position: sticky; left: 0; z-index: 1; width: 56px; padding: 0 8px; text-align: right; color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; background: var(--surface-2); border-right: 1px solid var(--border); }
 .dt-t th.dt-rn { z-index: 3; top: 0; }
 .dt-t tr.dt-rowx td { opacity: .55; text-decoration: line-through; }
@@ -346,6 +346,7 @@ export function tableSource(opts = {}) {
     drop.hidden = has && !multiple
     zone.classList.toggle('compact', has && multiple)
     if (sampleBtn) sampleBtn.hidden = has
+    actions.hidden = has && !multiple
     if (pasteBtn) pasteBtn.hidden = has && entries[0]?.kind !== 'paste'
   }
 
