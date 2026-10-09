@@ -133,6 +133,7 @@ export const unionBox = (a, b) => {
 }
 /** World-space bounding box of a node (groups: union of visible children), or null. */
 export function bboxOf(n, includeHidden = false) {
+  if (n.type === 'group' && n.clip && n.kids.length > 1) return bboxOf(n.kids.at(-1), true) // a clipped group is as big as its mask
   if (n.type === 'group') return n.kids.reduce((acc, k) => (k.vis || includeHidden ? unionBox(acc, bboxOf(k, includeHidden)) : acc), null)
   if (n.type === 'ellipse' && n.t) return subsBBox(transformSubs(ellipseSubs(n.cx, n.cy, n.rx, n.ry), n.t))
   const b = localBBox(n)

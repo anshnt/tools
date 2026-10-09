@@ -187,10 +187,10 @@ export class Editor {
     this.tx('Duplicate', () => { for (const n of nodes) applyMatrix(n, tr(10, 10)); this.add(nodes) })
   }
 
-  group() {
+  group(clip = false) {
     const nodes = this.top
-    if (nodes.length < 2) return
-    this.tx('Group', () => {
+    if (nodes.length < 2) return false
+    this.tx(clip ? 'Make clipping mask' : 'Group', () => {
       const order = new Map(); let k = 0
       walk(this.doc.nodes, (n) => { order.set(n.id, k++) })
       nodes.sort((a, b) => order.get(a.id) - order.get(b.id))
@@ -199,12 +199,19 @@ export class Editor {
       const before = where.list.slice(0, where.index).filter((n) => !ids.has(n.id)).length
       const list = where.list
       const g = mk(this.doc, 'group', { kids: nodes })
+      if (clip) {
+        g.clip = true // the top-most object becomes the mask; it keeps its outline but no longer paints
+        const m = nodes.at(-1)
+        for (const l of leaves(m)) if (l.type !== 'image') { l.fill = null; l.stroke = null }
+      }
       const strip = (arr) => { for (let i = arr.length - 1; i >= 0; i--) { if (ids.has(arr[i].id)) arr.splice(i, 1); else if (arr[i].kids) strip(arr[i].kids) } }
       strip(this.doc.nodes)
       list.splice(before, 0, g)
       this.setSel([g.id])
     })
+    return true
   }
+  /** Release clipping masks (and ungroup plain groups) among the selection. */
   ungroup() {
     const groups = this.top.filter((n) => n.type === 'group')
     if (!groups.length) return
@@ -213,6 +220,7 @@ export class Editor {
       for (const g of groups) {
         const w = find(this.doc, g.id)
         if (!w) continue
+        if (g.clip) for (const l of leaves(g.kids.at(-1))) if (l.type !== 'image' && !l.fill && !l.stroke) l.stroke = solid('#1b1b2f') // a released mask shows its outline
         for (const k of g.kids) { if (g.op < 1) k.op = k.op * g.op; out.push(k.id) }
         w.list.splice(w.index, 1, ...g.kids)
       }

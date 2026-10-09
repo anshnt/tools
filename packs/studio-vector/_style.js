@@ -167,6 +167,7 @@ const CSS = `
 .t-vs .vs-layer.drop-above { box-shadow: 0 -2px 0 var(--accent); }
 .t-vs .vs-layer.drop-below { box-shadow: 0 2px 0 var(--accent); }
 .t-vs .vs-layer.drop-into { outline: 2px solid var(--accent); }
+.t-vs .vs-mask { color: var(--muted); font-style: normal; font-size: 11px; }
 .t-vs .vs-lname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .t-vs .vs-licon { display: grid; place-items: center; color: var(--muted); }
 .t-vs .vs-licon .icon { width: 15px; height: 15px; }

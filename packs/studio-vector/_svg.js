@@ -54,15 +54,31 @@ function imageSvg(n, extra, ctx) {
   return `<image x="${num(n.x)}" y="${num(n.y)}" width="${num(n.w)}" height="${num(n.h)}" preserveAspectRatio="none" href="${esc(n.href)}"${ctx.canvas ? '' : ` xlink:href="${esc(n.href)}"`}${matrixAttr(n.t)}${extra}/>`
 }
 
+/** Geometry only (no paint) of a mask shape, for <clipPath>. */
+function clipShapes(n) {
+  if (n.type === 'group') return n.kids.map(clipShapes).join('')
+  if (n.type === 'text') return `<text font-family="${esc(n.ff)}" font-size="${num(n.fs)}"${n.fw && n.fw !== 400 ? ` font-weight="${n.fw}"` : ''}${n.ta && n.ta !== 'start' ? ` text-anchor="${esc(n.ta)}"` : ''}${matrixAttr(n.t)}>${n.text.split('\n').map((ln, i) => `<tspan x="${num(n.x)}" y="${num(n.y + i * n.fs * n.lh)}">${esc(ln)}</tspan>`).join('')}</text>`
+  if (n.type === 'image') return `<rect x="${num(n.x)}" y="${num(n.y)}" width="${num(n.w)}" height="${num(n.h)}"${matrixAttr(n.t)}/>`
+  const tag = TAG[n.type]
+  return `<${tag} ${n.type === 'path' ? `d="${subsToD(n.subs)}"${n.rule === 'evenodd' ? ' clip-rule="evenodd"' : ''}` : geomAttrs(n)}${matrixAttr(n.t)}/>`
+}
+
 /** SVG markup for one node. ctx: {canvas, defs, gid}. */
 export function nodeSvg(n, ctx) {
   if (!n.vis || ctx.skip === n.id) return ''
   const o = n.op < 1 ? ` opacity="${num(n.op)}"` : ''
   const ed = ctx.canvas ? ` data-id="${n.id}"${n.lock ? ' data-lock="1"' : ''}` : ''
   if (n.type === 'group') {
-    const inner = n.kids.map((k) => nodeSvg(k, ctx)).join(ctx.canvas ? '' : '\n')
+    const clip = n.clip && n.kids.length > 1 ? n.kids.at(-1) : null
+    const inner = (clip ? n.kids.slice(0, -1) : n.kids).map((k) => nodeSvg(k, ctx)).join(ctx.canvas ? '' : '\n')
     if (!inner) return ''
-    return `<g${idAttr(n, ctx)}${o}${ed}>${ctx.canvas ? '' : '\n'}${inner}${ctx.canvas ? '' : '\n'}</g>`
+    let clipAttr = ''
+    if (clip) {
+      const cid = ctx.canvas ? `clip-${n.id}` : `clip${++ctx.cid}`
+      ctx.defs.push(`<clipPath id="${cid}">${clipShapes(clip)}</clipPath>`)
+      clipAttr = ` clip-path="url(#${cid})"`
+    }
+    return `<g${idAttr(n, ctx)}${clipAttr}${o}${ed}>${ctx.canvas ? '' : '\n'}${inner}${ctx.canvas ? '' : '\n'}</g>`
   }
   if (n.type === 'text') return textSvg(n, o + ed, ctx)
   if (n.type === 'image') return imageSvg(n, o + ed, ctx)
@@ -89,7 +105,7 @@ function idAttr(n, ctx) {
 
 /** Markup of the artwork (everything inside the artboard's SVG), canvas or export flavour. */
 export function artSvg(doc, { canvas = false, skip = null } = {}) {
-  const ctx = { canvas, skip, defs: [], gid: 0, ids: new Set() }
+  const ctx = { canvas, skip, defs: [], gid: 0, cid: 0, ids: new Set() }
   const body = doc.nodes.map((n) => nodeSvg(n, ctx)).join(canvas ? '' : '\n')
   return { defs: ctx.defs.join(canvas ? '' : '\n'), body, hasImage: /<image /.test(body) }
 }

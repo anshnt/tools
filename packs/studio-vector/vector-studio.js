@@ -92,7 +92,7 @@ export async function mount(root, { tool, params = {}, signal }) {
   const saved = h('span', { class: 'vs-saved', 'aria-live': 'polite' }, h('i'), h('span', 'Saved on this device'))
   const status = h('div', { class: 'vs-status' }, statusMsg, selInfo, coords, saved)
   const main = h('div', { class: 'vs-main' }, cv.root, status)
-  const api = { toast: (m) => toast(m), boolean: (op) => ed.boolean(op).catch((e) => toast(errorMessage(e), 'error')), exportDialog: () => exportDialog(ed, fileName), open: () => openFiles(), save: () => saveProject() }
+  const api = { toast: (m) => toast(m), boolean: (op) => ed.boolean(op).catch((e) => toast(errorMessage(e), 'error')), clip: () => { if (!ed.group(true)) toast('Select two or more objects. The top one becomes the mask.') }, exportDialog: () => exportDialog(ed, fileName), open: () => openFiles(), save: () => saveProject() }
   const sidePanel = buildSide(ed, api)
   const side = h('aside', { class: 'vs-side', 'aria-label': 'Properties panels' }, sidePanel.el)
   const body = h('div', { class: 'vs-body' }, rail, main, side)
@@ -325,6 +325,7 @@ export async function mount(root, { tool, params = {}, signal }) {
       else if (lk === 'v') { if (sh) { stop(); ed.paste(true) } /* plain Ctrl+V is handled by the paste event */ }
       else if (lk === 'd') { stop(); ed.duplicate() }
       else if (lk === 'g') { stop(); sh ? ed.ungroup() : ed.group() }
+      else if (k === '7') { stop(); e.altKey ? ed.ungroup() : api.clip() }
       else if (k === ']' || k === '}') { stop(); ed.order(sh ? 'front' : 'forward') }
       else if (k === '[' || k === '{') { stop(); ed.order(sh ? 'back' : 'backward') }
       else if (k === '0') { stop(); ed.fit() }

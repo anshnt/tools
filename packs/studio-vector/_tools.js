@@ -216,7 +216,7 @@ export function createTools(cv) {
         const fr = frame()
         if (!fr) return s
         const top = ed.top
-        if (top.length === 1) s += outline(top[0])
+        if (top.length === 1) s += outline(top[0]) + (top[0].clip ? outline(top[0].kids.at(-1)) : '')
         if (top.length > 1) for (const n of top) { const b = bboxOf(n); if (b) { const [x0, y0] = cv.S(b.x, b.y); s += rect(x0, y0, b.w * cv.z, b.h * cv.z, 'ov-sub') } }
         s += rect(fr.x0, fr.y0, fr.x1 - fr.x0, fr.y1 - fr.y0, 'ov-box')
         s += gradOverlay()

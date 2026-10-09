@@ -1,7 +1,7 @@
 // SVG import for Vector Studio. The file is parsed with DOMParser and rebuilt as editor nodes, never inserted as markup,
 // so scripts, event handlers and external references in the file cannot run. Clip paths, masks, filters and patterns are skipped.
 import { I, mul, tr, sc, rot, DEG, ap, det, parseD, transformSubs, P } from './_geom.js'
-import { mk, applyMatrix, localBBox, solid } from './_model.js'
+import { mk, applyMatrix, localBBox, solid, leaves, toSubs } from './_model.js'
 
 const INHERIT = ['fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit', 'fill-rule', 'fill-opacity', 'stroke-opacity',
   'font-family', 'font-size', 'font-weight', 'font-style', 'text-anchor', 'letter-spacing', 'color']
@@ -200,13 +200,37 @@ export function parseSvg(text, doc) {
   }
   const pointsOf = (s) => { const a = nums(s), pts = []; for (let i = 0; i + 1 < a.length; i += 2) pts.push(P(a[i], a[i + 1])); return pts }
 
+  // clip-path="url(#id)": the referenced shapes become the mask (top-most object) of a clipping group
+  const clipOf = (el) => {
+    const v = el.getAttribute('clip-path') || parseDecls(el.getAttribute('style'))['clip-path'] || ''
+    const m = v.match(/^url\(\s*['"]?#([^)'"]+)['"]?\s*\)/)
+    const cp = m && byId.get(m[1])
+    return cp && cp.localName === 'clipPath' ? cp : null
+  }
+  function buildClip(cp, M, depth) {
+    if ((cp.getAttribute('clipPathUnits') || '') === 'objectBoundingBox') return null
+    const Mc = mul(M, parseTransform(cp.getAttribute('transform')))
+    const subs = []
+    for (const c of cp.children) for (const n of res2leaves(convertEl(c, { fill: 'black' }, Mc, depth + 1))) { const x = toSubs(n); if (x) subs.push(...x) }
+    return subs.length ? mk(doc, 'path', { subs, name: 'Clip path' }, { fill: null, stroke: null, sw: 0, dash: '', cap: 'butt', join: 'miter', ml: 4, rule: 'nonzero' }) : null
+  }
+  const res2leaves = (nodes) => nodes.flatMap((n) => leaves(n))
   function convert(el, inherited, M, depth = 0) {
+    const kids = convertEl(el, inherited, M, depth)
+    const cp = kids.length && el.nodeType === 1 ? clipOf(el) : null
+    if (!cp) return kids
+    const mask = buildClip(cp, mul(M, parseTransform(el.getAttribute('transform'))), depth)
+    if (!mask) { warn.add('clip paths'); return kids }
+    return [mk(doc, 'group', { kids: [...kids, mask], clip: true })]
+  }
+
+  function convertEl(el, inherited, M, depth = 0) {
     if (el.nodeType !== 1 || depth > 40) return []
     const tag = el.localName
     if (['defs', 'clippath', 'mask', 'filter', 'lineargradient', 'radialgradient', 'pattern', 'style', 'title', 'desc', 'metadata', 'marker', 'symbol', 'script', 'foreignobject', 'animate', 'set', 'animatetransform'].includes(tag.toLowerCase())) return []
     const { props, own } = propsFor(el, inherited)
     if (own.display === 'none') return []
-    for (const a of ['clip-path', 'mask', 'filter']) if (el.hasAttribute(a) && !/^none$/i.test(el.getAttribute(a))) warn.add(a === 'clip-path' ? 'clip paths' : a === 'mask' ? 'masks' : 'filters')
+    for (const a of ['mask', 'filter']) if (el.hasAttribute(a) && !/^none$/i.test(el.getAttribute(a))) warn.add(a === 'mask' ? 'masks' : 'filters')
     const own_M = mul(M, parseTransform(el.getAttribute('transform')))
     const AXIS = { x: 'w', cx: 'w', x1: 'w', x2: 'w', width: 'w', rx: 'w', y: 'h', cy: 'h', y1: 'h', y2: 'h', height: 'h', ry: 'h', r: 'r' }
     const n = (a, d = 0) => {

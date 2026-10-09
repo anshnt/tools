@@ -137,7 +137,7 @@ function designTab(ed, api) {
   const arrange = section('Arrange',
     h('div', { class: 'vs-ibs wrap' },
       ib('bring-to-front', 'Bring to front', () => ed.order('front')), ib('arrow-up', 'Bring forward', () => ed.order('forward')), ib('arrow-down', 'Send backward', () => ed.order('backward')), ib('send-to-back', 'Send to back', () => ed.order('back')),
-      ib('group', 'Group (Ctrl+G)', () => ed.group()), ib('ungroup', 'Ungroup (Ctrl+Shift+G)', () => ed.ungroup()), ib('copy', 'Duplicate (Ctrl+D)', () => ed.duplicate()), ib('trash-2', 'Delete', () => ed.deleteSelection())))
+      ib('group', 'Group (Ctrl+G)', () => ed.group()), ib('ungroup', 'Ungroup or release a clipping mask (Ctrl+Shift+G)', () => ed.ungroup()), ib('crop', 'Make clipping mask (Ctrl+7): the top object masks the others', () => api.clip()), ib('copy', 'Duplicate (Ctrl+D)', () => ed.duplicate()), ib('trash-2', 'Delete', () => ed.deleteSelection())))
 
   el.append(summary, transform, appearance, typeSec, alignSec, pathSec, arrange)
 
@@ -186,9 +186,9 @@ function layersTab(ed) {
   el.append(bar, list)
 
   const ICONS = { rect: 'square', ellipse: 'circle', path: 'spline', text: 'type', group: 'folder', image: 'image' }
-  function row(n, depth) {
+  function row(n, depth, isMask = false) {
     const sel = ed.sel.includes(n.id)
-    const name = h('span', { class: 'vs-lname', title: 'Double-click to rename' }, label(n))
+    const name = h('span', { class: 'vs-lname', title: 'Double-click to rename' }, label(n), isMask && h('em', { class: 'vs-mask' }, ' (mask)'))
     const li = h('li', {
       class: ['vs-layer', sel && 'sel', !n.vis && 'off', n.lock && 'locked', ed.ctx === n.id && 'ctx'], role: 'treeitem', 'aria-selected': String(sel), draggable: true, tabindex: -1, 'data-id': n.id,
       style: { '--d': depth },
@@ -231,12 +231,12 @@ function layersTab(ed) {
   function render() {
     const rows = []
     const MAX = 400
-    const walkList = (nodes, depth) => {
+    const walkList = (nodes, depth, parent = null) => {
       for (let i = nodes.length - 1; i >= 0; i--) {
         if (rows.length >= MAX) return
         const n = nodes[i]
-        rows.push(row(n, depth))
-        if (n.kids && open.has(n.id)) walkList(n.kids, depth + 1)
+        rows.push(row(n, depth, !!parent?.clip && i === nodes.length - 1 && nodes.length > 1))
+        if (n.kids && open.has(n.id)) walkList(n.kids, depth + 1, n)
       }
     }
     walkList(ed.doc.nodes, 0)
