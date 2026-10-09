@@ -151,7 +151,9 @@ export function loadEngine(device = 'wasm', onProgress) {
     }
     engines.set(device, (async () => {
       const [{ StyleTextToSpeech2Model, AutoTokenizer, Tensor, env }] = await Promise.all([transformers(), import(PHONEMIZER)])
-      if (device === 'wasm') env.backends.onnx.wasm.proxy = true // run the CPU model in a worker so the page stays responsive while it speaks
+      // Run the CPU model in a worker so the page stays responsive while it speaks. The flag is fixed once the runtime has started, and the
+      // GPU runtime cannot be proxied, so it is only turned on when no GPU engine exists in this page (otherwise a CPU fallback would break).
+      if (device === 'wasm' && !engines.has('webgpu')) env.backends.onnx.wasm.proxy = true
       const [model, tokenizer] = await Promise.all([
         StyleTextToSpeech2Model.from_pretrained(MODEL, { dtype: device === 'webgpu' ? 'q8f16' : 'q8', device, progress_callback: cb }),
         AutoTokenizer.from_pretrained(MODEL, { progress_callback: cb }),
