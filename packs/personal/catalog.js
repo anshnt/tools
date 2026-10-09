@@ -7,7 +7,7 @@ export default [
   { id: 'shopping-list', name: 'Shopping list', module: 'lists', params: { kind: 'shopping' }, desc: 'Shopping list with prices and a running total.', icon: 'shopping-cart', tags: 'shopping buy', ready: true },
   { id: 'meal-planner', name: 'Meal planner', desc: 'Plan the week of meals and generate the grocery list from it.', icon: 'utensils', tags: 'meal plan weekly menu', ready: true },
   { id: 'recipe-scaler', name: 'Recipe scaler', desc: 'Scale recipe ingredients for more or fewer servings, with unit conversion.', icon: 'chef-hat', tags: 'recipe servings scale cooking', ready: true },
-  { id: 'trip-itinerary', name: 'Trip itinerary planner', desc: 'Plan days, places and bookings; print or share the itinerary.', icon: 'map', tags: 'travel itinerary trip plan' },
+  { id: 'trip-itinerary', name: 'Trip itinerary planner', desc: 'Plan days, places and bookings; print or share the itinerary.', icon: 'map', tags: 'travel itinerary trip plan', ready: true },
   { id: 'packing-list', name: 'Packing list generator', desc: 'A packing list tailored to trip length, weather and activities.', icon: 'luggage', tags: 'packing travel checklist' },
   { id: 'budget-tracker', name: 'Budget tracker', desc: 'Track income and expenses by category with monthly charts.', icon: 'wallet', also: ['calc'], tags: 'budget expenses money tracker', ready: true },
   { id: 'expense-splitter', name: 'Group expense splitter', desc: 'Split shared expenses among friends and settle up with fewest payments.', icon: 'users', also: ['calc'], tags: 'splitwise split expenses settle', ready: true },
