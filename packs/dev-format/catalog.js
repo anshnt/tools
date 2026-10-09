@@ -1,12 +1,12 @@
 // Pack dev-format: formatters, validators, viewers and diffing. Default category: dev.
 export const cat = 'dev'
 export default [
-  { id: 'json-formatter', name: 'JSON formatter', desc: 'Pretty-print, minify and fix JSON with syntax errors pointed out.', icon: 'braces', also: ['data'], tags: 'json pretty beautify format' },
-  { id: 'json-validator', name: 'JSON validator', module: 'json-formatter', params: { mode: 'validate' }, desc: 'Validate JSON and see exactly where it breaks.', icon: 'circle-check', tags: 'json lint validate' },
+  { id: 'json-formatter', name: 'JSON formatter', desc: 'Pretty-print, minify and fix JSON with syntax errors pointed out.', icon: 'braces', also: ['data'], tags: 'json pretty beautify format', ready: true },
+  { id: 'json-validator', name: 'JSON validator', module: 'json-formatter', params: { mode: 'validate' }, desc: 'Validate JSON and see exactly where it breaks.', icon: 'circle-check', tags: 'json lint validate', ready: true },
   { id: 'json-tree-viewer', name: 'JSON tree viewer', desc: 'Explore large JSON as a collapsible tree with search and paths.', icon: 'list-tree', tags: 'json viewer explorer' },
   { id: 'json-diff', name: 'JSON diff', desc: 'Compare two JSON documents structurally, ignoring key order.', icon: 'git-compare', tags: 'json compare difference' },
-  { id: 'json-schema-generator', name: 'JSON schema generator', desc: 'Infer a JSON Schema from sample JSON.', icon: 'file-json', tags: 'schema infer json' },
-  { id: 'json-to-typescript', name: 'JSON to TypeScript', desc: 'Generate TypeScript interfaces from JSON.', icon: 'file-code', tags: 'typescript types interface' },
+  { id: 'json-schema-generator', name: 'JSON schema generator', desc: 'Infer a JSON Schema from sample JSON.', icon: 'file-json', tags: 'schema infer json', ready: true },
+  { id: 'json-to-typescript', name: 'JSON to TypeScript', desc: 'Generate TypeScript interfaces from JSON.', icon: 'file-code', tags: 'typescript types interface', ready: true },
   { id: 'xml-formatter', name: 'XML formatter', desc: 'Pretty-print, minify and validate XML.', icon: 'code-xml', tags: 'xml pretty' },
   { id: 'yaml-formatter', name: 'YAML formatter', desc: 'Format and validate YAML.', icon: 'file-cog', tags: 'yaml yml lint' },
   { id: 'yaml-to-json', name: 'YAML to JSON', module: 'yaml-formatter', params: { convert: true }, desc: 'Convert YAML to JSON and JSON to YAML.', icon: 'arrow-left-right', tags: 'yaml json convert' },
