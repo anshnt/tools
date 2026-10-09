@@ -31,7 +31,8 @@ const CSS = `
   .wt-omni .btn { grid-column: 1 / -1; width: 100%; border-radius: 18px; }
 }
 
-.wt-note { font-size: 12.5px; color: var(--muted); display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap; overflow-wrap: anywhere; }
+.wt-note { font-size: 12.5px; color: var(--muted); display: flex; gap: 6px; align-items: flex-start; overflow-wrap: anywhere; }
+.wt-note > span { min-width: 0; flex: 1; }
 .wt-note .icon { width: 14px; height: 14px; flex: none; margin-top: 2px; }
 .wt-kicker { font-size: 11.5px; letter-spacing: .09em; text-transform: uppercase; font-weight: 650; color: var(--muted); }
 .wt-rise { animation: rise .55s var(--ease) both; animation-delay: calc(var(--i, 0) * 55ms); }
@@ -300,3 +301,40 @@ export async function copyImage(blob) {
 
 /** Run an async job and swap a skeleton in meanwhile. */
 export const skeleton = (lines = 3) => h('div', { class: 'stack', 'aria-hidden': 'true' }, Array.from({ length: lines }, (_, i) => h('div', { class: 'wt-skel', style: { height: i === 0 ? '28px' : '18px', width: i === 0 ? '55%' : `${92 - i * 14}%` } })))
+
+// ---------- Shareable links (#/tool?q=value) ----------
+/** Read a value from the tool's hash query, e.g. #/dns-lookup?q=example.com */
+export const hashParam = (name) => { try { return new URLSearchParams(location.hash.split('?')[1] || '').get(name) || '' } catch { return '' } }
+/** Update the hash query without triggering the router (replaceState does not fire hashchange). */
+export function setHashParams(obj) {
+  try {
+    const base = location.hash.split('?')[0] || '#/'
+    const p = new URLSearchParams()
+    for (const [k, v] of Object.entries(obj)) if (v != null && v !== '') p.set(k, v)
+    history.replaceState(history.state, '', `${location.pathname}${location.search}${base}${[...p].length ? `?${p}` : ''}`)
+  } catch { /* ignore */ }
+}
+
+// ---------- Text repair ----------
+const CP1252 = { 0x20ac: 0x80, 0x201a: 0x82, 0x0192: 0x83, 0x201e: 0x84, 0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02c6: 0x88, 0x2030: 0x89, 0x0160: 0x8a, 0x2039: 0x8b, 0x0152: 0x8c,
+  0x017d: 0x8e, 0x2018: 0x91, 0x2019: 0x92, 0x201c: 0x93, 0x201d: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97, 0x02dc: 0x98, 0x2122: 0x99, 0x0161: 0x9a, 0x203a: 0x9b, 0x0153: 0x9c, 0x017e: 0x9e, 0x0178: 0x9f }
+/** Some scrapers return UTF-8 text decoded as Windows-1252 ("Â·", "â€™"). Undo that when the text clearly shows it; otherwise return it unchanged. */
+export function fixMojibake(s) {
+  if (typeof s !== 'string' || !/[\u00c2\u00c3\u00e2][\u0080-\u00bf\u20ac\u201a-\u203a\u0152\u0153\u0160\u0161\u0178\u017d\u017e\u0192\u02c6\u02dc\u2122]/.test(s)) return s
+  const bytes = []
+  for (const ch of s) {
+    const c = ch.codePointAt(0)
+    if (c < 256) bytes.push(c)
+    else if (CP1252[c]) bytes.push(CP1252[c])
+    else return s
+  }
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(bytes)) } catch { return s }
+}
+
+/** Measure text width in px (canvas), used for SERP truncation. */
+let measureCtx
+export function textWidth(text, font = '20px Arial, sans-serif') {
+  measureCtx ??= document.createElement('canvas').getContext('2d')
+  measureCtx.font = font
+  return measureCtx.measureText(text).width
+}
