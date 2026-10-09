@@ -1,7 +1,7 @@
 // SIP calculator: future value of a monthly SIP with an optional yearly step-up, in today's money too.
 import { h, card, panel, split, stack, table, button, alert, clear } from '../../lib/ui.js'
 import { inr, lakhCrore, sipProject } from './_calc.js'
-import { useStyles, statTiles, numField, hero, stackedChart, SERIES_COLORS, note, downloadCsv } from './_shared.js'
+import { useStyles, liveHero, statTiles, numField, hero, stackedChart, SERIES_COLORS, note, downloadCsv } from './_shared.js'
 
 export function mount(root) {
   useStyles()
@@ -50,5 +50,6 @@ export function mount(root) {
       stack(top, tiles), 'wide-left'),
     card('Growth year by year', chart.el),
     panel(h('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:10px' }, h('h2', { style: 'margin:0' }, 'Year-by-year table'), csvBtn), tableBox)))
+  liveHero(top)
   render()
 }

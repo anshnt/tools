@@ -1,10 +1,10 @@
 // Preset workbench: pick a form or exam, then one slot per upload it asks for (photo, signature, thumb, declaration).
 // Shared by the government photo resizer and the photo + signature package tool.
-import { h, icon, panel, stack, field, button, busy, alert, clear, number, select, onCleanup, download, debounce } from '../../lib/ui.js'
+import { h, icon, panel, stack, field, button, busy, clear, number, select, onCleanup, download, debounce } from '../../lib/ui.js'
 import { zip } from '../../lib/files.js'
 import { PRESETS, GROUPS, presetById, customPreset } from './_presets.js'
 import { createSlot } from './_slot.js'
-import { useStyles, note, kv, link } from './_shared.js'
+import { useStyles, note, link } from './_shared.js'
 
 /**
  * createWorkbench({focus, initial, onChange}) -> {el, slots(), preset(), prefix(), zipBlob(), results()}

@@ -1,7 +1,7 @@
 // Train PNR helper: checks the PNR format and hands you to the official status pages (no scraping, nothing is sent from this page).
-import { h, card, panel, stack, input, field, alert, table, clear, icon, copyText, debounce } from '../../lib/ui.js'
+import { h, card, panel, stack, input, field, alert, clear, icon, copyText, debounce } from '../../lib/ui.js'
 import { checkPnr, STATUS_GUIDE } from './_trains.js'
-import { useStyles, style, note, link, details } from './_shared.js'
+import { useStyles, style, note, link, guide } from './_shared.js'
 
 const SITES = [
   { name: 'Indian Railways PNR enquiry', url: 'https://www.indianrail.gov.in/enquiry/PNR/PnrEnquiry.html?locale=en', hint: 'Official page of the Railways. Type the PNR and the captcha.' },
@@ -32,7 +32,7 @@ export function mount(root) {
   root.append(stack(
     panel(h('div', { class: 'stack' }, field('PNR number', pnr), status, sites)),
     alert('info', h('strong', 'Why not show the status here? '), 'Live PNR status exists only inside the Railways\' own systems, which ask for a captcha, so a web page like this cannot fetch it. We check your number and take you to the official pages instead. Railway helpline: call 139.'),
-    card('How to read your status', table({ columns: ['Status', 'Meaning'], rows: STATUS_GUIDE })),
+    card('How to read your status', guide(STATUS_GUIDE)),
     note('Never share your PNR with someone who asks for it together with an OTP or a payment: it is not needed for either. Official sites: ', link('https://www.indianrail.gov.in/', 'indianrail.gov.in'), ' and ', link('https://www.irctc.co.in/', 'irctc.co.in'), '. Nothing you type here leaves your device.')))
   render()
 }

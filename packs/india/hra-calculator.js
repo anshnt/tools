@@ -1,7 +1,7 @@
 // HRA exemption calculator (old tax regime, section 10(13A)): the least of three amounts.
 import { h, card, split, stack, segmented, alert, clear } from '../../lib/ui.js'
-import { inr, lakhCrore, hraExemption, hraRate, HRA_METROS, HRA_NEW_METROS, TAX_YEARS } from './_calc.js'
-import { useStyles, statTiles, numField, selectField, hero, kv, note, link } from './_shared.js'
+import { inr, hraExemption, hraRate, HRA_METROS, HRA_NEW_METROS, TAX_YEARS } from './_calc.js'
+import { useStyles, liveHero, statTiles, numField, selectField, hero, kv, note, link } from './_shared.js'
 
 const CITIES = [...HRA_METROS, ...HRA_NEW_METROS, 'Any other city']
 
@@ -60,6 +60,7 @@ export function mount(root) {
     card('Salary and rent', h('div', { class: 'stack' }, per, h('div', { class: 'grid-2' }, basic.el, hra.el, rent.el, months.el, city.el, fy.el), slab.el, msg,
       note('HRA exemption is for the old tax regime only; the new regime does not allow it. Rule: section 10(13A) of the old Act (renumbered in the Income-tax Act 2025). The 50% metro list grew from four cities to eight from FY 2026-27 under the new Income-tax Rules. See ', link('https://www.incometax.gov.in/', 'incometax.gov.in'), '. Check with your employer\'s payroll before relying on this.'))),
     stack(top, tiles, rules, tip), 'wide-left'))
+  liveHero(top)
   relabel()
   render()
 }

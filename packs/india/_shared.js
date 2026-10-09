@@ -24,6 +24,11 @@ const CSS = `
 .in-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .in-stats .stat { padding: 13px 14px; }
 .in-stats .stat .value { font-size: clamp(18px, 5vw, 22px); overflow-wrap: break-word; }
+.in-guide { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
+.in-guide > div { display: grid; grid-template-columns: minmax(70px, 100px) minmax(0, 1fr); gap: 12px; padding: 10px 14px; border-top: 1px solid var(--border); font-size: 14px; }
+.in-guide > div:first-child { border-top: 0; }
+.in-guide dt { font-family: var(--mono); font-weight: 650; font-size: 13px; overflow-wrap: anywhere; }
+.in-guide dd { margin: 0; color: var(--text-2); overflow-wrap: anywhere; }
 .in-details { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
 .in-details > summary { cursor: pointer; padding: 12px 14px; font-weight: 600; font-size: 14px; list-style: none; display: flex; justify-content: space-between; gap: 8px; border-radius: 14px; }
 .in-details > summary::-webkit-details-marker { display: none; }
@@ -44,8 +49,8 @@ const CSS = `
 .in-kv { display: grid; gap: 0; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--surface); }
 .in-kv > div { display: flex; justify-content: space-between; gap: 14px; padding: 10px 14px; font-size: 14px; border-top: 1px solid var(--border); }
 .in-kv > div:first-child { border-top: 0; }
-.in-kv > div span:first-child { color: var(--text-2); min-width: 0; overflow-wrap: anywhere; }
-.in-kv > div span:last-child { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.in-kv > div span:first-child { color: var(--text-2); min-width: 0; flex: 1 1 auto; overflow-wrap: break-word; }
+.in-kv > div span:last-child { font-variant-numeric: tabular-nums; text-align: right; max-width: 62%; flex: 0 1 auto; overflow-wrap: anywhere; }
 .in-kv > div.strong { background: var(--surface-2); font-weight: 650; }
 .in-kv > div.strong span:first-child { color: var(--text); }
 .in-kv > div.neg span:last-child { color: var(--success); }
@@ -58,7 +63,15 @@ const CSS = `
 .in-check li.bad .icon { color: var(--danger); }
 .in-check li.warn .icon { color: var(--warning); }
 .in-check li span.v { margin-left: auto; font-variant-numeric: tabular-nums; text-align: right; color: var(--muted); padding-left: 8px; }
-@media (prefers-reduced-motion: reduce) { .in-chart .bar rect { transition: none; } }
+.in-live { display: none; }
+@media (max-width: 900px) {
+  .in-live { position: fixed; z-index: 40; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-radius: 16px;
+    background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); box-shadow: var(--shadow-lg); color: var(--text); cursor: pointer; font: inherit; text-align: left; transform: translateY(0); transition: transform .25s var(--ease), opacity .25s; }
+  .in-live[hidden] { display: flex; transform: translateY(140%); opacity: 0; pointer-events: none; }
+  .in-live .k { font-size: 12.5px; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+  .in-live .v { font-size: 19px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; letter-spacing: -.02em; white-space: nowrap; }
+}
+@media (prefers-reduced-motion: reduce) { .in-chart .bar rect { transition: none; } .in-live { transition: none; } }
 `
 export const useStyles = () => style('in-style', CSS)
 
@@ -222,3 +235,34 @@ export const downloadCsv = (rows, name) => download(`﻿${csv(rows)}`, name, 'te
 
 /** Parse #/tool?x=1 query params. */
 export const query = () => new URLSearchParams(location.hash.split('?')[1] || '')
+
+/**
+ * Phone helper: a pill pinned to the bottom of the screen that repeats the headline result while the real result card is scrolled out of view
+ * (inputs come first on small screens, so you would otherwise type blind). target is the element that holds the result, read() -> {label, value}.
+ * Tapping the pill scrolls the result into view. It is hidden on wide screens, where inputs and results sit side by side.
+ */
+export function liveBar(target, read) {
+  const k = h('span', { class: 'k' }), v = h('span', { class: 'v' })
+  const bar = h('button', { type: 'button', class: 'in-live', hidden: true, 'aria-label': 'Jump to the result', onclick: () => target.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' }) }, k, v)
+  document.body.append(bar)
+  let visible = true
+  const sync = () => {
+    const r = read()
+    k.textContent = r?.label || ''
+    v.textContent = r?.value || ''
+    bar.hidden = visible || !r?.value
+  }
+  const mo = new MutationObserver(sync)
+  mo.observe(target, { childList: true, subtree: true, characterData: true })
+  const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((e) => { visible = e[0].isIntersecting; sync() }, { threshold: 0.1 }) : null
+  io?.observe(target)
+  sync()
+  onCleanup(() => { mo.disconnect(); io?.disconnect(); bar.remove() })
+  return bar
+}
+
+/** liveBar for a hero() element. */
+export const liveHero = (heroEl) => liveBar(heroEl, () => ({ label: heroEl.querySelector('.k')?.textContent, value: heroEl.querySelector('.v')?.textContent }))
+
+/** Term and meaning rows that wrap on phones: guide([[term, meaning]]) */
+export const guide = (rows) => h('dl', { class: 'in-guide' }, rows.map(([k, v]) => h('div', h('dt', k), h('dd', v))))

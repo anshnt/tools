@@ -1,5 +1,5 @@
 // Signature background remover: paper to transparent (PNG) or white (JPG), darker ink in black, blue or its own colour.
-import { h, stack, split, panel, dropzone, button, field, number, segmented, rangeField, toggle, alert, clear, downloadButton, formatBytes, debounce, toast } from '../../lib/ui.js'
+import { h, stack, split, panel, dropzone, field, number, segmented, rangeField, toggle, alert, clear, downloadButton, formatBytes, debounce, toast } from '../../lib/ui.js'
 import { loadImage, toBlob, toCanvas, canvas as newCanvas } from '../../lib/image.js'
 import { baseName } from '../../lib/files.js'
 import { cleanSignature, flatten, encodeToSpec } from './_imaging.js'

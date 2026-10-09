@@ -1,6 +1,6 @@
 // Government photo resizer: the hub for Aadhaar, PAN, passport, visa, licence and exam form photos and signatures.
 // params.preset limits the list for the focused entries: aadhaar | passport | pan | exam. No param shows every preset.
-import { h, stack, button, clear } from '../../lib/ui.js'
+import { h, stack, button } from '../../lib/ui.js'
 import { createWorkbench } from './_workbench.js'
 import { style } from './_shared.js'
 

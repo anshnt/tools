@@ -1,7 +1,7 @@
 // Gratuity calculator: 15/26 x last drawn wages x years of service, the 6-month rounding rule, the Rs 20 lakh limit and the tax split.
 import { h, card, split, stack, segmented, toggle, alert, input, field, clear } from '../../lib/ui.js'
 import { inr, lakhCrore, gratuity, serviceBetween, GRATUITY_CAP } from './_calc.js'
-import { useStyles, statTiles, numField, selectField, hero, kv, note, link } from './_shared.js'
+import { useStyles, liveHero, statTiles, numField, selectField, hero, kv, note, link } from './_shared.js'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -72,6 +72,7 @@ export function mount(root) {
   for (const x of [wage, years, months, gross, received]) x.input.addEventListener('input', render)
   from.addEventListener('input', render)
   to.addEventListener('input', render)
+  liveHero(top)
   sync()
 
   root.append(split(

@@ -1,5 +1,5 @@
 // Photo + signature package: every file a form asks for in one go (ZIP), or the photo and signature stacked on one image.
-import { h, stack, panel, field, number, button, busy, alert, clear, downloadButton, formatBytes, debounce } from '../../lib/ui.js'
+import { h, stack, panel, field, number, button, alert, clear, downloadButton, formatBytes, debounce } from '../../lib/ui.js'
 import { canvas as newCanvas } from '../../lib/image.js'
 import { createWorkbench } from './_workbench.js'
 import { encodeToSpec } from './_imaging.js'
@@ -9,7 +9,8 @@ async function bitmap(blob) { return createImageBitmap(blob) }
 
 export function mount(root) {
   style('in-pkg', '.in-pkg-out{display:grid;gap:10px;justify-items:start}.in-pkg-out canvas{max-width:100%;height:auto;border:1px solid var(--border);border-radius:6px;background:#fff}')
-  const width = number(400, { min: 100, max: 2000, step: 10, ariaLabel: 'Combined image width', onInput: () => combine() })
+  let widthTouched = false
+  const width = number(400, { min: 100, max: 2000, step: 10, ariaLabel: 'Combined image width', onInput: () => { widthTouched = true; combine() } })
   const gap = number(16, { min: 0, max: 200, step: 2, ariaLabel: 'Gap between photo and signature', onInput: () => combine() })
   const maxKB = number(100, { min: 0, max: 5000, step: 5, ariaLabel: 'Maximum KB for the combined image', onInput: () => combine() })
   const out = h('div', { class: 'in-pkg-out' })
@@ -24,6 +25,7 @@ export function mount(root) {
       return clear(msg, h('div', { class: 'empty' }, 'Add a photograph and a signature above to see them combined on one image.'))
     }
     clear(msg)
+    if (!widthTouched) width.value = photo.slot.spec().w // match the photo's own width so nothing is scaled up
     try {
       const [pb, sb] = await Promise.all([bitmap(photo.result.blob), bitmap(sig.result.blob)])
       const W = Math.round(width.valueAsNumber) || 400, G = Math.round(gap.valueAsNumber) || 0

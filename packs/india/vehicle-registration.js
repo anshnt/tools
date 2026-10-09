@@ -1,5 +1,5 @@
 // Vehicle registration decoder: number plate -> state, RTO office, series; BH series; search RTO codes; links to the official Vahan service.
-import { h, card, panel, stack, split, input, field, select, alert, table, button, clear, debounce, icon, copyButton } from '../../lib/ui.js'
+import { h, card, stack, input, field, select, alert, table, clear, debounce, icon, copyButton } from '../../lib/ui.js'
 import { parsePlate, STATES, rtosOf, stateByCode } from './_rto.js'
 import { useStyles, style, note, link, kv, query } from './_shared.js'
 

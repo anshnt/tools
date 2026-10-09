@@ -1,5 +1,5 @@
 // PIN code finder: post offices for a PIN, or the PIN for a place, from https://api.postalpincode.in (free public API, no key).
-import { h, card, panel, stack, input, field, segmented, button, busy, alert, table, clear, icon, copyButton, debounce } from '../../lib/ui.js'
+import { h, panel, stack, input, field, segmented, button, busy, alert, table, clear, icon, copyButton, debounce } from '../../lib/ui.js'
 import { useStyles, statTiles, note, link, query, downloadCsv } from './_shared.js'
 
 const API = 'https://api.postalpincode.in'

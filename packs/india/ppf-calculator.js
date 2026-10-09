@@ -1,7 +1,7 @@
 // PPF calculator: 15-year maturity, optional 5-year extensions, with or without continued deposits.
 import { h, card, panel, split, stack, table, segmented, toggle, button, alert, clear } from '../../lib/ui.js'
 import { inr, lakhCrore, ppfProject, PPF_RATE, PPF_MAX, PPF_MIN } from './_calc.js'
-import { useStyles, statTiles, numField, selectField, hero, stackedChart, SERIES_COLORS, note, link, downloadCsv } from './_shared.js'
+import { useStyles, liveHero, statTiles, numField, selectField, hero, stackedChart, SERIES_COLORS, note, link, downloadCsv } from './_shared.js'
 
 const MODES = [['lump', 'Whole year by 5 April (best)'], ['monthly', 'Monthly, by the 5th of each month'], ['end', 'Whole year on 31 March (worst)']]
 
@@ -42,5 +42,6 @@ export function mount(root) {
       stack(top, tiles), 'wide-left'),
     card('Balance over the years', chart.el),
     panel(h('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:10px' }, h('h2', { style: 'margin:0' }, 'Year-by-year'), csvBtn), tableBox)))
+  liveHero(top)
   render()
 }

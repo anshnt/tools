@@ -359,6 +359,7 @@ const blobBytes = async (b) => new Uint8Array(await b.arrayBuffer())
  */
 export async function encodeToSpec(c, { minKB = 0, maxKB = 0, dpi = 0, type = 'image/jpeg' } = {}) {
   if (!canEncode(type)) throw new Error('This browser cannot save that image type. Use JPEG.')
+  if (minKB && maxKB && minKB > maxKB) throw new Error('The minimum file size is larger than the maximum. Fix the KB numbers under "Adjust the size rules".')
   const maxBytes = maxKB ? Math.floor(maxKB * 1000) - 64 : Infinity
   let work = c, softened = false, res
   if (maxBytes === Infinity) res = { blob: await toBlob(c, type, 0.92), quality: 0.92 }

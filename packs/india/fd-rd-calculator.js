@@ -1,7 +1,7 @@
 // FD and RD calculator: maturity with quarterly compounding (as Indian banks do), payout options and a TDS heads-up.
 import { h, card, panel, split, stack, table, segmented, toggle, button, alert, clear } from '../../lib/ui.js'
 import { inr, lakhCrore, fdMaturity, fdPayout, fdYearly, rdMaturity, rdYearly, pct } from './_calc.js'
-import { useStyles, statTiles, numField, selectField, hero, stackedChart, SERIES_COLORS, note, downloadCsv } from './_shared.js'
+import { useStyles, liveHero, statTiles, numField, selectField, hero, stackedChart, SERIES_COLORS, note, downloadCsv } from './_shared.js'
 
 const COMP = [['4', 'Quarterly (most banks)'], ['12', 'Monthly'], ['2', 'Half-yearly'], ['1', 'Yearly'], ['0', 'Simple interest at maturity']]
 const PAYOUT = [['0', 'Cumulative (interest added to the deposit)'], ['1', 'Interest paid every month'], ['3', 'Interest paid every quarter'], ['6', 'Interest paid every 6 months'], ['12', 'Interest paid every year']]
@@ -120,5 +120,6 @@ export function mount(root) {
     card('Growth', chart.el),
     panel(h('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:10px' }, tableTitle, csvBtn), tableBox),
     note('TDS thresholds from Budget 2025: ₹40,000 a year per bank for most people and ₹1,00,000 for senior citizens, 10% with PAN. Check ', h('a', { href: 'https://www.incometax.gov.in/', target: '_blank', rel: 'noopener noreferrer' }, 'incometax.gov.in'), ' for the current rules.')))
+  liveHero(top)
   render()
 }

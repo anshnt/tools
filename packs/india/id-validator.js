@@ -1,5 +1,5 @@
 // PAN, GSTIN, Aadhaar, IFSC and more: format and checksum checks that run entirely in the browser.
-import { h, card, panel, stack, textarea, field, select, alert, table, button, clear, debounce, icon } from '../../lib/ui.js'
+import { h, panel, stack, textarea, field, select, alert, table, button, clear, debounce, icon } from '../../lib/ui.js'
 import { identify, CHECKERS, ID_TYPES, verhoeffCheckDigit, mask } from './_ids.js'
 import { useStyles, style, note, kv } from './_shared.js'
 

@@ -1,5 +1,5 @@
 // IFSC code finder: bank, branch, address, MICR and payment rails from https://ifsc.razorpay.com/<IFSC> (free public API, no key).
-import { h, card, panel, stack, input, field, button, busy, alert, clear, icon, copyButton, copyText, toast } from '../../lib/ui.js'
+import { h, panel, stack, input, field, button, busy, alert, clear, icon, copyButton, copyText } from '../../lib/ui.js'
 import { load, save } from '../../lib/store.js'
 import { BANKS } from './_ids.js'
 import { useStyles, style, note, kv, link, query } from './_shared.js'

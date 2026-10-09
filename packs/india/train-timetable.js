@@ -1,5 +1,5 @@
 // Train timetable helper: train number check, station code search and one-tap handoff to the official NTES and IRCTC pages (no scraping).
-import { h, card, panel, stack, input, field, tabs, alert, table, button, clear, icon, copyText, copyButton, debounce, toast } from '../../lib/ui.js'
+import { h, panel, stack, input, field, tabs, alert, table, button, clear, icon, copyText, copyButton, debounce } from '../../lib/ui.js'
 import { checkTrain, searchStations, STATIONS } from './_trains.js'
 import { useStyles, style, note, link } from './_shared.js'
 
@@ -69,9 +69,9 @@ export function mount(root) {
   q.addEventListener('input', debounce(renderList, 80))
 
   const t = tabs([
-    { id: 'train', label: 'Train number', render: () => h('div', { class: 'stack' }, field('Train number', num), numOut) },
-    { id: 'route', label: 'Between stations', render: () => h('div', { class: 'stack' }, h('div', { class: 'grid-2' }, from.el, to.el), h('div', { class: 'row' }, field('Date', date), swap), route) },
-    { id: 'codes', label: 'Station codes', render: () => h('div', { class: 'stack' }, field('Search', q), list) },
+    { id: 'train', label: 'Train', render: () => h('div', { class: 'stack' }, field('Train number', num), numOut) },
+    { id: 'route', label: 'Route', render: () => h('div', { class: 'stack' }, h('div', { class: 'grid-2' }, from.el, to.el), h('div', { class: 'row' }, field('Date', date), swap), route) },
+    { id: 'codes', label: 'Stations', render: () => h('div', { class: 'stack' }, field('Search', q), list) },
   ], 'train')
   root.append(stack(
     panel(t),

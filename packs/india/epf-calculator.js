@@ -1,7 +1,7 @@
 // EPF calculator: balance at retirement from salary, contributions, EPFO interest and yearly raises.
 import { h, card, panel, split, stack, table, button, alert, clear } from '../../lib/ui.js'
 import { inr, lakhCrore, epfProject, EPF_RATE, EPF_WAGE_CEILING } from './_calc.js'
-import { useStyles, statTiles, numField, selectField, hero, stackedChart, SERIES_COLORS, note, link, downloadCsv } from './_shared.js'
+import { useStyles, liveHero, statTiles, numField, selectField, hero, stackedChart, SERIES_COLORS, note, link, downloadCsv } from './_shared.js'
 
 export function mount(root) {
   useStyles()
@@ -34,7 +34,7 @@ export function mount(root) {
     top.set(`Estimated balance at ${f.retire.get()}`, inr(r.balance), `${lakhCrore(r.balance)} after ${r.years} years. Interest alone adds ${inr(r.interest)}.`)
     clear(tiles, statTiles([
       { label: 'Your contributions', value: inr(r.employee + r.opening), hint: r.opening ? 'including today\'s balance' : lakhCrore(r.employee) },
-      { label: 'Employer (EPF part)', value: inr(r.employer), hint: '3.67% of wages, the rest goes to EPS' },
+      { label: 'Employer (EPF part)', value: inr(r.employer), hint: '12% of wages minus the EPS share' },
       { label: 'Interest earned', value: inr(r.interest), accent: true, hint: lakhCrore(r.interest) },
       { label: 'Sent to EPS pension', value: inr(r.eps), hint: '8.33% of up to ₹15,000 wages' },
     ]))
@@ -58,5 +58,6 @@ export function mount(root) {
       stack(top, tiles, pension), 'wide-left'),
     card('Balance over the years', chart.el),
     panel(h('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:10px' }, h('h2', { style: 'margin:0' }, 'Year-by-year'), csvBtn), tableBox)))
+  liveHero(top)
   render()
 }

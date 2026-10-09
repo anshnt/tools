@@ -1,9 +1,9 @@
 // Income tax calculator (India): new vs old regime side by side, with rebate, marginal relief, surcharge and cess.
 // Rules: Income-tax Act 2025 (from 1 April 2026) and Budget 2026, which kept the slabs, the 75,000 standard deduction and the 60,000 rebate (income up to 12 lakh).
 // Official source: https://www.incometax.gov.in/ . Special-rate income (capital gains, lottery) and non-residents are not covered.
-import { h, panel, stack, segmented, toggle, alert, table, copyButton, clear } from '../../lib/ui.js'
+import { h, panel, stack, toggle, alert, table, copyButton, clear } from '../../lib/ui.js'
 import { inr, pct, computeRegime, hraExemption, hraRate, TAX_YEARS, HRA_METROS, HRA_NEW_METROS } from './_calc.js'
-import { useStyles, numField, selectField, details, kv, note, link, statTiles } from './_shared.js'
+import { useStyles, liveBar, numField, selectField, details, kv, note, link, statTiles } from './_shared.js'
 
 const AGES = [['under60', 'Below 60'], ['senior', '60 to 79 (senior)'], ['super', '80 or above']]
 const CITIES = [...HRA_METROS, ...HRA_NEW_METROS, 'Any other city']
@@ -36,6 +36,7 @@ export function mount(root) {
   const hraOut = h('small', { class: 'field-hint' })
   const compare = h('div', { class: 'stack' })
   let summaryText = ''
+  let live = null
   const copy = copyButton(() => summaryText, 'Copy summary')
 
   const issues = () => (Number.isFinite(f.salary.get()) ? '' : 'Enter your gross salary (0 is fine if you have none)')
@@ -82,6 +83,7 @@ export function mount(root) {
       ? alert('info', h('strong', 'Both regimes give the same tax: '), inr(rn.total))
       : alert('success', h('strong', `${winner === 'new' ? 'New' : 'Old'} regime saves you ${inr(diff)} a year. `),
         `${winner === 'new' ? 'New' : 'Old'} regime tax is ${inr(Math.min(rn.total, ro.total))} against ${inr(Math.max(rn.total, ro.total))}.`)
+    live = winner === 'tie' ? { label: 'Tax in either regime', value: inr(rn.total) } : { label: `${winner === 'new' ? 'New' : 'Old'} regime saves you`, value: inr(diff) }
     clear(compare, banner, h('div', { class: 'grid-2' }, regimeCard(rn, winner === 'new'), regimeCard(ro, winner === 'old')))
     summaryText = [`Income tax, ${TAX_YEARS[fy.get()].label}`, `Gross salary ${inr(i.salary)}, other income ${inr(i.other)}`, `New regime: taxable ${inr(rn.taxable)}, tax ${inr(rn.total)}`, `Old regime: taxable ${inr(ro.taxable)}, tax ${inr(ro.total)}`, winner === 'tie' ? 'Same tax in both.' : `${winner === 'new' ? 'New' : 'Old'} regime saves ${inr(diff)}.`].join('\n')
   }
@@ -102,5 +104,6 @@ export function mount(root) {
       h('div', { class: 'row' }, copy))),
     compare,
     note('Rules used: slabs of ₹4, 8, 12, 16, 20 and 24 lakh at 5% to 30% in the new regime, standard deduction ₹75,000, rebate up to ₹60,000 when taxable income is ₹12 lakh or less with marginal relief just above it, surcharge from ₹50 lakh with marginal relief, 4% cess. Old regime: ₹2.5 / 5 / 10 lakh slabs (higher exemption for senior citizens), ₹50,000 standard deduction, rebate up to ₹12,500 when taxable income is ₹5 lakh or less. Budget 2026 left these unchanged and the Income-tax Act 2025 applies from 1 April 2026 with new section numbers. Source: ', link('https://www.incometax.gov.in/', 'incometax.gov.in'), '. Assumes a resident individual; capital gains taxed at special rates and non-resident rules are not included. This is an estimate, not tax advice.')))
+  liveBar(compare, () => live)
   render()
 }
