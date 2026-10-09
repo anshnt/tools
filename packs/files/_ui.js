@@ -63,7 +63,7 @@ const BASE_CSS = `
 .fx-card-h { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 15px; font-weight: 600; min-width: 0; }
 .fx-card-h > span { min-width: 0; overflow-wrap: anywhere; }
 .fx-card-h .grow { flex: 1; }
-.fx-kv { display: grid; grid-template-columns: minmax(78px, max-content) minmax(0, 1fr); gap: 0 16px; margin: 0; }
+.fx-kv { display: grid; grid-template-columns: minmax(96px, 150px) minmax(0, 1fr); gap: 0 16px; margin: 0; }
 .fx-kv dt { color: var(--muted); font-size: 13px; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .fx-kv dd { margin: 0; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; min-width: 0; }
 .fx-kv dt:nth-last-of-type(1), .fx-kv dd:last-of-type { border-bottom: 0; }
@@ -262,6 +262,71 @@ export function folderZone(opts = {}) {
   }
   el.reset = (text) => { status.textContent = text || hint || '' }
   onCleanup(() => ctl?.abort())
+  return el
+}
+
+
+// ---------- Folder or files source (renamers, zip) ----------
+/** Ask for a folder right now (from a click). Resolves a scan result or null when cancelled. opts: {write, recursive, skip, signal, onProgress} */
+export async function chooseFolder(opts = {}) {
+  const { write = false, recursive = true, skip, signal, onProgress } = opts
+  if (canPickDirectory()) {
+    let handle = null
+    try { handle = await window.showDirectoryPicker({ id: 'tools-files', mode: write ? 'readwrite' : 'read' }) } catch (e) {
+      if (e?.name === 'AbortError') return null
+      if (!['SecurityError', 'NotAllowedError', 'TypeError'].includes(e?.name)) throw e
+    }
+    if (handle) return scanHandle(handle, { recursive, skip, signal, onProgress })
+  }
+  const files = await pickFolder()
+  return files.length ? scanFileList(files, { skip, recursive }) : null
+}
+
+/**
+ * A drop area for files AND folders, with two buttons (Choose files / Choose a folder).
+ * opts: {accept (file input accept), write, recursive: () => bool, skip, onScan(result), label, hint}
+ * Dropped folders keep their structure; when the browser gives real handles, in-place tools can use them.
+ */
+export function sourceZone(opts = {}) {
+  const { accept = '', write = false, skip, onScan, label, hint, recursive = () => true } = opts
+  const status = h('div', { class: 'dz-hint' }, hint || 'Nothing is uploaded. Everything stays on your device.')
+  const fileInput = h('input', { type: 'file', multiple: true, accept, tabindex: -1, 'aria-hidden': 'true', onchange: (e) => { const f = [...e.target.files]; e.target.value = ''; if (f.length) finish(async () => scanFileList(f, { skip })) } })
+  const busyText = (n) => { status.textContent = `Reading... ${n.toLocaleString()} files found` }
+  let ctl = null
+  async function finish(task) {
+    ctl?.abort()
+    const mine = (ctl = new AbortController())
+    el.classList.add('scanning')
+    status.textContent = 'Reading...'
+    try {
+      const res = await task(mine.signal, busyText)
+      if (!res || mine.signal.aborted) { status.textContent = hint || ''; return }
+      if (!res.entries.length) { status.textContent = 'No files found there. Try another selection.'; toast('No files found there.', 'info'); return }
+      status.textContent = `${res.name === 'Selected files' ? '' : res.name + ': '}${res.entries.length.toLocaleString()} file${res.entries.length === 1 ? '' : 's'} ready`
+      el.classList.add('compact')
+      onScan?.(res)
+    } catch (err) {
+      if (isAbort(err)) return
+      console.error(err)
+      status.textContent = 'Could not read that selection.'
+      toast(errorMessage(err), 'error')
+    } finally { if (ctl === mine) el.classList.remove('scanning') }
+  }
+  const folderBtn = button('Choose a folder', { icon: 'folder-open', size: 'sm', onClick: (e) => { e.stopPropagation(); finish((signal, onProgress) => chooseFolder({ write, recursive: recursive(), skip, signal, onProgress })) } })
+  const filesBtn = button('Choose files', { icon: 'files', size: 'sm', variant: 'primary', onClick: (e) => { e.stopPropagation(); fileInput.click() } })
+  const canHover = matchMedia('(hover: hover)').matches
+  const el = h('div', {
+    class: ['dropzone', 'fx-fz'], tabindex: 0, role: 'group', 'aria-label': label || 'Add files or a folder',
+    ondragover: (e) => { e.preventDefault(); el.classList.add('drag') },
+    ondragleave: () => el.classList.remove('drag'),
+    ondrop: (e) => { e.preventDefault(); el.classList.remove('drag'); const dt = e.dataTransfer; finish((signal, onProgress) => scanDrop(dt, { recursive: recursive(), skip, signal, onProgress })) },
+  },
+  h('div', { class: 'dz-icon' }, icon('folder-input')),
+  h('div', h('strong', label || (canHover ? 'Drop files or a folder here' : 'Add files or a folder')), status,
+    h('div', { class: 'row', style: 'margin-top:10px;justify-content:center' }, filesBtn, folderBtn)),
+  fileInput)
+  onCleanup(() => ctl?.abort())
+  el.reset = () => { status.textContent = hint || '' }
   return el
 }
 

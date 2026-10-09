@@ -231,7 +231,7 @@ export function analyzeText(bytes) {
   if (nul > 0) {
     // UTF-16 without BOM: NULs alternate with ASCII
     let even = 0, odd = 0
-    for (let i = 0; i < lim; i++) if (bytes[i] === 0) (i % 2 ? odd : even)++
+    for (let i = 0; i < lim; i++) if (bytes[i] === 0) { if (i % 2) odd++; else even++ }
     if (nul / lim > 0.25 && (even === 0 || odd === 0 || Math.max(even, odd) / Math.min(even, odd) > 8) && ctrl / lim < 0.05) {
       return { text: true, encoding: even > odd ? 'UTF-16 BE (no BOM)' : 'UTF-16 LE (no BOM)', bom: false }
     }
@@ -714,7 +714,7 @@ export async function scanHandle(root, { recursive = true, onProgress, signal, s
 }
 
 /** Build a scan result from a flat File[] (webkitdirectory input). Paths drop the top-level folder name. */
-export function scanFileList(files, { skip } = {}) {
+export function scanFileList(files, { skip, recursive = true } = {}) {
   const entries = [], folderSet = new Set()
   let rootName = ''
   for (const file of files) {
@@ -722,6 +722,7 @@ export function scanFileList(files, { skip } = {}) {
     const parts = rel.split('/')
     if (parts.length > 1 && !rootName) rootName = parts[0]
     const inner = parts.length > 1 ? parts.slice(1) : parts
+    if (!recursive && inner.length > 1) continue
     if (skip && inner.some((s, i) => skip(s, i < inner.length - 1, inner.slice(0, i + 1).join('/')))) continue
     const path = inner.join('/')
     const dir = inner.slice(0, -1).join('/')
