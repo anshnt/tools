@@ -107,7 +107,7 @@ export async function renderMp4({ doc, media, W, H, fps, quality, signal, onProg
   canvas.width = W
   canvas.height = H
   const g = canvas.getContext('2d')
-  const fr = new FrameRenderer(media, { max: 10 })
+  const fr = new FrameRenderer(media, { max: 10, fast: true })
   const N = Math.max(1, Math.round(dur * fps))
   try {
     for (let i = 0; i < N; i++) {

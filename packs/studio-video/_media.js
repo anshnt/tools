@@ -7,6 +7,7 @@ import { jszip } from '../../lib/libs.js'
 import { uid, clamp } from './_model.js'
 
 const MAX_AUDIO_SECONDS = 30 * 60 // decoded audio is float32 stereo in memory; longer than this plays silent
+const MAX_AUDIO_BYTES = 800 * 1024 * 1024 // reading a bigger file into memory just to decode its sound is not worth the risk
 const IMG_MAX = 2560
 const withTimeout = (p, ms, msg) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(msg)), ms))])
 
@@ -215,7 +216,7 @@ export class MediaStore {
     if (m.audio !== undefined) return Promise.resolve(m.audio)
     m._audioP ??= (async () => {
       let buf = null
-      if (m.duration <= MAX_AUDIO_SECONDS) {
+      if (m.duration <= MAX_AUDIO_SECONDS && m.blob.size <= MAX_AUDIO_BYTES) {
         try {
           buf = await new OfflineAudioContext(2, 1, 48000).decodeAudioData(await m.blob.arrayBuffer())
         } catch { buf = null } // no audio track, or a codec the browser cannot decode

@@ -129,8 +129,9 @@ export async function mount(root, { tool, params = {}, signal }) {
     h('span', { class: 'vs-grow' }), aspectSeg, status,
     iconBtn('keyboard', 'Keyboard shortcuts', { shortcut: '?', pos: 'l', onClick: () => actions.showShortcuts() }), bExport)
 
+  const showPanel = (v) => { vs.dataset.m = v; for (const b of mt.children) b.setAttribute('aria-pressed', String(b.dataset.v === v)) }
   const mt = h('div', { class: 'vs-seg', role: 'group', 'aria-label': 'Panel' }, [['media', 'Media'], ['inspector', 'Inspector']].map(([v, l]) =>
-    h('button', { type: 'button', 'aria-pressed': String(v === 'media'), onclick: () => { vs.dataset.m = v; for (const b of mt.children) b.setAttribute('aria-pressed', String(b.dataset.v === v)) }, dataset: { v } }, l)))
+    h('button', { type: 'button', 'aria-pressed': String(v === 'media'), onclick: () => showPanel(v), dataset: { v } }, l)))
   const mtabs = h('div', { class: 'vs-mtabs' }, mt)
 
   const foot = h('div', { class: 'vs-foot' },
@@ -238,7 +239,7 @@ export async function mount(root, { tool, params = {}, signal }) {
         created = c
       })
       ui.select([created.id])
-      seek(created.start)
+      seek(created.start + Math.min(0.8, created.dur / 2)) // past the fade-in, so the new title is visible
     },
 
     split() {
@@ -500,7 +501,8 @@ export async function mount(root, { tool, params = {}, signal }) {
   function afterChange(kind) {
     if (kind === 'live') return
     const p = doc.p
-    ui.select([...ui.sel].filter((id) => clipById(p, id)))
+    const keep = [...ui.sel].filter((id) => clipById(p, id))
+    if (keep.length !== ui.sel.size) ui.select(keep) // only when something vanished: a selection event rebuilds the inspector
     if (nameInput.value !== p.name && document.activeElement !== nameInput) nameInput.value = p.name
     applyAspect()
     bUndo.disabled = !doc.canUndo
@@ -515,13 +517,18 @@ export async function mount(root, { tool, params = {}, signal }) {
   const offDoc = doc.on(afterChange)
   const offMedia = media.on(() => { if (media.list().length) save() })
   const offUi = ui.on((patch) => {
-    if ('sel' in patch) player.requestRender()
+    if ('sel' in patch) {
+      player.requestRender()
+      if (ui.sel.size && matchMedia('(max-width: 860px)').matches) showPanel('inspector') // phones: show the clip's settings
+    }
     if ('tool' in patch) vs.dataset.tool = ui.tool
   })
 
-  const typing = (t) => t.closest?.('input, textarea, select, [contenteditable="true"]')
+  // Text fields keep their keys; sliders, checkboxes and buttons let the editor shortcuts through (arrows still move a slider).
+  const typing = (t) => t.closest?.('textarea, select, [contenteditable="true"]') || (t.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'color', 'button'].includes(t.type))
   function onKey(e) {
     if (!vs.isConnected || document.querySelector('dialog[open]') || typing(e.target)) return
+    if (e.target.type === 'range' && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
     const mod = e.ctrlKey || e.metaKey
     const k = e.key
     const fps = doc.p.fps

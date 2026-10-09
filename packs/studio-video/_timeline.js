@@ -99,7 +99,8 @@ export function createTimeline({ doc, media, player, ui, actions }) {
   // ---- ruler
   function drawRuler(len) {
     const pps = ui.pps
-    const step = STEPS.find((s) => s * pps >= 84) || 3600
+    let step = STEPS.find((s) => s * pps >= 84) || 3600
+    while (len / step > 500) step *= 2 // never build thousands of tick labels on long projects
     const key = `${step}|${pps}|${Math.ceil(len)}`
     if (key === rulerSig) return
     rulerSig = key
@@ -158,7 +159,8 @@ export function createTimeline({ doc, media, player, ui, actions }) {
       if (!lane) continue
       seen.add(c.id)
       let rec = cache.get(c.id)
-      if (!rec) { rec = { el: h('div', { class: 'vs-clip', dataset: { id: c.id, kind: c.kind } }), sig: '' }; cache.set(c.id, rec) }
+      if (!rec) { rec = { el: h('div', { class: 'vs-clip', role: 'button', tabindex: 0, dataset: { id: c.id, kind: c.kind } }), sig: '' }; cache.set(c.id, rec) }
+      rec.el.setAttribute('aria-label', `${c.kind === 'title' ? 'Title' : c.name || 'Clip'}, ${c.kind} clip, ${c.start.toFixed(1)} to ${clipEnd(c).toFixed(1)} seconds. Press Enter to select.`)
       const w = Math.max(4, c.dur * pps)
       rec.el.style.left = `${c.start * pps}px`
       rec.el.style.width = `${w}px`
@@ -341,6 +343,10 @@ export function createTimeline({ doc, media, player, ui, actions }) {
       doc.emit('change')
     }
   }
+  scroll.addEventListener('keydown', (e) => {
+    const clipEl = e.target.closest?.('.vs-clip')
+    if (clipEl && e.key === 'Enter') { e.preventDefault(); ui.select([clipEl.dataset.id]) }
+  })
   scroll.addEventListener('pointerup', endDrag)
   scroll.addEventListener('pointercancel', endDrag)
 

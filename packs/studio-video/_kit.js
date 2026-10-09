@@ -22,7 +22,7 @@ export function popMenu(anchor, items) {
   const away = (e) => { if (!menu.contains(e.target)) close() }
   const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close() } }
   for (const it of items) menu.append(h('button', { type: 'button', role: 'menuitem', onclick: () => { close(); it.onClick() } }, it.icon && icon(it.icon), it.label))
-  document.body.append(menu)
+  ;(anchor.closest('.vs') || document.body).append(menu) // inside the app so it stays visible in full screen
   const r = anchor.getBoundingClientRect()
   const mw = menu.offsetWidth, mh = menu.offsetHeight
   menu.style.left = `${Math.max(8, Math.min(innerWidth - mw - 8, r.left))}px`

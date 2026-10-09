@@ -4,6 +4,7 @@ import { layersAt, projectDuration, srcTime, clamp } from './_model.js'
 import { drawFrame } from './_draw.js'
 import { scheduleAudio } from './_audio.js'
 import { seekTo } from './_media.js'
+import { parseMp4, matchElement, Mp4Frames } from './_demux.js'
 
 const LATENCY = 0.06 // seconds between pressing play and the first audio sample
 const fontLoads = new Map()
@@ -22,11 +23,15 @@ export function ensureFonts(project) {
 const fontsLoading = (project) => project.clips.some((c) => c.kind === 'title' && fontLoads.get(`${c.bold ? 700 : 400} 24px ${c.font}`) !== null)
 
 export class FrameRenderer {
-  constructor(media, { max = 8 } = {}) {
+  constructor(media, { max = 8, fast = false } = {}) {
     this.media = media
     this.max = max
     this.vids = new Map()
     this.onFrame = null
+    this.fast = fast // export only: decode MP4/MOV sources in order with WebCodecs instead of seeking an element per frame
+    this.readers = new Map()
+    this.frames = new Map()
+    this.parsed = new Map()
   }
 
   video(clip) {
@@ -59,8 +64,17 @@ export class FrameRenderer {
 
   /** Called once per frame with the visible layers: frees the least recently needed elements. */
   begin(layers) {
-    if (this.vids.size <= this.max) return
     const keep = new Set(layers.map((l) => l.clip.id))
+    if (this.readers.size > this.max) {
+      for (const [id, r] of [...this.readers]) {
+        if (this.readers.size <= this.max) break
+        if (keep.has(id)) continue
+        r?.dispose()
+        this.readers.delete(id)
+        this.frames.delete(id)
+      }
+    }
+    if (this.vids.size <= this.max) return
     for (const id of [...this.vids.keys()]) {
       if (this.vids.size <= this.max) break
       if (!keep.has(id)) this.drop(id)
@@ -92,10 +106,37 @@ export class FrameRenderer {
     })
   }
 
+  /** Fast path for one layer. Returns false when the clip cannot use it (the caller then seeks the element). */
+  async fastFrame(L) {
+    const c = L.clip
+    this.frames.delete(c.id)
+    let r = this.readers.get(c.id)
+    if (r === undefined) {
+      const m = this.media.get(c.mediaId)
+      let p = this.parsed.get(c.mediaId)
+      if (!p) { p = m?.blob ? parseMp4(m.blob).then((d) => d && matchElement(d, m)) : Promise.resolve(null); this.parsed.set(c.mediaId, p) }
+      const data = await p
+      r = data && m && data.width === m.width && data.height === m.height ? new Mp4Frames(data) : null
+      this.readers.set(c.id, r)
+    }
+    if (!r) return false
+    try {
+      const f = await r.frameAt(srcTime(c, L.t))
+      if (!f) throw new Error('no frame')
+      this.frames.set(c.id, f)
+      return true
+    } catch {
+      r.dispose()
+      this.readers.set(c.id, null)
+      return false
+    }
+  }
+
   /** Export: seek every needed element to its exact frame and wait until all are ready. */
   async seekAll(layers, fps) {
     const tol = 0.5 / (fps || 30)
     await Promise.all(this.videoLayers(layers).map(async (L) => {
+      if (this.fast && (await this.fastFrame(L))) return
       const el = this.video(L.clip)
       if (!el || el.error) return
       if (el.readyState < 1) await new Promise((res) => { el.addEventListener('loadedmetadata', res, { once: true }); setTimeout(res, 8000) })
@@ -113,6 +154,12 @@ export class FrameRenderer {
       if (!el || el.error) continue
       active.add(c.id)
       const target = this.target(c, t, el)
+      const last = (Number.isFinite(el.duration) ? el.duration : Infinity) - 0.06
+      if (target >= last) { // past the end of the source (a crossfade handle, or the final frame): hold it, never restart
+        if (!el.paused) el.pause()
+        if (Math.abs(el.currentTime - last) > 0.05 && Number.isFinite(last)) el.currentTime = last
+        continue
+      }
       const rate = clamp(c.speed, 0.0625, 16)
       if (el.playbackRate !== rate) el.playbackRate = rate
       if (el.paused) {
@@ -136,13 +183,21 @@ export class FrameRenderer {
     const m = this.media.get(c.mediaId)
     if (!m || m.status !== 'ok') return null
     if (c.kind === 'image') return m.img ? { src: m.img, w: m.img.width, h: m.img.height } : null
+    const fast = this.frames.get(c.id)
+    if (fast) return { src: fast, w: fast.displayWidth, h: fast.displayHeight }
     const el = this.video(c)
     return el && el.readyState >= 2 && el.videoWidth ? { src: el, w: el.videoWidth, h: el.videoHeight } : null
   }
 
   draw(g, W, H, project, layers) { drawFrame(g, W, H, project, layers, (L) => this.source(L)) }
 
-  dispose() { for (const id of [...this.vids.keys()]) this.drop(id) }
+  dispose() {
+    for (const id of [...this.vids.keys()]) this.drop(id)
+    for (const r of this.readers.values()) r?.dispose()
+    this.readers.clear()
+    this.frames.clear()
+    this.parsed.clear()
+  }
 }
 
 export class Player {
