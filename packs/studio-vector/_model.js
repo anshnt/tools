@@ -152,7 +152,7 @@ export function toSubs(n) {
 }
 
 // ---------- Transforms ----------
-const near = (a, b = 0) => Math.abs(a - b) < 1e-9
+const near = (a, b = 0) => Math.abs(a - b) < 1e-6 * Math.max(1, Math.abs(a), Math.abs(b))
 /** Apply a world-space matrix to a node in place. Paths bake it into their points; rects, ellipses and text bake it when it is a plain scale/move. */
 export function applyMatrix(n, M) {
   if (n.type === 'group') { for (const k of n.kids) applyMatrix(k, M); return }
