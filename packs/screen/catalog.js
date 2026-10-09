@@ -1,7 +1,7 @@
 // Pack screen: screen capture, measuring and floating helpers that use modern browser APIs. Default category: screen.
 export const cat = 'screen'
 export default [
-  { id: 'screenshot-tool', name: 'Screenshot & annotate', desc: 'Capture your screen, crop, draw arrows and text, then download.', icon: 'camera', tags: 'screenshot capture annotate markup' },
+  { id: 'screenshot-tool', name: 'Screenshot & annotate', desc: 'Capture your screen, crop, draw arrows and text, then download.', icon: 'camera', tags: 'screenshot capture annotate markup crop blur arrow', ready: true },
   { id: 'color-picker', name: 'Screen color picker', desc: 'Pick any pixel on your screen and get HEX, RGB and HSL.', icon: 'pipette', also: ['dev', 'image'], tags: 'eyedropper color picker hex' },
   { id: 'pixel-ruler', name: 'Pixel ruler', desc: 'Capture the screen and measure distances and coordinates in pixels.', icon: 'ruler', also: ['dev'], tags: 'measure pixels coordinates' },
   { id: 'screen-ruler', name: 'On-screen ruler (cm / inch)', desc: 'A real-size ruler calibrated to your screen.', icon: 'ruler-dimension-line', tags: 'ruler cm inch measure' },
