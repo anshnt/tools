@@ -34,7 +34,15 @@ async def check(ctx, base, tid, width, sem):
         page = await ctx.new_page()
         await page.set_viewport_size({"width": width, "height": 800})
         errors = []
-        page.on("console", lambda m: m.type == "error" and not any(i in m.text for i in IGNORE) and errors.append(m.text[:300]))
+        def on_console(m):
+            if m.type != "error" or any(i in m.text for i in IGNORE):
+                return
+            # Third-party APIs (rate limits from shared CI IPs, outages) log "Failed to load resource"; tools handle those.
+            # Only failed loads from the site itself count as errors.
+            if m.text.startswith("Failed to load resource") and not (m.location or {}).get("url", "").startswith(base):
+                return
+            errors.append(m.text[:300])
+        page.on("console", on_console)
         page.on("pageerror", lambda e: errors.append(f"uncaught: {str(e)[:300]}"))
         try:
             await page.goto(f"{base}/#/{tid}")
