@@ -51,7 +51,7 @@ export async function mount(root, { signal }) {
     const byCat = (list) => { const m = new Map(); for (const s of list) (m.get(s.cat) || m.set(s.cat, []).get(s.cat)).push(s); return m }
     const heads = [a.seniority, ...a.employment, a.mode, a.location].filter(Boolean)
     const tiles = [
-      { icon: 'calendar-range', label: 'Experience', value: a.years.main != null ? `${a.years.main}+ years` : 'Not stated', hint: a.years.list.length > 1 ? `Other mentions: ${a.years.list.slice(1, 4).map((y) => y.text).join(', ')}` : a.years.list[0]?.ctx.slice(0, 70), kind: a.years.main != null ? 'info' : '' },
+      { icon: 'calendar-range', label: 'Experience', value: a.years.main != null ? `${a.years.main}+ years` : 'Not stated', hint: a.years.list.length > 1 ? `Other mentions: ${a.years.list.slice(1, 4).map((y) => y.text).join(', ')}` : a.years.list[0]?.line, kind: a.years.main != null ? 'info' : '' },
       { icon: 'graduation-cap', label: 'Education', value: a.education.top || 'Not stated', hint: a.education.top ? (a.education.equivalent ? 'Or equivalent experience' : 'Degree expected') : 'No degree mentioned', kind: a.education.top ? 'info' : '' },
       { icon: 'banknote', label: 'Pay', value: a.salary.figures[0] || 'Not stated', hint: a.salary.figures.length > 1 ? `+${a.salary.figures.length - 1} more figure${a.salary.figures.length > 2 ? 's' : ''}` : a.salary.vague ? 'Says "competitive" but gives no number' : a.salary.figures.length ? 'Stated in the post' : 'Ask early in the process', kind: a.salary.figures.length ? 'ok' : 'warn' },
       { icon: 'map-pin', label: 'Work mode', value: a.mode || 'Not stated', hint: a.location || a.employment.join(', '), kind: a.mode ? 'info' : '' },

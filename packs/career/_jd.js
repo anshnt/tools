@@ -61,7 +61,11 @@ export function findYears(text) {
     if (min > 40) continue
     const ctx = text.slice(Math.max(0, m.index - 60), m.index + m[0].length + 70).replace(/\s+/g, ' ').trim()
     if (!/exp|work|industry|professional|background|years of|in a|in the|with/i.test(ctx)) continue
-    out.push({ min, max, plus: /\+|plus|at least|minimum|more than/i.test(m[0] + ctx.slice(0, 40)), text: m[0].trim(), ctx })
+    const from = text.lastIndexOf('\n', m.index) + 1
+    let to = text.indexOf('\n', m.index)
+    if (to < 0) to = text.length
+    const line = text.slice(from, to).replace(BULLET, '').replace(/\s+/g, ' ').trim().slice(0, 120)
+    out.push({ min, max, plus: /\+|plus|at least|minimum|more than/i.test(m[0] + ctx.slice(0, 40)), text: m[0].trim(), ctx, line })
   }
   return out
 }

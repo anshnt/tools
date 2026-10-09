@@ -128,7 +128,7 @@ const CSS = String.raw`
 
 /* preview stage */
 .cr-stage { position: relative; isolation: isolate; border-radius: var(--radius-xl); border: 1px solid var(--cr-line); padding: 16px; overflow: auto; }
-.cr-stage::before { content: ""; position: absolute; inset: 0; z-index: -1; background-size: 180% 180%, 180% 180%, 100% 100%; animation: crDrift 22s ease-in-out infinite alternate;
+.cr-stage::before { content: ""; position: absolute; inset: 0; z-index: -1; background-size: 180% 180%, 180% 180%, 100% 100%;
   background-image: radial-gradient(60% 50% at 10% 0%, color-mix(in srgb, var(--cr) 22%, transparent), transparent 70%), radial-gradient(50% 50% at 100% 100%, color-mix(in srgb, #a855f7 16%, transparent), transparent 70%), linear-gradient(var(--surface-2), var(--surface-2)); }
 .cr-paper { background: #fff; border-radius: 4px; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 28px 60px -28px rgba(16, 16, 40, .5); line-height: 0; overflow: hidden; margin: 0 auto; animation: crRise .5s var(--ease) both; }
 .cr-paper + .cr-paper { margin-top: 14px; }
