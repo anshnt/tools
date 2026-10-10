@@ -1,13 +1,12 @@
 // Styles for CAD Studio. Everything is scoped under .t-cad and uses the site's CSS variables so light and dark both work.
 const CSS = `
-.t-cad { --cad-bg: #ffffff; --cad-rail: var(--surface); position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; height: clamp(540px, calc(100dvh - 215px), 1000px);
+.t-cad { --cad-bg: #ffffff; --cad-rail: var(--surface); position: relative; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto; height: clamp(540px, calc(100dvh - 215px), 1000px);
   border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); overflow: hidden; font-size: 13px; color: var(--text); isolation: isolate; }
 :root[data-theme="dark"] .t-cad { --cad-bg: #0b0c11; }
 .tool-body:fullscreen .t-cad { height: calc(100dvh - 20px); }
 .t-cad *, .t-cad *::before, .t-cad *::after, .t-cad-dlg *, .t-cad-dlg *::before, .t-cad-dlg *::after { box-sizing: border-box; }
 .t-cad button { font: inherit; color: inherit; }
-.t-cad .cad-top { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, var(--bg-2)); overflow-x: auto; scrollbar-width: none; }
-.t-cad .cad-top::-webkit-scrollbar { display: none; }
+.t-cad .cad-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, var(--bg-2)); }
 .t-cad .cad-top .cad-sel { flex: none; }
 .t-cad .cad-sep { width: 1px; align-self: stretch; margin: 4px 4px; background: var(--border); flex: none; }
 .t-cad .cad-grow { flex: 1 1 auto; min-width: 8px; }
@@ -142,8 +141,7 @@ const CSS = `
 .t-cad .cad-cmdline .cad-btn { height: 28px; min-width: 28px; }
 .t-cad .cad-keys { display: none; }
 
-.t-cad .cad-status { display: flex; align-items: center; gap: 2px; padding: 4px 8px; border-top: 1px solid var(--border); background: var(--surface-2); overflow-x: auto; scrollbar-width: none; }
-.t-cad .cad-status::-webkit-scrollbar { display: none; }
+.t-cad .cad-status { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 4px 8px; border-top: 1px solid var(--border); background: var(--surface-2); }
 .t-cad .cad-coord { font-family: var(--mono); font-size: 12px; color: var(--text-2); min-width: 200px; flex: none; padding: 0 8px; white-space: nowrap; }
 .t-cad .cad-tog { height: 26px; padding: 0 9px; border-radius: 7px; border: 1px solid transparent; background: transparent; color: var(--muted); font-size: 11.5px; font-weight: 700; letter-spacing: .03em; cursor: pointer; position: relative; flex: none; display: inline-flex; align-items: center; gap: 4px; }
 .t-cad .cad-tog:hover { background: var(--surface-3); color: var(--text); }
@@ -151,7 +149,8 @@ const CSS = `
 .t-cad .cad-tog .icon { width: 12px; height: 12px; }
 .t-cad-credit { padding: 10px 4px 0; }
 
-@media (max-width: 900px) { .t-cad .cad-saved span { display: none; } .t-cad .cad-main { grid-template-columns: auto minmax(0, 1fr); } .t-cad .cad-panel { position: absolute; z-index: 12; right: 0; top: 0; bottom: 0; width: min(330px, 92%); transform: translateX(105%); transition: transform .25s var(--ease); box-shadow: var(--shadow-lg); } .t-cad.panel-open .cad-panel { transform: none; } }
+@media (max-width: 1000px) { .t-cad .cad-saved span { display: none; } }
+@media (max-width: 900px) { .t-cad .cad-top .cad-hide-sm { display: none !important; } .t-cad .cad-main { grid-template-columns: auto minmax(0, 1fr); } .t-cad .cad-panel { position: absolute; z-index: 12; right: 0; top: 0; bottom: 0; width: min(330px, 92%); transform: translateX(105%); transition: transform .25s var(--ease); box-shadow: var(--shadow-lg); } .t-cad.panel-open .cad-panel { transform: none; } }
 @media (min-width: 901px) { .t-cad .cad-panel-toggle, .t-cad .cad-panel-close { display: none !important; } }
 .t-cad .cad-tabs { align-items: center; }
 .t-cad .cad-panel-close { flex: none; margin: 0 0 3px 4px; }
