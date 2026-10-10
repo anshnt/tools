@@ -68,9 +68,9 @@ export async function mount(root, { params = {}, signal } = {}) {
   const top = h('div', { class: 'pdfs-top', role: 'toolbar', 'aria-label': 'Document' },
     h('div', { class: 'grp' }, openBtn, newBtn), nameEl, h('span', { class: 'sep' }),
     h('div', { class: 'grp' }, undoBtn, redoBtn), h('span', { class: 'sep' }),
-    h('div', { class: 'pg-nav' }, ibtn('chevron-up', 'Previous page', () => viewer.goto(viewer.current - 1)), pageIn, pageTotal, ibtn('chevron-down', 'Next page', () => viewer.goto(viewer.current + 1))), h('span', { class: 'sep' }),
-    h('div', { class: 'grp' }, ibtn('zoom-out', 'Zoom out (-)', () => viewer.zoomBy(-1)), zoomSel, ibtn('zoom-in', 'Zoom in (+)', () => viewer.zoomBy(1))), h('span', { class: 'sep' }),
-    h('div', { class: 'grp' }, searchBtn, leftBtn, rightBtn), h('span', { class: 'grow' }), saveBtn)
+    h('div', { class: 'pg-nav' }, ibtn('chevron-up', 'Previous page', () => viewer.goto(viewer.current - 1), { class: 'hide-sm' }), pageIn, pageTotal, ibtn('chevron-down', 'Next page', () => viewer.goto(viewer.current + 1), { class: 'hide-sm' })), h('span', { class: 'sep' }),
+    h('div', { class: 'grp' }, ibtn('zoom-out', 'Zoom out (-)', () => viewer.zoomBy(-1), { class: 'hide-sm' }), zoomSel, ibtn('zoom-in', 'Zoom in (+)', () => viewer.zoomBy(1), { class: 'hide-sm' })), h('span', { class: 'sep' }),
+    h('div', { class: 'grp tgl' }, searchBtn, leftBtn, rightBtn), h('span', { class: 'grow' }), saveBtn)
 
   // ---------- rail ----------
   const toolBtns = new Map()

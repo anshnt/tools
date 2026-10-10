@@ -164,7 +164,7 @@ textarea.ff { padding: 3px; resize: none; line-height: 1.15; }
 /* empty state and status */
 .pdfs-empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; overflow: auto; background: var(--bg-2); z-index: 5; }
 .pdfs-empty[hidden] { display: none; }
-.empty-card { width: min(560px, 100%); display: grid; gap: 16px; padding: 22px; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow); }
+.empty-card { margin: auto; width: min(560px, 100%); display: grid; gap: 16px; padding: 22px; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow); }
 .empty-card[hidden] { display: none; }
 .empty-card h2 { margin: 0; font-size: 20px; }
 .empty-card p { margin: 0; color: var(--muted); }
@@ -210,8 +210,14 @@ textarea.ff { padding: 3px; resize: none; line-height: 1.15; }
   /* with a document open the app takes the whole screen below the site header (the page title is hidden meanwhile) */
   body.pdfs-open .tool-page .page-hero { display: none; }
   body.pdfs-open .pdfs { height: calc(100dvh - var(--header-h) - 16px); }
+  /* the toolbar wraps into rows instead of scrolling sideways, so undo, paging and zoom are always reachable */
+  .pdfs-top { flex-wrap: wrap; overflow: visible; padding: 6px 8px; row-gap: 4px; }
+  .pdfs-top .sep, .pdfs-top .grow { display: none; }
   .pdfs-top > .btn-primary { order: -1; margin-right: 6px; }
-  .pdfs-top .grow { display: none; }
+  .pdfs-top .tgl { order: 1; }
+  .pdfs-top .doc-name { order: 2; flex: 1 1 0; min-width: 0; max-width: none; }
+  .pdfs-top .zoom-sel { min-width: 76px; }
+  .pdfs-empty .empty-feats { display: none; }
   .pdfs-main { flex-direction: column-reverse; }
   .pdfs-rail { width: 100%; flex-direction: row; justify-content: flex-start; padding: 6px 8px; border-right: 0; border-top: 1px solid var(--border); overflow-x: auto; overflow-y: hidden; }
   .pdfs-rail .rsep { width: 1px; height: 26px; margin: 0 4px; }
@@ -221,7 +227,6 @@ textarea.ff { padding: 3px; resize: none; line-height: 1.15; }
   .thumbs { flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 10px; }
   .th { flex: none; width: 96px; }
   .pdfs-pages { padding: 10px 8px 48px; }
-  .doc-name { max-width: 110px; }
   .ph-hint { display: none; }
   .sig-dialog { min-width: 0; }
   .hide-sm { display: none !important; }
