@@ -654,6 +654,13 @@ dialog.palette[open] { animation: dlg-in .28s var(--spring); }
 .tool-body.app { padding-bottom: 16px; min-height: calc(100dvh - var(--header-h) - 120px); }
 .tool-body.app:fullscreen { background: var(--bg); padding: 10px; overflow: auto; }
 .tool-body.app:fullscreen::backdrop { background: var(--bg); }
+@media (max-width: 720px) {
+  .tool-page.app-mode .crumbs, .tool-page.app-mode .page-head p { display: none; }
+  .tool-page.app-mode .page-head { padding: 10px 0 8px; }
+  .tool-page.app-mode .page-head h1 { font-size: 19px; }
+  .tool-page.app-mode .tile.xl { width: 36px; height: 36px; border-radius: 11px; }
+  .tool-page.app-mode .tile.xl .icon { width: 18px; height: 18px; }
+}
 
 /* ---------- Smart file drop ---------- */
 @media (max-width: 400px) { #install-app { display: none !important; } }
