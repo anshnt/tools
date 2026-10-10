@@ -22,7 +22,7 @@ const FLAGS = {
   bpm: 'tl resched save insp', beats: 'tl resched save insp', grid: 'tl save insp', snap: 'save insp', metro: 'resched save insp', metroVol: 'engine save',
   masterVol: 'engine save', ripple: 'save insp', follow: 'save insp', trackH: 'tl heads save insp', name: 'save insp',
 }
-const HINT = 'Drag in a track to select a range. Space plays, S splits, ? shows all shortcuts.'
+const HINT = 'Drag in a track to select a range. Space plays, S splits, H shows all shortcuts.'
 const LABELS = { vol: 'Track volume', pan: 'Track pan', mute: 'Mute track', solo: 'Solo track', name: 'Rename track', color: 'Track color' }
 
 export async function mount(root, { tool, params = {}, signal }) {
@@ -135,7 +135,7 @@ export async function mount(root, { tool, params = {}, signal }) {
   let hintT = 0
   app.status = (text) => {
     clearTimeout(hintT)
-    if (text) { statusHint.textContent = text; statusHint.style.display = 'inline'; hintT = setTimeout(() => app.status(''), 2500) } else { statusHint.textContent = 'Drag in a track to select a range. Space plays, S splits, ? shows all shortcuts.'; statusHint.style.display = '' }
+    if (text) { statusHint.textContent = text; statusHint.style.display = 'inline'; hintT = setTimeout(() => app.status(''), 2500) } else { statusHint.textContent = HINT; statusHint.style.display = '' }
   }
   function updateStatus() {
     const r = S.sel.range
@@ -187,6 +187,7 @@ export async function mount(root, { tool, params = {}, signal }) {
   function frame() {
     raf = 0
     const playing = engine.playing
+    if (playing) tl.ensureWidth(S.playheadNow())
     tl.updateOverlays()
     updateClock()
     if (playing && S.project.follow) tl.scrollToTime(S.playheadNow())
@@ -609,7 +610,7 @@ export async function mount(root, { tool, params = {}, signal }) {
     { sep: true },
     { label: 'Export audio...', icon: 'download', key: 'Ctrl+E', onClick: () => app.exportDialog() },
     { sep: true },
-    { label: 'Keyboard shortcuts', icon: 'keyboard', key: '?', onClick: () => shortcutsDialog() },
+    { label: 'Keyboard shortcuts', icon: 'keyboard', key: 'H', onClick: () => shortcutsDialog() },
   ]
   app.exportDialog = () => openExport(app)
   app.saveFile = async () => {
@@ -659,6 +660,7 @@ export async function mount(root, { tool, params = {}, signal }) {
     const t = e.target
     if (t?.closest?.('input:not([type=range]), textarea, select, [contenteditable="true"]')) return
     const onBtn = !!t?.closest?.('button, a, [role="tab"], summary')
+    if (t?.matches?.('input[type=range]') && /^(Arrow|Home$|End$|Page)/.test(e.key)) return // let sliders use their own keys
     const ctrl = e.ctrlKey || e.metaKey
     const k = e.key
     const lk = k.toLowerCase()
@@ -692,11 +694,10 @@ export async function mount(root, { tool, params = {}, signal }) {
       case '-': case '_': handled(); tl.zoomBy(1 / 1.5); break
       case '[': handled(); app.setLoopPoint('start'); break
       case ']': handled(); app.setLoopPoint('end'); break
-      case '?': handled(); shortcutsDialog(); break
       default:
         if (lk === 'r') { handled(); toggleRecord() } else if (lk === 'l') { handled(); app.toggleLoop() } else if (lk === 'k') { handled(); app.toggleMetro() } else if (lk === 'v') { handled(); app.setTool('select') }
         else if (lk === 't') { handled(); app.setTool('range') } else if (lk === 'b') { handled(); app.setTool('blade') } else if (lk === 's') { handled(); app.split(e.shiftKey) } else if (lk === 'n') { handled(); app.setProject('snap', !S.project.snap) }
-        else if (lk === 'f') { handled(); app.setProject('follow', !S.project.follow) } else if (lk === 'i') { handled(); app.toggleInspector() }
+        else if (lk === 'h') { handled(); shortcutsDialog() } else if (lk === 'f') { handled(); app.setProject('follow', !S.project.follow) } else if (lk === 'i') { handled(); app.toggleInspector() }
         else if (lk === 'z') { handled(); if (S.sel.range) tl.zoomToRange(S.sel.range.t0, S.sel.range.t1) }
         else if (lk === 'm' || lk === 'o') {
           const tr = app.track(S.sel.track)

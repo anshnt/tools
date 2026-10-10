@@ -54,11 +54,23 @@ export async function decodeFile(file, { onStatus, signal } = {}) {
   return makeAsset(name, buf, encodeWav(chans, buf.sampleRate, 16), 'wav')
 }
 
+/** File extension for a few common audio containers, from their first bytes. */
+export function sniffExt(b) {
+  const s = (i, n) => String.fromCharCode(...b.slice(i, i + n))
+  if (s(0, 4) === 'RIFF' && s(8, 4) === 'WAVE') return 'wav'
+  if (s(0, 4) === 'fLaC') return 'flac'
+  if (s(0, 4) === 'OggS') return 'ogg'
+  if (s(0, 3) === 'ID3' || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0)) return 'mp3'
+  if (s(4, 4) === 'ftyp') return 'm4a'
+  if (s(0, 4) === 'Eß£') return 'webm'
+  return 'bin'
+}
+
 /** Decode a stored Blob (autosave or project file) into an asset with a known id. */
 export async function decodeStored({ id, name, blob }) {
-  const buf = await decodeBytes(await blob.arrayBuffer())
-  const e = ext(name) || (blob.type.includes('wav') ? 'wav' : 'bin')
-  return makeAsset(name, buf, blob, blob.type === 'audio/wav' ? 'wav' : e, id)
+  const bytes = await blob.arrayBuffer()
+  const buf = await decodeBytes(bytes.slice(0))
+  return makeAsset(name, buf, blob, sniffExt(new Uint8Array(bytes, 0, Math.min(16, bytes.byteLength))), id)
 }
 
 // ---------- Microphone ----------

@@ -67,6 +67,7 @@ export class Timeline {
     this.scrollEl.addEventListener('pointerup', (e) => this.up(e))
     this.scrollEl.addEventListener('pointercancel', (e) => this.up(e, true))
     this.scrollEl.addEventListener('dblclick', (e) => this.dbl(e))
+    this.heads.addEventListener('wheel', (e) => { this.scrollEl.scrollTop += e.deltaY; e.preventDefault() }, { passive: false })
     this.ruler.addEventListener('pointerdown', (e) => this.rulerDown(e))
     this.ruler.addEventListener('pointermove', (e) => this.rulerMove(e))
     this.ruler.addEventListener('pointerup', (e) => this.rulerUp(e))
@@ -107,7 +108,7 @@ export class Timeline {
   /** Size the scrollable area for the current zoom, project length and track count. */
   layout() {
     const p = this.S.project
-    const len = Math.max(projectLength(p), p.loop.on ? p.loop.end : 0, this.S.playhead || 0)
+    const len = Math.max(projectLength(p), p.loop.on ? p.loop.end : 0, this.S.playheadNow() || 0)
     const viewSec = this.W / this.pps
     const w = Math.max(this.W, Math.ceil((len + Math.max(15, viewSec * 0.5)) * this.pps))
     const hgt = Math.max(this.H, p.tracks.length * p.trackH + 30)
@@ -118,6 +119,11 @@ export class Timeline {
     this.invalidate()
     this.drawRuler()
     this.updateOverlays()
+  }
+
+  /** Grow the scrollable area when the playhead (playing or recording) runs past the end of the project. */
+  ensureWidth(t) {
+    if ((t + 4) * this.pps > parseFloat(this.content.style.width || 0)) this.layout()
   }
 
   setZoom(pps, anchorPx) {
@@ -651,6 +657,7 @@ export class Timeline {
       }
       this.app.selectionChanged()
     } else if (d.type === 'move' && !d.moved) {
+      if (S.sel.clips.size > 1) { S.sel.clips = new Set([d.clip.id]); this.app.selectionChanged() } // a plain click narrows a multi-selection
       if (!cancelled) this.app.setPlayhead(this.snap(pt.t))
     } else if (d.end) {
       const label = { move: 'Move clip', trimL: 'Trim clip start', trimR: 'Trim clip end', fadeIn: 'Fade in', fadeOut: 'Fade out', gain: 'Clip gain' }[d.type] || 'Edit clip'

@@ -529,7 +529,7 @@ export function shortcutsDialog() {
     ['Ctrl+T', 'Trim to range'], ['Ctrl+D', 'Duplicate clips'], ['Ctrl+A', 'Select all clips'], ['Ctrl+Z / Ctrl+Shift+Z', 'Undo / redo'],
     ['+ / -', 'Zoom in / out'], ['Ctrl+0', 'Fit project'], ['Z', 'Zoom to range'], ['Ctrl+wheel', 'Zoom at the pointer'],
     ['Left / Right', 'Move playhead (Shift = bigger steps)'], ['Up / Down', 'Select previous / next track'], ['M / O', 'Mute / solo the selected track'],
-    ['[ / ]', 'Set loop start / end at the playhead'], ['N', 'Snap on/off'], ['Alt (while dragging)', 'Bypass snapping'], ['Ctrl+E', 'Export'], ['Ctrl+S', 'Save project file'], ['Ctrl+I', 'Add audio files'],
+    ['[ / ]', 'Set loop start / end at the playhead'], ['N', 'Snap on/off'], ['Alt (while dragging)', 'Bypass snapping'], ['Ctrl+E', 'Export'], ['F', 'Follow the playhead on/off'], ['I', 'Show or hide the mixer panel'], ['Ctrl+S', 'Save project file'], ['Ctrl+I', 'Add audio files'],
   ]
   modal({ title: 'Keyboard shortcuts', icon: 'keyboard', body: h('div', { class: 'as-keys' }, rows.flatMap(([k, d]) => [h('kbd', k), h('span', d)])) })
 }

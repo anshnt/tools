@@ -56,12 +56,29 @@ export function newProject(template = 'blank') {
 /** Fill in anything a project file or an older save might be missing. */
 export function fixProject(raw) {
   const base = newProject()
+  const num = (v, d, lo = -Infinity, hi = Infinity) => (Number.isFinite(+v) && v !== null && v !== '' ? Math.min(hi, Math.max(lo, +v)) : d)
   const p = { ...base, ...raw, loop: { ...base.loop, ...(raw.loop || {}) } }
+  p.name = String(p.name || base.name)
+  p.bpm = num(p.bpm, 120, 30, 300)
+  p.beats = [2, 3, 4, 6].includes(+p.beats) ? +p.beats : 4
+  p.trackH = num(p.trackH, 104, 60, 220)
+  p.masterVol = num(p.masterVol, 0, -60, 12)
+  p.metroVol = num(p.metroVol, 0.5, 0, 1)
+  p.loop = { on: !!p.loop.on, start: num(p.loop.start, 0, 0), end: num(p.loop.end, 8, 0) }
+  if (!['off', 'bar', '1/4', '1/8', '1/16'].includes(p.grid)) p.grid = 'off'
   p.tracks = (raw.tracks || []).slice(0, MAX_TRACKS).map((t, i) => {
     const d = newTrack('Track', i)
     const fx = defaultFx()
-    for (const k of Object.keys(fx)) fx[k] = { ...fx[k], ...(t.fx?.[k] || {}) }
-    return { ...d, ...t, fx, clips: (t.clips || []).filter((c) => c && c.asset && c.dur > 0).map((c) => ({ gain: 1, fadeIn: 0, fadeOut: 0, offset: 0, ...c })) }
+    for (const k of Object.keys(fx)) {
+      fx[k] = { ...fx[k], ...(t.fx?.[k] || {}) }
+      for (const [prop, v] of Object.entries(fx[k])) if (prop !== 'on') fx[k][prop] = num(v, defaultFx()[k][prop])
+      fx[k].on = !!fx[k].on
+    }
+    const clips = (t.clips || []).filter((c) => c && c.asset && num(c.dur, 0) > 0).map((c) => ({
+      id: String(c.id || uid('c')), asset: String(c.asset), name: String(c.name || 'Clip'), start: num(c.start, 0, 0), offset: num(c.offset, 0, 0),
+      dur: num(c.dur, 1, 0.001), gain: num(c.gain, 1, 0, 4), fadeIn: num(c.fadeIn, 0, 0), fadeOut: num(c.fadeOut, 0, 0),
+    }))
+    return { id: String(t.id || d.id), name: String(t.name || d.name), color: String(t.color || d.color), vol: num(t.vol, 0, -60, 12), pan: num(t.pan, 0, -1, 1), mute: !!t.mute, solo: !!t.solo, fx, clips }
   })
   return p
 }
