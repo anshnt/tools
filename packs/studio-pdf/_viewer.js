@@ -221,7 +221,7 @@ export function createViewer(app) {
       const mid = (lo + hi + 1) >> 1
       if (ord[mid].el.offsetTop <= probe) lo = mid; else hi = mid - 1
     }
-    if (lo !== cur) { cur = lo; api.onPage?.(cur) } else api.onPage?.(cur, true)
+    if (lo !== cur) { cur = lo; api.onPage?.(cur) }
   }
   api.goto = (i, { smooth = false } = {}) => {
     const pv = order()[clamp(i, 0, store.state.pages.length - 1)]

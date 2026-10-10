@@ -44,6 +44,7 @@ const CSS = `
 .pdfs-rail .rsep { width: 26px; height: 1px; background: var(--border); margin: 4px 0; flex: none; }
 .tool-btn { width: 40px; height: 40px; flex: none; border-radius: 12px; display: grid; place-items: center; color: var(--text-2); border: 1px solid transparent; background: transparent; cursor: pointer; transition: background .15s, color .15s, transform .15s var(--spring); }
 .tool-btn .icon { width: 19px; height: 19px; }
+.pdfs[data-doc="off"] .tool-btn { opacity: .4; cursor: default; }
 .tool-btn:hover { background: var(--surface-2); color: var(--text); transform: translateY(-1px); }
 .tool-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); box-shadow: 0 6px 16px -10px var(--accent); }
 .pdfs-side { flex: none; width: var(--pw); display: flex; flex-direction: column; min-height: 0; background: var(--surface); border-right: 1px solid var(--border); }

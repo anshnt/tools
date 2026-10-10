@@ -1,7 +1,7 @@
 // Annotation model: defaults, geometry (bounds, hit test, move, resize), text layout and the SVG renderer used on screen.
 // The PDF writer (_export.js) uses the same geometry and layoutText() so what you see is what gets saved.
 import { svg } from '../../lib/ui.js'
-import { clamp, uid, inside, grow, distToSeg, smoothSegs, segsToD, bbox, num } from './_geom.js'
+import { uid, inside, grow, distToSeg, smoothSegs, segsToD, bbox, num } from './_geom.js'
 
 export const PALETTE = ['#fde047', '#86efac', '#7dd3fc', '#f9a8d4', '#fdba74', '#ef4444', '#2563eb', '#16a34a', '#7c3aed', '#111827', '#ffffff']
 export const FONTS = {
@@ -240,4 +240,3 @@ export const clampToPage = (a, pw, ph) => {
   const dy = b.y + b.h < 12 ? 12 - (b.y + b.h) : b.y > ph - 12 ? ph - 12 - b.y : 0
   if (dx || dy) translate(a, dx, dy)
 }
-export { clamp }

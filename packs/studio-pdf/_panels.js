@@ -1,7 +1,7 @@
 // Side panels: page thumbnails (organize), properties inspector, comments list, document info and the search bar.
 import { h, icon, button, field, toggle, segmented, rangeField, input, textarea, toast, yieldToMain, debounce, formatBytes } from '../../lib/ui.js'
 import { dispSize, clamp } from './_geom.js'
-import { PALETTE, LABELS, FONTS, MARKUP, hasComment, makeAnnot } from './_annots.js'
+import { PALETTE, LABELS, FONTS, hasComment, makeAnnot } from './_annots.js'
 import { loadItems, flatten, findAll, rangeRects } from './_text.js'
 import { TOOL_LIST } from './_tools.js'
 

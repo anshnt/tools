@@ -6,7 +6,7 @@ import { loadPdfLib, openPdf } from '../../lib/pdf.js'
 import { toBlob, MAX_PIXELS } from '../../lib/image.js'
 import { yieldToMain } from '../../lib/ui.js'
 import { invert, apply, bbox, hexToRgb, smoothSegs, rectPts, grow } from './_geom.js'
-import { layoutText, arrowHead, noteShape, bounds, fontString, NOTE_SIZE } from './_annots.js'
+import { layoutText, arrowHead, noteShape, fontString, NOTE_SIZE } from './_annots.js'
 
 const f = (n) => (Math.round(n * 1000) / 1000).toString()
 const rgb = (hex, stroke) => `${hexToRgb(hex).map(f).join(' ')} ${stroke ? 'RG' : 'rg'}`

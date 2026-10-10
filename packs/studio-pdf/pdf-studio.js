@@ -62,7 +62,7 @@ export async function mount(root, { params = {}, signal } = {}) {
   const searchBtn = ibtn('search', 'Search (Ctrl+F)', () => (rootEl.dataset.search === 'on' ? search.close() : search.open()), { class: 'tog' })
   const leftBtn = ibtn('panel-left', 'Page thumbnails', () => togglePanel('left'), { class: 'tog' })
   const rightBtn = ibtn('panel-right', 'Properties and comments', () => togglePanel('right'), { class: 'tog' })
-  const saveBtn = button('Save PDF', { icon: 'download', variant: 'primary', size: 'sm', onClick: () => saveDialog(), attrs: { 'data-tip': 'Save a copy (Ctrl+S)' } })
+  const saveBtn = button('Save PDF', { icon: 'download', variant: 'primary', size: 'sm', onClick: () => saveDialog(), disabled: true, attrs: { 'data-tip': 'Save a copy (Ctrl+S)' } })
   const openBtn = button('Open', { icon: 'folder-open', size: 'sm', onClick: () => openDialog(), attrs: { 'data-tip': 'Open a PDF (Ctrl+O)' } })
   const newBtn = button('', { icon: 'file-plus', size: 'sm', ariaLabel: 'New blank PDF', onClick: () => newBlank(), attrs: { 'data-tip': 'New blank PDF' } })
   const top = h('div', { class: 'pdfs-top', role: 'toolbar', 'aria-label': 'Document' },
@@ -77,7 +77,7 @@ export async function mount(root, { params = {}, signal } = {}) {
   const rail = h('div', { class: 'pdfs-rail', role: 'toolbar', 'aria-orientation': 'vertical', 'aria-label': 'Tools' },
     TOOL_LIST.map((t) => {
       if (t.sep) return h('div', { class: 'rsep', 'aria-hidden': 'true' })
-      const b = h('button', { type: 'button', class: 'tool-btn', 'aria-label': `${t.name} (${t.key})`, 'aria-pressed': String(t.id === 'select'), 'data-tip': t.tip ? `${t.name}: ${t.tip}` : t.name, 'data-key': t.key, onclick: () => store.setTool(t.id) }, icon(t.icon))
+      const b = h('button', { type: 'button', class: 'tool-btn', 'aria-label': `${t.name} (${t.key})`, 'aria-pressed': String(t.id === 'select'), 'data-tip': t.tip ? `${t.name}: ${t.tip}` : t.name, 'data-key': t.key, onclick: () => { if (app.doc) store.setTool(t.id) } }, icon(t.icon))
       toolBtns.set(t.id, b)
       return b
     }))
@@ -144,7 +144,7 @@ export async function mount(root, { params = {}, signal } = {}) {
     undoBtn.dataset.tip = store.undoStack.length ? `Undo ${store.undoStack.at(-1).label} (Ctrl+Z)` : 'Undo (Ctrl+Z)'
     redoBtn.dataset.tip = store.redoStack.length ? `Redo ${store.redoStack.at(-1).label} (Ctrl+Y)` : 'Redo (Ctrl+Y)'
   }
-  viewer.onPage = (i, same) => { if (!same) pageIn.value = i + 1; thumbs.syncSel(); updateStatus() }
+  viewer.onPage = (i) => { pageIn.value = i + 1; thumbs.syncSel(); updateStatus() }
   viewer.onZoom = (z, mode) => {
     const preset = mode === 'custom' ? [...zoomSel.options].find((o) => o.value !== 'width' && o.value !== 'page' && !o.dataset.custom && Math.abs(+o.value - z) < 0.01)?.value : mode
     zoomSel.querySelector('[data-custom]')?.remove()
@@ -246,8 +246,11 @@ export async function mount(root, { params = {}, signal } = {}) {
       for (const a of assets || []) app.assets.set(a.id, { ...a, url: URL.createObjectURL(new Blob([a.bytes], { type: a.mime })) })
       app.doc = res.doc
       app.search.byPid = new Map(); app.search.list = []; app.search.cur = -1
+      app.tools.cancel()
+      store.setTool('select')
       store.reset(state ? JSON.parse(state) : { pages: res.pages, annots: [], fields: {} })
       rootEl.dataset.doc = 'on'
+      saveBtn.disabled = false
       document.body.classList.add('pdfs-open')
       emptyEl.hidden = true
       thumbs.reset(); props.refresh(); comments.refresh(true); docInfo.refresh(); updateStatus(); updateUndo()

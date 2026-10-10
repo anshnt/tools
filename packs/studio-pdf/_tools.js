@@ -33,7 +33,6 @@ const KEYS = Object.fromEntries(TOOL_LIST.filter((t) => t.key).map((t) => [t.key
 const BOX = new Set(['rect', 'ellipse', 'whiteout', 'redact'])
 const LINE = new Set(['line', 'arrow'])
 const PLACE = new Set(['note', 'image', 'signature', 'stamp'])
-const ONE_SHOT = new Set(['note', 'text', 'image', 'signature', 'stamp'])
 const typing = (t) => !!t?.closest?.('input, textarea, select, [contenteditable="true"]')
 
 export function createTools(app) {
