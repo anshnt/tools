@@ -100,14 +100,14 @@ export function createToolbar(app) {
   const pageBreak = tbtn('separator-horizontal', { tip: 'Page break (Ctrl+Enter)', onClick: () => run(cmd.insertPageBreak) })
 
   const tools = h('div', { class: 'dc-tools', role: 'toolbar', 'aria-label': 'Formatting' },
-    group(undo, redo), sep(),
-    group(style, font), group(smaller, size, bigger, sizes), sep(),
-    group(bold, italic, underline, strike, sup, sub, clear), sep(),
-    group(colorBtn, hlBtn),
+    group('history', undo, redo), sep(),
+    group('style', style, font), group('size', smaller, size, bigger, sizes), sep(),
+    group('format', bold, italic, underline, strike, sup, sub, clear), sep(),
+    group('color', colorBtn, hlBtn),
     h('span', { class: 'dc-break' }),
-    group(...aligns, spacingBtn), sep(),
-    group(ul, ol, tl, outdent, indent), sep(),
-    group(link, imageBtn, tableBtn, hr, pageBreak))
+    group('align', ...aligns, spacingBtn), sep(),
+    group('list', ul, ol, tl, outdent, indent), sep(),
+    group('insert', link, imageBtn, tableBtn, hr, pageBreak))
 
   // ---------- contextual strips ----------
   const T = cmd.tableCmd

@@ -96,7 +96,7 @@ export function createPagePanel(app) {
     h('div', { class: 'dc-sec' }, h('h3', 'Default text'), h('div', { class: 'dc-fields' }, fld('Font', font), fld('Size (pt)', size))),
     h('div', { class: 'dc-sec' }, h('h3', 'Header and footer'),
       h('label', { class: 'dc-check' }, nums, 'Page numbers'), fld('Header', header, true), fld('Footer', footer, true),
-      h('p', { class: 'dc-note' }, 'These appear in printed pages, PDF and Word files. The editor shows page edges as dashed lines.')))
+      h('p', { class: 'dc-note' }, 'These appear in Word files and PDF downloads. When printing, Chrome and Edge include them too.')))
 
   return {
     el,

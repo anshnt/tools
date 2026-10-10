@@ -14,7 +14,7 @@ export function tbtn(ic, { tip, onClick, label, cls = '', pressed, disabled, tip
 }
 
 export const sep = () => h('span', { class: 'dc-sep', role: 'separator' })
-export const group = (...kids) => h('div', { class: 'dc-group', role: 'group' }, kids)
+export const group = (name, ...kids) => h('div', { class: 'dc-group', role: 'group', 'data-g': name }, kids)
 
 /** One popover at a time, placed under its anchor inside root. Closes on outside click or Escape. */
 export function createPopovers(root) {

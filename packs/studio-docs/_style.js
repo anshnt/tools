@@ -205,7 +205,10 @@ const CSS = `
   .dc-side { position: absolute; z-index: 45; left: 0; top: 0; bottom: 0; width: min(330px, 92%); box-shadow: var(--shadow-lg); }
   .dc-tools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-right: 36px; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
   .dc-tools > * { flex: none; }
-  .dc-break { display: none; }
+  .dc-break, .dc-tools .dc-sep { display: none; }
+  .dc-tools [data-g="history"] { order: 0; } .dc-tools [data-g="format"] { order: 1; } .dc-tools [data-g="list"] { order: 2; } .dc-tools [data-g="style"] { order: 3; }
+  .dc-tools [data-g="size"] { order: 4; } .dc-tools [data-g="insert"] { order: 5; } .dc-tools [data-g="align"] { order: 6; } .dc-tools [data-g="color"] { order: 7; }
+  .dc-tools { gap: 2px 10px; }
   .dc-ctx { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-right: 36px; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
   .dc-ctx > * { flex: none; }
   .dc-canvas { padding: 14px 10px 90px; }

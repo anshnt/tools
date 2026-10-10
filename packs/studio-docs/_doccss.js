@@ -38,6 +38,7 @@ ${s} td > p:last-child, ${s} th > p:last-child { margin-bottom: 0; }
 /** Extra rules that only the exported (static) HTML needs: check boxes drawn with CSS and real page breaks. */
 export function exportCss() {
   return `
+* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 li[data-task] > p:first-child::before { content: "\\2610"; margin-right: 6pt; font-family: "Segoe UI Symbol", "DejaVu Sans", sans-serif; }
 li[data-task][data-checked="true"] > p:first-child::before { content: "\\2611"; }
 .dc-pb { break-after: page; page-break-after: always; height: 0; margin: 0; border: 0; }
