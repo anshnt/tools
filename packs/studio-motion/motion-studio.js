@@ -210,7 +210,12 @@ export async function mount(root, { params = {}, signal }) {
     if (document.querySelector('dialog[open]')) return
     const t = e.target
     const typing = t.closest?.('input, textarea, select, [contenteditable="true"]') && !(t.type === 'range' || t.type === 'checkbox' || t.type === 'color')
-    if (typing) { if (e.key === 'Escape') t.blur(); return }
+    if (typing) {
+      if (e.key === 'Escape') t.blur()
+      // The Text box edits the store (every keystroke is an undo step), so Ctrl+Z there undoes through the store, e.g. right after adding a text layer.
+      else if ((e.ctrlKey || e.metaKey) && 'zy'.includes(e.key.toLowerCase()) && t.classList.contains('ms-text')) { e.preventDefault(); e.stopPropagation(); t.blur(); e.key.toLowerCase() === 'y' || e.shiftKey ? doRedo() : doUndo() }
+      return
+    }
     const inApp = app.contains(t) || !t.closest?.('input, textarea, select, button, a, summary, dialog, [contenteditable="true"]')
     if (!inApp) return
     const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase()
@@ -257,7 +262,8 @@ export async function mount(root, { params = {}, signal }) {
   })
   store.emit('history')
   syncTransport()
-  if (restored) toast('Restored your last project from this browser.')
+  // On a phone the site's toast sits over the Timeline/Inspector tabs, so the restore notice is desktop-only there (the project itself is the cue).
+  if (restored && app.clientWidth >= 760) toast('Restored your last project from this browser.')
   inspector.rebuild()
 
   // ---------- dialogs ----------

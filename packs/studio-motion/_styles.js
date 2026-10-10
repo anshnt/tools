@@ -45,7 +45,8 @@ const CSS = `
 
 /* tool rail */
 .ms-rail { grid-area: rail; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 5px; border-right: 1px solid var(--border); background: var(--surface); min-height: 0; overflow: visible; }
-.ms-app[data-size="s"] .ms-rail { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 4px 8px; justify-content: flex-start; }
+.ms-app[data-size="s"] .ms-rail { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 4px 6px; gap: 2px; justify-content: flex-start; }
+.ms-app[data-size="s"] .ms-rail .ms-btn { flex: 1 1 0; min-width: 30px; padding: 0; }
 
 /* stage */
 .ms-stagewrap { grid-area: stage; position: relative; min-width: 0; min-height: 0; background: var(--bg-2); }
