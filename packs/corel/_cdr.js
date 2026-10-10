@@ -637,7 +637,15 @@ export async function readCdr(input, { JSZip } = {}) {
         const layer = st.layer || layerOf(page)
         const o = makeObject(c)
         if (o) (st.group ? st.group.children : layer.objects).push(o)
-      } else if (!SKIP_LISTS.has(c.form)) walk(c.children, st)
+      } else if (!SKIP_LISTS.has(c.form)) {
+        // a list with its own geometry and transform is an object even when its form tag is not the usual one
+        if (c.children.some((x) => x.id === 'loda' || x.id === 'lobj') && c.children.some((x) => x.id === 'trfd')) {
+          const page = st.page || newPage()
+          const layer = st.layer || layerOf(page)
+          const o = makeObject(c)
+          if (o) (st.group ? st.group.children : layer.objects).push(o)
+        } else walk(c.children, st)
+      }
     }
   }
   walk(root.children, {})
