@@ -29,7 +29,7 @@ const START = {
 
 export async function mount(root, { params = {}, signal } = {}) {
   injectCss()
-  const phone = matchMedia('(max-width: 760px)').matches
+  const phone = matchMedia('(max-width: 860px)').matches
   const store = createStore()
   const app = { store, assets: new Map(), styles: {}, search: { byPid: new Map(), list: [], cur: -1, q: '' }, doc: null, busy: false, params }
   app.author = () => kv.load('pdf-studio:author', '')
@@ -38,7 +38,7 @@ export async function mount(root, { params = {}, signal } = {}) {
   const start = START[params.start] || null
 
   // ---------- skeleton ----------
-  const rootEl = h('div', { class: 'pdfs', dataset: { tool: 'select', doc: 'off', left: phone ? 'off' : 'on', right: phone ? 'off' : 'on', ff: 'on', search: 'off' } })
+  const rootEl = h('div', { class: 'pdfs', dataset: { tool: 'select', doc: 'off', left: phone ? 'off' : 'on', right: phone || innerWidth < 1100 ? 'off' : 'on', ff: 'on', search: 'off' } })
   app.root = rootEl
   rootEl.__app = app // handy for debugging in the console
   const viewer = createViewer(app); app.viewer = viewer
@@ -103,10 +103,10 @@ export async function mount(root, { params = {}, signal } = {}) {
     const cur = rootEl.dataset[side] === 'on'
     const next = on ?? !cur
     rootEl.dataset[side] = next ? 'on' : 'off'
-    if (next && matchMedia('(max-width: 760px)').matches) rootEl.dataset[side === 'left' ? 'right' : 'left'] = 'off'
+    if (next && matchMedia('(max-width: 860px)').matches) rootEl.dataset[side === 'left' ? 'right' : 'left'] = 'off'
     leftBtn.setAttribute('aria-pressed', String(rootEl.dataset.left === 'on')); rightBtn.setAttribute('aria-pressed', String(rootEl.dataset.right === 'on'))
   }
-  leftBtn.setAttribute('aria-pressed', String(!phone)); rightBtn.setAttribute('aria-pressed', String(!phone))
+  leftBtn.setAttribute('aria-pressed', String(!phone)); rightBtn.setAttribute('aria-pressed', String(rootEl.dataset.right === 'on'))
 
   // ---------- empty / loading state ----------
   // The card (with its dropzone) stays in the DOM while a document is open, so files dropped on the page still reach it.
@@ -177,7 +177,7 @@ export async function mount(root, { params = {}, signal } = {}) {
     if (!t?.dataset.tip) return
     tipFor = t
     tip.replaceChildren(t.dataset.tip, ...(t.dataset.key ? [h('kbd', t.dataset.key)] : []))
-    const r = t.getBoundingClientRect(), box = rootEl.getBoundingClientRect(), side = t.classList.contains('tool-btn') && !matchMedia('(max-width: 760px)').matches
+    const r = t.getBoundingClientRect(), box = rootEl.getBoundingClientRect(), side = t.classList.contains('tool-btn') && !matchMedia('(max-width: 860px)').matches
     tip.classList.add('on')
     const tw = tip.offsetWidth, th = tip.offsetHeight
     const x = side ? r.right + 10 - box.left : Math.min(Math.max(8, r.left + r.width / 2 - tw / 2 - box.left), box.width - tw - 8)
@@ -248,10 +248,11 @@ export async function mount(root, { params = {}, signal } = {}) {
       app.search.byPid = new Map(); app.search.list = []; app.search.cur = -1
       store.reset(state ? JSON.parse(state) : { pages: res.pages, annots: [], fields: {} })
       rootEl.dataset.doc = 'on'
+      document.body.classList.add('pdfs-open')
       emptyEl.hidden = true
       thumbs.reset(); props.refresh(); comments.refresh(true); docInfo.refresh(); updateStatus(); updateUndo()
       viewer.el.scrollTop = 0
-      if (matchMedia('(max-width: 760px)').matches) rootEl.scrollIntoView({ block: 'start' })
+      if (matchMedia('(max-width: 860px)').matches) rootEl.scrollIntoView({ block: 'start' })
       idb.set(`${SESSION}:file`, { name, bytes: res.doc.bytes })
       if (!state) {
         app.forms.scan()
@@ -347,6 +348,7 @@ export async function mount(root, { params = {}, signal } = {}) {
     clearTimeout(persistT)
     window.removeEventListener('beforeunload', onBeforeUnload)
     document.removeEventListener('visibilitychange', onHide)
+    document.body.classList.remove('pdfs-open')
     app.tools.destroy(); thumbs.destroy(); props.destroy(); comments.destroy(); docInfo.destroy(); search.destroy(); viewer.destroy()
     app.doc?.destroy()
     for (const a of app.assets.values()) URL.revokeObjectURL(a.url)

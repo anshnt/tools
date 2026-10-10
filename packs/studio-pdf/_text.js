@@ -14,9 +14,10 @@ const measureFor = (font, size) => {
 export function loadItems(doc, src) {
   if (!doc.textCache.has(src)) {
     doc.textCache.set(src, (async () => {
+      const done = doc.hold(src)
       const page = await doc.page(src)
       const vp = page.getViewport({ scale: 1 })
-      const tc = await page.getTextContent()
+      const tc = await page.getTextContent().finally(done)
       const items = []
       for (const it of tc.items) {
         if (!('str' in it)) continue

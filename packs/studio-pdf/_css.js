@@ -204,15 +204,18 @@ textarea.ff { padding: 3px; resize: none; line-height: 1.15; }
 .stamp-preview { min-height: 110px; }
 
 /* phones */
-@media (max-width: 760px) {
+@media (max-width: 860px) {
   .pdfs { height: calc(100dvh - 28px); min-height: 480px; border-radius: var(--radius); scroll-margin-top: calc(var(--header-h) + 8px); }
+  /* with a document open the app takes the whole screen below the site header (the page title is hidden meanwhile) */
+  body.pdfs-open .tool-page .page-hero { display: none; }
+  body.pdfs-open .pdfs { height: calc(100dvh - var(--header-h) - 16px); }
   .pdfs-top > .btn-primary { order: -1; margin-right: 6px; }
   .pdfs-top .grow { display: none; }
   .pdfs-main { flex-direction: column-reverse; }
   .pdfs-rail { width: 100%; flex-direction: row; justify-content: flex-start; padding: 6px 8px; border-right: 0; border-top: 1px solid var(--border); overflow-x: auto; overflow-y: hidden; }
   .pdfs-rail .rsep { width: 1px; height: 26px; margin: 0 4px; }
   .pdfs-view { flex: 1; min-height: 0; }
-  .pdfs-side { position: absolute; z-index: 40; left: 0; right: 0; bottom: 0; width: auto; max-height: 62%; border: 0; border-top: 1px solid var(--border-strong); box-shadow: 0 -18px 40px -20px rgba(0, 0, 0, .45); border-radius: 18px 18px 0 0; }
+  .pdfs-side { position: absolute; z-index: 40; left: 0; right: 0; bottom: 56px; width: auto; max-height: 58%; border: 0; border-top: 1px solid var(--border-strong); box-shadow: 0 -18px 40px -20px rgba(0, 0, 0, .45); border-radius: 18px 18px 0 0; }
   .pdfs-side.right { width: auto; border-left: 0; }
   .thumbs { flex-direction: row; overflow-x: auto; overflow-y: hidden; padding: 10px; }
   .th { flex: none; width: 96px; }

@@ -29,7 +29,7 @@ export function createViewer(app) {
 
   // ---------- page views ----------
   function makeView(p) {
-    const el = h('div', { class: 'pg', dataset: { pid: p.id } })
+    const el = h('div', { class: 'pg', role: 'group', dataset: { pid: p.id } })
     const paper = h('div', { class: 'pg-paper' })
     const textEl = h('div', { class: 'textlayer' })
     const svgEl = svg('svg', { class: 'layer-svg', width: p.w, height: p.h })
@@ -64,9 +64,10 @@ export function createViewer(app) {
       io.unobserve(pv.el); pv.task?.cancel(); queue.delete(pv); pv.el.remove(); views.delete(pid)
     }
     const els = []
-    for (const p of pages) {
+    for (const [i, p] of pages.entries()) {
       let pv = views.get(p.id)
       if (!pv) pv = makeView(p)
+      pv.el.setAttribute('aria-label', `Page ${i + 1}`)
       if (pv.rot !== p.rot) { pv.rot = p.rot; pv.key = null; pv.drawn = false }
       layout(pv)
       els.push(pv.el)
@@ -138,10 +139,15 @@ export function createViewer(app) {
       app.forms?.mount(pv)
       return
     }
+    const done = app.doc.hold(e.src)
+    try { await paintPage(pv, e, k, token) } finally { done() }
+  }
+  async function paintPage(pv, e, k, token) {
     const page = await app.doc.page(e.src)
     if (token !== pv.token) return
     const rotation = (page.rotate + e.rot) % 360
-    let scale = zoom * dpr()
+    // Never render below 1.25x: small rotated text can lose glyphs in the browser's canvas at low scales, and the CSS downscale looks crisper anyway.
+    let scale = Math.max(zoom * dpr(), 1.25)
     let vp = page.getViewport({ scale, rotation })
     if (vp.width * vp.height > MAX_PIXELS * 0.5) { scale *= Math.sqrt((MAX_PIXELS * 0.5) / (vp.width * vp.height)); vp = page.getViewport({ scale, rotation }) }
     const canvas = h('canvas', { class: 'pg-canvas' })

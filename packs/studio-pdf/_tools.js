@@ -1,7 +1,7 @@
 // Interaction: creating, selecting, moving and resizing annotations, in-place text editing, the text-selection popover
 // and keyboard shortcuts. Everything edits through store.commit()/record() so undo works.
 import { h, icon, debounce, toast } from '../../lib/ui.js'
-import { clamp, normRect, decimate } from './_geom.js'
+import { clamp, normRect, decimate, uid } from './_geom.js'
 import {
   DEFAULTS, LABELS, MARKUP, makeAnnot, renderAnnot, bounds, hit, translate, resizeRect, layoutText, FONTS, clampToPage,
 } from './_annots.js'
@@ -217,6 +217,12 @@ export function createTools(app) {
     viewer.drawTmp(pv, el)
   }
   function onHover(e) {
+    if (!g && store.tool === 'select') {
+      const pv = viewer.pageFromEvent(e)
+      const a = pv && !e.target.closest('input, textarea, select, button') ? topHit(pv, viewer.toBase(pv, e.clientX, e.clientY)) : null
+      viewer.pagesEl.style.cursor = a ? 'move' : ''
+      return
+    }
     if (g || !pending || !PLACE.has(store.tool)) return
     const pv = viewer.pageFromEvent(e)
     if (!pv) { if (ghostPv) viewer.drawTmp(ghostPv, null); ghostPv = null; return }
@@ -282,9 +288,21 @@ export function createTools(app) {
     hide(pop)
     return true
   }
+  function commentOnSelection() {
+    const groups = selectionRects(viewer.pagesEl, (pid) => viewer.views.get(pid)?.items)
+    if (!groups.length) return
+    const gr = groups[0]
+    const a = makeAnnot('highlight', gr.pid, { ...styleOf('highlight'), rects: gr.rects, text: '' }, app.author())
+    store.commit('Add comment', (s) => s.annots.push(a), { pids: [gr.pid] })
+    getSelection()?.removeAllRanges()
+    hide(pop)
+    store.select(a.id)
+    app.panels?.focusComment(a.id)
+  }
   const pop = h('div', { class: 'sel-pop', hidden: true, role: 'toolbar', 'aria-label': 'Selected text' },
     ...[['highlight', 'highlighter', 'Highlight'], ['underline', 'underline', 'Underline'], ['strike', 'strikethrough', 'Strikethrough'], ['redact', 'eye-off', 'Redact']].map(([k, ic, label]) =>
       h('button', { type: 'button', class: 'sp-btn', 'aria-label': label, 'data-tip': label, onpointerdown: (e) => e.preventDefault(), onclick: () => applyMarkup(k) }, icon(ic))),
+    h('button', { type: 'button', class: 'sp-btn', 'aria-label': 'Add comment', 'data-tip': 'Comment', onpointerdown: (e) => e.preventDefault(), onclick: commentOnSelection }, icon('message-square-plus')),
     h('button', { type: 'button', class: 'sp-btn', 'aria-label': 'Copy text', 'data-tip': 'Copy', onpointerdown: (e) => e.preventDefault(), onclick: () => { try { document.execCommand('copy') } catch { /* ignore */ } toast('Copied', 'success'); getSelection()?.removeAllRanges(); hide(pop) } }, icon('copy')))
   app.root.append(pop)
 
@@ -351,7 +369,7 @@ export function createTools(app) {
   }
   function duplicate(src, dx = 14, dy = 14, pid = src.pid) {
     const c = structuredClone(src)
-    c.id = makeAnnot('note', pid, {}).id
+    c.id = uid('a')
     c.pid = pid
     translate(c, dx, dy)
     store.commit('Duplicate', (s) => s.annots.push(c), { pids: [pid] })

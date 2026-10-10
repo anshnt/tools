@@ -12,8 +12,14 @@ export class Doc {
     this.password = password
     this.textCache = new Map()
     this.pages = new Map()
+    this.busy = new Map() // src -> number of renders using the page (never clean those up)
     this.fieldCount = 0
     this.fieldMap = null
+  }
+  /** Mark a source page as in use until the returned function is called (keeps cache eviction away from running renders). */
+  hold(src) {
+    this.busy.set(src, (this.busy.get(src) || 0) + 1)
+    return () => { const n = (this.busy.get(src) || 1) - 1; if (n) this.busy.set(src, n); else this.busy.delete(src) }
   }
   /** pdf.js page for a 0-based source index (small LRU so huge files stay light). */
   async page(src) {
@@ -21,10 +27,11 @@ export class Doc {
     if (!p) {
       p = this.pdf.getPage(src + 1)
       this.pages.set(src, p)
-      if (this.pages.size > 24) {
-        const [oldKey] = this.pages.keys()
-        const old = this.pages.get(oldKey)
-        this.pages.delete(oldKey)
+      for (const k of [...this.pages.keys()]) {
+        if (this.pages.size <= 24) break
+        if (k === src || this.busy.has(k)) continue
+        const old = this.pages.get(k)
+        this.pages.delete(k)
         old.then((pg) => pg.cleanup()).catch(() => {})
       }
     }

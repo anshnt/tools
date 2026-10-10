@@ -34,13 +34,16 @@ export function createThumbs(app) {
         canvas.width = Math.round(dw * 0.4); canvas.height = Math.round(dh * 0.4)
         const c = canvas.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, canvas.width, canvas.height)
       } else {
-        const page = await app.doc.page(p.src)
-        const rotation = (page.rotate + p.rot) % 360
-        const v0 = page.getViewport({ scale: 1, rotation })
-        const vp = page.getViewport({ scale: (150 / Math.max(v0.width, v0.height)) * dpr, rotation })
-        canvas.width = Math.ceil(vp.width); canvas.height = Math.ceil(vp.height)
-        const c = canvas.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, canvas.width, canvas.height)
-        await page.render({ canvasContext: c, canvas, viewport: vp }).promise
+        const done = app.doc.hold(p.src)
+        try {
+          const page = await app.doc.page(p.src)
+          const rotation = (page.rotate + p.rot) % 360
+          const v0 = page.getViewport({ scale: 1, rotation })
+          const vp = page.getViewport({ scale: (150 / Math.max(v0.width, v0.height)) * dpr, rotation })
+          canvas.width = Math.ceil(vp.width); canvas.height = Math.ceil(vp.height)
+          const c = canvas.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, canvas.width, canvas.height)
+          await page.render({ canvasContext: c, canvas, viewport: vp }).promise
+        } finally { done() }
       }
     } catch (e) { if (e?.name !== 'RenderingCancelledException') console.error(e) }
     cache.set(p.id, { key, canvas })
@@ -296,7 +299,7 @@ export function createComments(app) {
 
   const items = () => {
     const pages = store.state.pages
-    return store.state.annots.filter((a) => hasComment(a) && (a.text || a.type === 'note'))
+    return store.state.annots.filter((a) => hasComment(a) && (a.text || a.text === '' || a.type === 'note'))
       .map((a) => ({ a, pi: pages.findIndex((p) => p.id === a.pid) })).filter((x) => x.pi >= 0)
       .sort((p, q) => p.pi - q.pi || (p.a.y ?? p.a.rects?.[0]?.[1] ?? 0) - (q.a.y ?? q.a.rects?.[0]?.[1] ?? 0))
   }
