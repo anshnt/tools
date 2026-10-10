@@ -36,7 +36,7 @@ import studioSlides, * as studioSlidesMeta from '../packs/studio-slides/catalog.
 import studioDocs, * as studioDocsMeta from '../packs/studio-docs/catalog.js'
 import studioSheets, * as studioSheetsMeta from '../packs/studio-sheets/catalog.js'
 import studioCad, * as studioCadMeta from '../packs/studio-cad/catalog.js'
-import studioLinks, * as studioLinksMeta from '../packs/studio-links/catalog.js'
+import corel, * as corelMeta from '../packs/corel/catalog.js'
 
 export const CATEGORIES = [
   { id: 'pdf', name: 'PDF', title: 'PDF tools', icon: 'file-text', color: '#e5484d', blurb: 'Merge, split, compress, convert, sign and secure PDFs.' },
@@ -67,7 +67,7 @@ const PACKS = [
   ['career', career, careerMeta], ['student', student, studentMeta], ['web', web, webMeta], ['security', security, securityMeta],
   ['dev-format', devFormat, devFormatMeta], ['dev-utils', devUtils, devUtilsMeta], ['personal', personal, personalMeta],
   ['files', files, filesMeta], ['screen', screen, screenMeta], ['india', india, indiaMeta], ['ai', ai, aiMeta],
-  ['studio-photo', studioPhoto, studioPhotoMeta], ['studio-develop', studioDevelop, studioDevelopMeta], ['studio-vector', studioVector, studioVectorMeta], ['studio-video', studioVideo, studioVideoMeta], ['studio-motion', studioMotion, studioMotionMeta], ['studio-layout', studioLayout, studioLayoutMeta], ['studio-pdf', studioPdf, studioPdfMeta], ['studio-audio', studioAudio, studioAudioMeta], ['studio-slides', studioSlides, studioSlidesMeta], ['studio-docs', studioDocs, studioDocsMeta], ['studio-sheets', studioSheets, studioSheetsMeta], ['studio-cad', studioCad, studioCadMeta], ['studio-links', studioLinks, studioLinksMeta],
+  ['studio-photo', studioPhoto, studioPhotoMeta], ['studio-develop', studioDevelop, studioDevelopMeta], ['studio-vector', studioVector, studioVectorMeta], ['studio-video', studioVideo, studioVideoMeta], ['studio-motion', studioMotion, studioMotionMeta], ['studio-layout', studioLayout, studioLayoutMeta], ['studio-pdf', studioPdf, studioPdfMeta], ['studio-audio', studioAudio, studioAudioMeta], ['studio-slides', studioSlides, studioSlidesMeta], ['studio-docs', studioDocs, studioDocsMeta], ['studio-sheets', studioSheets, studioSheetsMeta], ['studio-cad', studioCad, studioCadMeta], ['corel', corel, corelMeta],
 ]
 
 export const TOOLS = PACKS.flatMap(([pack, list, meta]) => list.map((t) => ({
