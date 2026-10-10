@@ -4,7 +4,6 @@ import { model, tables } from './vendor/prosemirror.js'
 
 const { Schema, DOMParser: PMParser, DOMSerializer } = model
 
-export const PX_PER_PT = 4 / 3
 export const INDENT_PT = 36 // one indent level
 export const MAX_INDENT = 8
 
@@ -267,18 +266,11 @@ function cleanJson(n) {
 }
 export const jsonToDoc = (json) => schema.nodeFromJSON(cleanJson(JSON.parse(JSON.stringify(json))))
 
-/** Serialize a doc (or fragment container) to an HTML string. */
-export function docToHTML(doc) {
-  const box = document.createElement('div')
-  box.append(serializer.serializeFragment(doc.content))
-  return box.innerHTML
-}
 export function serializeToDom(doc) {
   const box = document.createElement('div')
   box.append(serializer.serializeFragment(doc.content))
   return box
 }
-export const emptyDocJSON = () => ({ type: 'doc', content: [{ type: 'paragraph' }] })
 
 export const wordCount = (text) => (text.trim() ? text.trim().split(/\s+/).length : 0)
 export const docText = (doc) => doc.textBetween(0, doc.content.size, '\n', ' ')

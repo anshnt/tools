@@ -1,7 +1,7 @@
 // Find and replace: a ProseMirror plugin that tracks matches and decorates them, plus the commands the find bar uses.
 import { state as S, view as V } from './vendor/prosemirror.js'
 
-const { Plugin, PluginKey, TextSelection } = S
+const { Plugin, PluginKey } = S
 const { Decoration, DecorationSet } = V
 
 export const findKey = new PluginKey('docs-find')
@@ -82,14 +82,6 @@ export function stepMatch(view, dir) {
   view.dispatch(view.state.tr.setMeta(findKey, { current: next }))
   reveal(view, s.matches[next])
   return findState(view.state)
-}
-
-export function selectMatch(view) {
-  const s = findState(view.state)
-  const m = s.matches[s.current]
-  if (!m) return false
-  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, m.from, m.to)).scrollIntoView())
-  return true
 }
 
 export function replaceCurrent(view, text) {
