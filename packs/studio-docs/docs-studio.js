@@ -14,7 +14,7 @@ import { defaultSettings, normSettings, pagePx, contentWidthPx } from './_page.j
 import { WELCOME, templateById } from './_templates.js'
 import { importFile, OPEN_ACCEPT } from './_import.js'
 import { buildHtml, printHtml, exportMarkdown, exportText, projectJson } from './_export.js'
-import { setQuery, stepMatch, replaceCurrent, replaceAll, findState, selectMatch } from './_find.js'
+import { setQuery, stepMatch, replaceCurrent, replaceAll, findState } from './_find.js'
 import { fileToImageAttrs } from './_img.js'
 import { createPaginator } from './_paginate.js'
 import * as store from './_store.js'
@@ -34,7 +34,7 @@ export async function mount(root, { params = {}, signal } = {}) {
   const later = (fn, ms) => { const t = setTimeout(() => { timers.delete(t); fn() }, ms); timers.add(t); return t }
 
   // ---------- DOM ----------
-  const t = h('div', { class: 't-docs', role: 'application', 'aria-label': 'Document editor' })
+  const t = h('div', { class: 't-docs', role: 'region', 'aria-label': 'Document editor' })
   root.append(t)
   const pop = createPopovers(t)
 
@@ -289,8 +289,7 @@ export async function mount(root, { params = {}, signal } = {}) {
     canvas.dataset.view = v
     viewBtn.setPressed(v === 'web')
     viewBtn.replaceChildren(icon(v === 'page' ? 'monitor' : 'smartphone'))
-    for (const b of [zoomOut, zoomIn, fitBtn]) b.disabled = v !== 'page'
-    zoomVal.style.opacity = v === 'page' ? '' : '.4'
+    for (const b of [zoomOut, zoomIn, fitBtn, zoomVal]) b.hidden = v !== 'page'
     if (persist) prefs.update((p) => ({ ...p, view: v }))
     pager?.enable(v === 'page')
     if (v !== 'page') { S.pages = 1; paper.style.setProperty('--pages', '1') }
@@ -641,7 +640,7 @@ export async function mount(root, { params = {}, signal } = {}) {
     pop.open(exportBtn, h('div', { style: 'min-width:270px' },
       h('div', { class: 'dc-pop-label' }, 'Download as'),
       menuItem('file-text', 'Word document', '.docx, opens in Word and Google Docs', go('docx')),
-      menuItem('file-type', 'PDF', 'Text stays selectable', go('pdf')),
+      menuItem('file-type', 'PDF', 'Standard fonts, text stays selectable', go('pdf')),
       menuItem('printer', 'Print...', 'Or choose Save as PDF in the print window', go('print')),
       menuItem('file-code', 'Markdown', '.md with tables and check lists', go('md')),
       menuItem('code-xml', 'Web page', '.html, one self-contained file', go('html')),
@@ -672,6 +671,27 @@ export async function mount(root, { params = {}, signal } = {}) {
   document.addEventListener('visibilitychange', onHide)
   window.addEventListener('pagehide', onHide)
 
+  // ---------- cleanup ----------
+  const cleanup = () => {
+    S.dead = true
+    ro.disconnect()
+    pager?.destroy()
+    pop.close()
+    for (const x of timers) clearTimeout(x)
+    document.removeEventListener('visibilitychange', onHide)
+    window.removeEventListener('pagehide', onHide)
+    cancelAnimationFrame(rafTool)
+    // final save of whatever is pending, without touching the UI
+    if (S.id && S.version !== S.savedVersion) {
+      const doc = ed.state.doc
+      const text = docText(doc)
+      store.putDoc({ id: S.id, title: S.title.trim() || 'Untitled document', json: doc.toJSON(), settings: S.settings, created: S.created, updated: Date.now(), template: S.template, untouched: S.untouched },
+        { words: wordCount(text), snippet: text.replace(/\s+/g, ' ').trim().slice(0, 90) })
+    }
+    ed.destroy()
+    t.remove()
+  }
+
   // ---------- boot ----------
   const stored = prefs.get()
   S.zoom = Math.min(2, Math.max(0.3, stored.zoom || 1))
@@ -682,7 +702,7 @@ export async function mount(root, { params = {}, signal } = {}) {
   togglePanel(stored.panel === 'closed' ? null : stored.panel || (wide ? 'docs' : null), true, false)
 
   const idx = await store.listDocs()
-  if (signal?.aborted) return () => {}
+  if (signal?.aborted) { cleanup(); return () => {} }
   S.docs = idx
   docsPanel.set(idx)
   let first = null
@@ -711,24 +731,5 @@ export async function mount(root, { params = {}, signal } = {}) {
       onFiles: ([f]) => { m.close(); openFile(f) } }))
   }
 
-  // ---------- cleanup ----------
-  return () => {
-    S.dead = true
-    ro.disconnect()
-    pager?.destroy()
-    pop.close()
-    for (const x of timers) clearTimeout(x)
-    document.removeEventListener('visibilitychange', onHide)
-    window.removeEventListener('pagehide', onHide)
-    cancelAnimationFrame(rafTool)
-    // final save of whatever is pending, without touching the UI
-    if (S.id && S.version !== S.savedVersion) {
-      const doc = ed.state.doc
-      const text = docText(doc)
-      store.putDoc({ id: S.id, title: S.title.trim() || 'Untitled document', json: doc.toJSON(), settings: S.settings, created: S.created, updated: Date.now(), template: S.template, untouched: S.untouched },
-        { words: wordCount(text), snippet: text.replace(/\s+/g, ' ').trim().slice(0, 90) })
-    }
-    ed.destroy()
-    t.remove()
-  }
+  return cleanup
 }

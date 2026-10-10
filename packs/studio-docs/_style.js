@@ -118,7 +118,7 @@ const CSS = `
 .ProseMirror-focused .ProseMirror-gapcursor { display: block; }
 
 /* find bar */
-.dc-find-bar { position: absolute; top: 10px; right: 20px; z-index: 25; width: min(440px, calc(100% - 28px)); padding: 10px; display: grid; gap: 8px; background: var(--surface);
+.dc-find-bar { position: absolute; top: 10px; right: 20px; z-index: 25; width: min(440px, calc(100% - 28px)); padding: 10px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; background: var(--surface);
   border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-lg); animation: dc-in .18s var(--ease); }
 .dc-find-bar[hidden] { display: none; }
 .dc-find-row { display: flex; align-items: center; gap: 4px; }

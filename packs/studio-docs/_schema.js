@@ -241,7 +241,31 @@ export function htmlToDoc(html) {
   const body = new window.DOMParser().parseFromString(String(html), 'text/html').body
   return parser.parse(body, { preserveWhitespace: false })
 }
-export const jsonToDoc = (json) => schema.nodeFromJSON(json)
+/** Strip anything unsafe from document JSON (project files and imports are untrusted): bad links, image sources, colours, fonts. */
+function cleanJson(n) {
+  if (!n || typeof n !== 'object') return null
+  if (Array.isArray(n.marks)) {
+    n.marks = n.marks.filter((m) => {
+      const a = (m.attrs ||= {})
+      switch (m.type) {
+        case 'link': { const href = safeHref(a.href); if (!href) return false; a.href = href; return true }
+        case 'color': case 'highlight': { const c = normColor(a.color); if (!c) return false; a.color = c; return true }
+        case 'fontSize': return Number.isFinite(a.size) && a.size > 0 && a.size < 500
+        case 'fontFamily': { const f = String(a.family || '').replace(/[^\w -]/g, '').trim().slice(0, 40); if (!f) return false; a.family = f; return true }
+        default: return true
+      }
+    })
+  }
+  if (n.type === 'image') {
+    const src = safeImageSrc(n.attrs?.src)
+    if (!src) return null
+    n.attrs.src = src
+  }
+  if (n.attrs?.background) n.attrs.background = normColor(n.attrs.background)
+  if (Array.isArray(n.content)) n.content = n.content.map(cleanJson).filter(Boolean)
+  return n
+}
+export const jsonToDoc = (json) => schema.nodeFromJSON(cleanJson(JSON.parse(JSON.stringify(json))))
 
 /** Serialize a doc (or fragment container) to an HTML string. */
 export function docToHTML(doc) {

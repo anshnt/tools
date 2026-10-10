@@ -1,6 +1,7 @@
 // Open files: DOCX (mammoth), Markdown (marked), HTML, plain text and this app's own project files.
 import { mammoth, marked, jszip } from '../../lib/libs.js'
-import { ext, baseName } from '../../lib/files.js'
+import { ext, baseName, readDataURL } from '../../lib/files.js'
+import { loadImage, fitSize, toCanvas, toBlob } from '../../lib/image.js'
 import { htmlToDoc, jsonToDoc, schema } from './_schema.js'
 import { PAPERS, TWIPS_PER_MM } from './_page.js'
 
@@ -70,11 +71,27 @@ async function fromDocx(file, title) {
   }
   const body = new window.DOMParser().parseFromString(res.value, 'text/html').body
   applyMarkers(body)
+  await shrinkImages(body)
   const doc = htmlToDoc(body.innerHTML)
   const notes = []
   const warnings = res.messages.filter((m) => m.type === 'warning' && !/Unrecognised (paragraph|run) style/i.test(m.message))
   if (warnings.length) notes.push(`Word features that could not be converted were skipped (${warnings.length}). Text, headings, lists, tables and images were kept.`)
   return { title, doc, settings: await docxPageSettings(original), notes }
+}
+
+/** Re-encode very large embedded pictures (long side 1800 px) so documents stay quick to save and open. */
+async function shrinkImages(body) {
+  for (const img of body.querySelectorAll('img[src^="data:image/"]')) {
+    const src = img.getAttribute('src')
+    if (src.length < 1_500_000 || /^data:image\/(gif|svg)/.test(src)) continue
+    try {
+      const pic = await loadImage(src)
+      const fit = fitSize(pic.naturalWidth, pic.naturalHeight, 1800, 1800)
+      const jpeg = /^data:image\/jpe?g/.test(src)
+      const c = toCanvas(pic, fit.width, fit.height, { background: jpeg ? '#ffffff' : undefined })
+      img.setAttribute('src', await readDataURL(await toBlob(c, jpeg ? 'image/jpeg' : 'image/png', 0.86)))
+    } catch { /* keep the original */ }
+  }
 }
 
 /**
