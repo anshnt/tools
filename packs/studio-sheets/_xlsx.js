@@ -404,7 +404,7 @@ export async function writeXlsx(model) {
         if (v === null || v === undefined) return ['', '']
         if (typeof v === 'number') return Number.isFinite(v) ? ['', `<v>${v}</v>`] : ['t="e"', '<v>#NUM!</v>']
         if (typeof v === 'boolean') return ['t="b"', `<v>${v ? 1 : 0}</v>`]
-        if (v instanceof XErr) return ['t="e"', `<v>${xmlEsc(v.code)}</v>`]
+        if (v instanceof XErr) return ['t="e"', `<v>${v.code === '#SPILL!' || v.code === '#CIRC!' ? '#VALUE!' : xmlEsc(v.code)}</v>`] // codes other spreadsheets do not know
         return null
       }
       if (cell && cell.f != null) {

@@ -164,6 +164,7 @@ export async function buildPdf(model, activeSheet, opts, onProgress) {
     if (opts.charts) for (const ch of sh.charts) pages.push({ sh, chart: ch, pw: pw0 > ph0 ? pw0 : ph0, ph: pw0 > ph0 ? ph0 : pw0, orient: 'l', margin })
   }
   if (!pages.length) throw new Error('There is nothing to print on this sheet.')
+  if (pages.length > 300) throw new Error(`That would make ${pages.length} pages. Choose Selection to print just part of the sheet, or save a CSV or Excel file instead.`)
   const total = pages.length
   for (const p of pages) {
     pageNo++
