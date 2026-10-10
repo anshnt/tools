@@ -1,5 +1,5 @@
-"""Synthetic CorelDRAW (.cdr) generator, written from the public Kaitai Struct description of the format
-(github.com/kaitai-io/coreldraw_cdr.ksy, MIT). It exists so the CDR viewer can be tested without any real CorelDRAW file:
+"""Synthetic CorelDRAW (.cdr) generator, written from the public description of the format.
+It exists so the CDR viewer can be tested without any real CorelDRAW file:
 every layout here follows the spec, but real files written by CorelDRAW were NOT available, so passing these tests shows the
 reader agrees with the spec, not that it handles every real file.
 

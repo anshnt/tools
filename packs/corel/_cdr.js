@@ -1,5 +1,5 @@
-// CorelDRAW (.cdr / .cdt) reader, written from the public format description in the MIT-licensed Kaitai Struct spec
-// (github.com/kaitai-io/coreldraw_cdr.ksy). No code from other CDR libraries is used. DOM-free, so it also runs in Node for tests.
+// CorelDRAW (.cdr / .cdt) reader, written from the public description of the CDR format.
+// DOM-free, so it also runs in Node for tests.
 //
 // Supported containers: RIFF files tagged CDR (CorelDRAW 7 to X3), zlib-compressed 'cmpr' lists, and the ZIP container of X4 and later
 // (content/riffData.cdr for X4/X5, content/root.dat with external data streams for X6 and later).
