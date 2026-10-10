@@ -24,7 +24,7 @@ const RAIL = [
   { cmd: 'PLINE', icon: 'route', tip: 'Polyline', key: 'PL' },
   { cmd: 'RECTANG', icon: 'rectangle-horizontal', tip: 'Rectangle', key: 'REC' },
   { cmd: 'CIRCLE', icon: 'circle', tip: 'Circle', key: 'C', menu: [['Centre, radius', 'CIRCLE'], ['Two points', 'CIRCLE', ['2P']], ['Three points', 'CIRCLE', ['3P']]] },
-  { cmd: 'ARC', icon: 'undo-2', tip: 'Arc', key: 'A', menu: [['Three points', 'ARC'], ['Centre, start, end', 'ARC', ['Center']]] },
+  { cmd: 'ARC', icon: 'rainbow', tip: 'Arc', key: 'A', menu: [['Three points', 'ARC'], ['Centre, start, end', 'ARC', ['Center']]] },
   { cmd: 'ELLIPSE', icon: 'egg', tip: 'Ellipse', key: 'EL', menu: [['Axis, end', 'ELLIPSE'], ['Centre', 'ELLIPSE', ['Center']]] },
   { cmd: 'TEXT', icon: 'type', tip: 'Text', key: 'T' },
   { cmd: 'HATCH', icon: 'brick-wall', tip: 'Hatch', key: 'H', menu: Object.entries(HATCH_PATTERNS).map(([k, v]) => [v.name, 'HATCH', [], (app) => { app.last.hatch.pattern = k }]) },
@@ -63,7 +63,7 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
   const prefs = store.load('cad:prefs', {})
   const modes = {
     ortho: !!prefs.ortho, polar: !!prefs.polar, grid: prefs.grid ?? true, snap: !!prefs.snap, osnap: prefs.osnap ?? true, lwt: prefs.lwt ?? true,
-    polarInc: prefs.polarInc || 45, kinds: { end: true, mid: true, cen: true, int: true, quad: false, per: false, nea: false, ...(prefs.kinds || {}) },
+    polarInc: prefs.polarInc || 45, crosshair: !!prefs.crosshair, kinds: { end: true, mid: true, cen: true, int: true, quad: false, per: false, nea: false, ...(prefs.kinds || {}) },
   }
   const view = { cx: 0, cy: 0, scale: 3, w: 800, h: 600 }
   const sel = new Set()
@@ -331,6 +331,7 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
   }
   function promptChanged() {
     const p = app.prompt
+    renderHud()
     promptLabel.textContent = p ? p.line : cmds.isActive() ? `${cmds.activeName()}:` : 'Command:'
     cmdInput.placeholder = p ? '' : 'Type a command, e.g. L, C, REC, M, DIM'
     canvas.classList.toggle('prompting', !!p)
@@ -367,7 +368,7 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
     if (wantsPoint && app.track?.base) drawTrack(c, view, app.track.base, app.cursor, app.track.label)
     else if (wantsPoint && p.base && !touchMode) drawTrack(c, view, p.base, app.cursor, `${fmtNum(dist(p.base, app.cursor), doc.settings.prec)} < ${fmtNum(norm(angle(p.base, app.cursor)) * R2D, 1)}°`)
     if (wantsPoint && app.snap) drawSnapMarker(c, view, app.snap)
-    if (!touchMode || wantsPoint) drawCursor(c, view, wantsPoint ? app.cursor : app.raw, dark, !wantsPoint, wantsPoint && prefs.crosshair)
+    if (!touchMode || wantsPoint) drawCursor(c, view, wantsPoint ? app.cursor : app.raw, dark, !wantsPoint, wantsPoint && modes.crosshair)
   }
   function drawMeasure(c) {
     c.save()
@@ -379,6 +380,13 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
   }
   function renderHud() {
     clear(hud)
+    const p = app.prompt
+    if (p) {
+      const kws = (p.kws || []).filter((k) => k !== 'All' || p.type === 'select')
+      hud.append(h('div', { class: 'cad-chip cad-prompt' }, h('b', cmds.activeName() || ''), h('span', p.msg),
+        ...kws.map((k) => h('button', { type: 'button', class: 'cad-kw', onclick: () => cmds.text(k) }, k)),
+        (p.enter || p.type === 'select') && h('button', { type: 'button', class: 'cad-kw done', onclick: () => cmds.enter() }, p.type === 'select' ? 'Done selecting' : 'Done')))
+    }
     if (measureInfo) hud.append(h('div', { class: 'cad-chip cad-measure' }, h('small', { style: 'margin:0' }, measureInfo.title), h('b', measureInfo.main), ...measureInfo.lines.map((l) => h('div', l)),
       h('button', { type: 'button', class: 'cad-btn', 'aria-label': 'Close measurement', onclick: () => { measureInfo = null; renderHud(); render() } }, icon('x'))))
   }
@@ -506,7 +514,7 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
   }
 
   // ---------- Modes, layers, panels ----------
-  function savePrefs() { store.save('cad:prefs', { ortho: modes.ortho, polar: modes.polar, grid: modes.grid, snap: modes.snap, osnap: modes.osnap, lwt: modes.lwt, polarInc: modes.polarInc, kinds: modes.kinds, tab: panelTab, crosshair: prefs.crosshair }) }
+  function savePrefs() { store.save('cad:prefs', { ortho: modes.ortho, polar: modes.polar, grid: modes.grid, snap: modes.snap, osnap: modes.osnap, lwt: modes.lwt, polarInc: modes.polarInc, kinds: modes.kinds, tab: panelTab, crosshair: modes.crosshair }) }
   function setMode(name, arg) {
     if (!(name in modes)) return
     const next = arg === 'on' || arg === 'ON' ? true : arg === 'off' || arg === 'OFF' ? false : !modes[name]
@@ -709,6 +717,8 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
     if (e.key === 'F9') { e.preventDefault(); return setMode('snap') }
     if (e.key === 'F10') { e.preventDefault(); return setMode('polar') }
     if (inCmd) return
+    const free = document.activeElement === canvas || document.activeElement === document.body || !document.activeElement
+    if (!free) return
     if (e.key === ' ' && !e.repeat) { spaceDown = true; spaceUsed = false; if (document.activeElement === canvas || document.activeElement === document.body) e.preventDefault(); return }
     if (e.key === 'Enter') { e.preventDefault(); cmds.enter(); return }
     if ((e.key === 'Delete' || e.key === 'Backspace') && !app.prompt && sel.size) { e.preventDefault(); eraseSel(); return }
@@ -721,9 +731,11 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
     if (e.key.length === 1 && !e.altKey) { cmdInput.focus({ preventScroll: true }) }
   }
   function onKeyUp(e) {
-    if (e.key === ' ' && spaceDown) { spaceDown = false; if (!spaceUsed && !isTyping(e.target) && rootEl.isConnected) cmds.enter() }
+    if (e.key === ' ' && spaceDown) { spaceDown = false; const ae = document.activeElement; if (!spaceUsed && rootEl.isConnected && (ae === canvas || ae === document.body || !ae)) cmds.enter() }
   }
   document.addEventListener('keydown', onKey)
+  const onBlur = () => { spaceDown = false }
+  window.addEventListener('blur', onBlur)
   document.addEventListener('keyup', onKeyUp)
   const cmdHist = []
   let histIdx = -1
@@ -758,8 +770,8 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
   let welcomeDismissed = false
   const dz = dropzone({ accept: '.dxf,.json,application/json', compact: true, paste: false, label: 'Open a DXF or CAD Studio project', hint: 'Drop it here or click to browse', onFiles: (files) => openFile(files[0]) })
   welcome.append(h('div', { class: 'cad-welcome-card' },
-    h('div', h('h3', params.start === 'open' ? 'Open a drawing' : 'Start drawing'),
-      h('p', 'Pick a tool on the left or type a command like ', h('kbd', 'L'), ' (line), ', h('kbd', 'C'), ' (circle) or ', h('kbd', 'REC'), '. Points can be typed too: ', h('kbd', '10,20'), ' or ', h('kbd', '@50<30'), '.')),
+    h('div', h('h3', params.export ? 'Convert a DXF drawing' : params.start === 'open' ? 'Open a drawing' : 'Start drawing'),
+      params.export ? h('p', 'Drop a DXF below, check the preview, then save it as a to-scale PDF, SVG or PNG. Everything stays on your device.') : h('p', 'Pick a tool on the left or type a command like ', h('kbd', 'L'), ' (line), ', h('kbd', 'C'), ' (circle) or ', h('kbd', 'REC'), '. Points can be typed too: ', h('kbd', '10,20'), ' or ', h('kbd', '@50<30'), '.')),
     dz,
     h('div', { class: 'cad-welcome-actions' },
       button('Sample part', { size: 'sm', icon: 'cog', onClick: () => { applyState(TEMPLATES.plate(), 'Base plate'); app.log('Loaded a sample part. Try Trim, Offset or Dimension on it.', 'muted') } }),
@@ -820,6 +832,7 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
     ro.disconnect(); mo.disconnect()
     document.removeEventListener('keydown', onKey)
     document.removeEventListener('keyup', onKeyUp)
+    window.removeEventListener('blur', onBlur)
     cancelAnimationFrame(raf)
     app.pop?.close()
     for (const fn of disposers) { try { fn() } catch { /* ignore */ } }

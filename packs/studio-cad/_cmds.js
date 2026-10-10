@@ -728,7 +728,16 @@ export function createCommands(app) {
     },
 
     // ---------- View and settings ----------
-    async ZOOM(c) {
+    async ZOOM(c, args = []) {
+      const k = (args[0] || '').toLowerCase()
+      if (k) {
+        if ('extents'.startsWith(k) || 'all'.startsWith(k)) return app.zoomExtents()
+        if ('previous'.startsWith(k)) return app.zoomPrevious()
+        if (k === 'in' || k === '+') return app.zoomBy(2)
+        if (k === 'out' || k === '-') return app.zoomBy(0.5)
+        const f = parseFloat(k)
+        if (f > 0 && /^[0-9.]+x?$/.test(k)) return app.zoomBy(f)
+      }
       const r = await c.point('Specify corner of window or', { kws: ['All', 'Extents', 'Previous', 'In', 'Out'], enter: true })
       if (!r) return app.zoomExtents()
       if (r.kw) {

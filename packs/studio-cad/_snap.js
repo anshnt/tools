@@ -13,7 +13,11 @@ export function findSnap(doc, p, scale, modes, base, aperturePx = 14) {
   const ap = aperturePx / scale
   const box = { x0: p.x - ap, y0: p.y - ap, x1: p.x + ap, y1: p.y + ap }
   let cand = doc.visible().filter((e) => boxHit(bbox(e), box))
-  if (cand.length > 40) cand = cand.slice(0, 40)
+  if (cand.length > 40) {
+    const near = (e) => { let d = Infinity; for (const p of prims(e)) d = Math.min(d, primNearest(p, p0).d); return d }
+    const p0 = p
+    cand = cand.map((e) => [near(e), e]).sort((a, b) => a[0] - b[0]).slice(0, 40).map((x) => x[1])
+  }
   if (!cand.length) return null
   let best = null
   const consider = (pt, kind, ent) => {

@@ -49,6 +49,12 @@ const CSS = `
 .t-cad .cad-hud { position: absolute; left: 10px; top: 10px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; max-width: calc(100% - 20px); }
 .t-cad .cad-chip { align-self: flex-start; background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--border); backdrop-filter: blur(8px); border-radius: 10px; padding: 5px 10px; font-size: 12px; font-weight: 600; box-shadow: var(--shadow-sm); }
 .t-cad .cad-chip small { font-weight: 500; color: var(--muted); margin-left: 6px; }
+.t-cad .cad-prompt { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; pointer-events: auto; max-width: 100%; }
+.t-cad .cad-prompt b { color: var(--accent); letter-spacing: .02em; }
+.t-cad .cad-prompt span { font-weight: 500; color: var(--text-2); }
+.t-cad .cad-kw { height: 24px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; font-weight: 600; font-size: 12px; }
+.t-cad .cad-kw:hover { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.t-cad .cad-kw.done { background: var(--accent); color: var(--accent-text); border-color: transparent; }
 .t-cad .cad-measure { pointer-events: auto; padding: 9px 34px 9px 12px; min-width: 170px; position: relative; }
 .t-cad .cad-measure b { display: block; font-size: 17px; letter-spacing: -.01em; }
 .t-cad .cad-measure div { color: var(--muted); font-weight: 500; font-size: 12px; }
@@ -110,6 +116,8 @@ const CSS = `
 .t-cad .cad-layer-sub { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 2px 4px 6px 4px; }
 .t-cad .cad-layer-sub .cad-sel { height: 28px; font-size: 12px; }
 .t-cad .cad-add { display: flex; gap: 6px; margin-top: 10px; }
+.t-cad .cad-add .btn { flex: none; }
+.t-cad .cad-add .cad-in { flex: 1; }
 .t-cad .cad-verts { max-height: 190px; overflow: auto; display: grid; gap: 4px; padding-right: 2px; }
 .t-cad .cad-verts .cad-grid2 { grid-template-columns: 22px 1fr 1fr; align-items: center; }
 .t-cad .cad-verts small { color: var(--muted); text-align: right; }

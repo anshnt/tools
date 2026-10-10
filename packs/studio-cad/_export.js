@@ -259,7 +259,7 @@ export function renderCanvas(doc, o = {}) {
   const pad = Math.round(px * 0.03)
   let cw = px, scale = (px - 2 * pad) / w
   let ch = Math.round(h * scale + 2 * pad)
-  const maxH = o.maxPx || 8000
+  const maxH = Math.min(o.maxPx || 8000, Math.floor(36e6 / px))
   if (ch > maxH) { scale *= maxH / ch; ch = maxH; cw = Math.round(w * scale + 2 * pad) }
   const canvas = document.createElement('canvas')
   canvas.width = cw

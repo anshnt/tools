@@ -1,6 +1,6 @@
 // DXF import (dxf-parser, MIT) and export (ASCII DXF R2000 written here) for CAD Studio.
 import { TAU, R2D, D2R, pt, norm, Tf } from './_vec.js'
-import { explode, transform } from './_ent.js'
+import { explode, transform, bbox } from './_ent.js'
 import { LTYPES, UNITS, newLayer, defaultsFor } from './_doc.js'
 import { textLines } from './_dim.js'
 import { HATCH_PATTERNS } from './_edit.js'
@@ -329,6 +329,10 @@ export async function importDxf(data) {
     badHatch--
   }
   if (badHatch > 0) skipped.HATCH = badHatch
+  const valid = ents.filter((e) => { const b = bbox(e); return Number.isFinite(b.x0 + b.x1 + b.y0 + b.y1) })
+  if (valid.length < ents.length) skipped['invalid objects'] = ents.length - valid.length
+  ents.length = 0
+  ents.push(...valid)
   // blocks that only exist as DIMENSION bodies are already used; nothing else to do
   return { layers, ents, units, skipped, count: ents.length, ltscale: header.$LTSCALE > 0 ? header.$LTSCALE : undefined, dimTh: dimTxt }
 }

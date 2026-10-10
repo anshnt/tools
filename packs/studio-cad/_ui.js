@@ -107,11 +107,13 @@ export function layersPanel(app) {
     function rename(old, next) {
       if (!next || next === old) return
       if (/[<>/\\":;?*|=`]/.test(next) || doc().layers.some((l) => l.name.toLowerCase() === next.toLowerCase())) { toast('Pick a different name: it is empty, already used, or has a character CAD does not allow.', 'error'); return render() }
+      const wasCur = app.cur.layer === old
+      if (wasCur) app.cur.layer = next
       doc().commit('Rename layer', (tx) => {
         tx.setLayers(doc().layers.map((l) => (l.name === old ? { ...l, name: next } : l)))
         for (const e of doc().ents) if (e.layer === old) tx.replace(e.id, { ...e, layer: next })
       })
-      if (app.cur.layer === old) app.setCurrentLayer(next)
+      if (wasCur) app.setCurrentLayer(next)
     }
     function remove() {
       const n = counts.get(cur.name) || 0
@@ -163,7 +165,23 @@ export function propsPanel(app) {
         field('Colour', colorButton(colorV === undefined ? undefined : colorV || null, doc.layer(layerV ?? '0').color, (hex) => apply((e) => ({ ...e, color: hex || undefined })), colorV === undefined)),
         field('Linetype', selIn([...(ltV === undefined ? [['__v', '*Varies*']] : []), ['', 'ByLayer'], ...Object.entries(LTYPES).map(([k, v]) => [k, v.name])], ltV ?? '__v', (v) => v !== '__v' && apply((e) => ({ ...e, ltype: v || undefined })))),
         field('Lineweight', selIn([...(lwV === undefined ? [['__v', '*Varies*']] : []), ['', 'ByLayer'], ...LINEWEIGHTS.map((v) => [v, `${v} mm`])], lwV ?? '__v', (v) => v !== '__v' && apply((e) => ({ ...e, lw: v === '' ? undefined : +v }))))))
-    clear(el, general, ents.length === 1 ? geometry(ents[0], (fn) => apply(fn)) : null, stats(ents))
+    clear(el, general, ents.length === 1 ? geometry(ents[0], (fn) => apply(fn)) : multi(ents, apply), stats(ents))
+  }
+  function multi(ents, apply) {
+    const all = (t) => ents.every((e) => e.type === t)
+    const same = (get) => { const v = get(ents[0]); return ents.every((e) => get(e) === v) ? round(v) : '' }
+    if (all('dim')) {
+      return h('div', { class: 'cad-sec' }, h('h4', 'All dimensions'), h('div', { class: 'cad-grid2' },
+        field('Text height', numIn(same((e) => e.th), (v) => apply((e) => ({ ...e, th: v }), 'Dimension text height'), { min: 1e-9 })),
+        field('Arrow size', numIn(same((e) => e.as ?? e.th), (v) => apply((e) => ({ ...e, as: v }), 'Dimension arrow size'), { min: 0 })),
+        field('Decimals', selIn([0, 1, 2, 3, 4, 5].map((n) => [n, String(n)]), same((e) => e.pr ?? 2), (v) => apply((e) => ({ ...e, pr: +v }), 'Dimension decimals')))))
+    }
+    if (all('text')) {
+      return h('div', { class: 'cad-sec' }, h('h4', 'All text'), h('div', { class: 'cad-grid2' },
+        field('Height', numIn(same((e) => e.h), (v) => apply((e) => ({ ...e, h: v }), 'Text height'), { min: 1e-9 })),
+        field('Justify', selIn([['l', 'Left'], ['c', 'Centre'], ['r', 'Right']], same((e) => e.align || 'l'), (v) => apply((e) => ({ ...e, align: v }), 'Text justify')))))
+    }
+    return null
   }
   function stats(ents) {
     let len = 0, area = 0, hasLen = false, hasArea = false
@@ -270,6 +288,7 @@ export function drawingPanel(app) {
           field('Dim arrow size', numIn(s.dimAs, (v) => set({ dimAs: v }), { min: 0 })),
           field('Dim decimals', selIn([0, 1, 2, 3, 4].map((n) => [n, String(n)]), s.dimPr, (v) => set({ dimPr: +v }))),
           field('Hatch scale', numIn(s.hatchScale, (v) => { set({ hatchScale: v }); app.last.hatch.scale = v }, { min: 1e-9 })))),
+      h('div', { class: 'cad-sec' }, h('h4', 'Cursor'), h('label', { style: 'display:flex;align-items:center;gap:8px;font-size:13px' }, h('input', { type: 'checkbox', checked: !!app.modes.crosshair, onchange: (e) => { app.modes.crosshair = e.target.checked; app.savePrefs(); app.render() } }), 'Crosshair across the whole canvas while drawing')),
       h('div', { class: 'cad-sec' }, h('h4', 'Object snaps'),
         h('div', { class: 'cad-grid2' }, SNAP_KINDS.map(([k, label]) => h('label', { style: 'display:flex;align-items:center;gap:8px;font-size:13px' },
           h('input', { type: 'checkbox', checked: !!app.modes.kinds[k], onchange: (e) => { app.modes.kinds[k] = e.target.checked; app.savePrefs(); app.render() } }), label)))),
@@ -314,9 +333,9 @@ export function exportDialog(app, initial = 'pdf') {
   if (!doc.ents.length) return toast('The drawing is empty. Draw something first.', 'info')
   const base = () => safeName(doc.name || 'drawing')
   const opts = { paper: 'A4', orient: 'auto', scale: 'fit', margin: 10, mono: false, px: 2000, transparent: false }
-  const preview = h('canvas', { style: 'width:100%;height:150px;border:1px solid var(--border);border-radius:10px;background:#fff;object-fit:contain', 'aria-label': 'Preview of the drawing' })
+  const preview = h('canvas', { style: 'width:100%;height:200px;border:1px solid var(--border);border-radius:10px;background:#fff;object-fit:contain', 'aria-label': 'Preview of the drawing' })
   const drawPreview = () => {
-    const c = renderCanvas(doc, { px: 520, maxPx: 300, mono: opts.mono })
+    const c = renderCanvas(doc, { px: 900, maxPx: 400, mono: opts.mono })
     preview.width = c.width; preview.height = c.height
     preview.getContext('2d').drawImage(c, 0, 0)
   }
