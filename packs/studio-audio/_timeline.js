@@ -41,7 +41,7 @@ export class Timeline {
     this.loopBand = h('div', { class: 'as-loopband', hidden: true })
     this.emptyHost = h('div', { class: 'as-empty-host' })
     this.content = h('div', { class: 'as-content' }, this.loopBand, this.canvas, this.rangeEl, this.playhead, this.emptyHost)
-    this.scrollEl = h('div', { class: 'as-scroll', tabindex: -1 }, this.content)
+    this.scrollEl = h('div', { class: 'as-scroll', tabindex: -1, role: 'region', 'aria-label': 'Timeline. Select clips and ranges with the pointer, or use the keyboard shortcuts.' }, this.content)
     this.headsInner = h('div', { class: 'as-heads-in' })
     this.heads = h('div', { class: 'as-heads' }, this.headsInner)
     this.rulerCanvas = h('canvas')

@@ -1,7 +1,7 @@
 // UI panels for Audio Studio: toolbar, tool rail, track headers, inspector (track / clip / project), master meter, menus and dialogs.
 import { h, icon, button, field, select, toggle, segmented, rangeField, number, input, alert, progress, busy, modal, download, downloadButton, formatBytes, formatDuration, clear, empty } from '../../lib/ui.js'
 import { safeName } from '../../lib/files.js'
-import { COLORS, PRESET_LIST, FX_PRESETS, TEMPLATES, projectLength, usedAssets, MAX_TRACKS } from './_model.js'
+import { COLORS, PRESET_LIST, TEMPLATES, projectLength, usedAssets } from './_model.js'
 import { fmtDb, gainToDb, dbToGain, clamp, fmtClock } from './_dsp.js'
 import { exportMix, WAV_BITS, MP3_RATES } from './_export.js'
 
@@ -534,4 +534,3 @@ export function shortcutsDialog() {
   modal({ title: 'Keyboard shortcuts', icon: 'keyboard', body: h('div', { class: 'as-keys' }, rows.flatMap(([k, d]) => [h('kbd', k), h('span', d)])) })
 }
 
-export { MAX_TRACKS, FX_PRESETS }

@@ -194,6 +194,7 @@ export async function mount(root, { tool, params = {}, signal }) {
     updateClock()
     if (playing && S.project.follow) tl.scrollToTime(S.playheadNow())
     const lv = engine.levels()
+    if (S.rec) { const inp = S.rec.level || 0; lv[0] = Math.max(lv[0], inp); lv[1] = Math.max(lv[1], inp) } // while recording the meter also shows the microphone
     toolbar.meter.draw(lv)
     heads.meters()
     if (S.rec) tl.invalidate()
