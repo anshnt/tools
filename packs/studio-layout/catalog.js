@@ -1,6 +1,12 @@
 // Pack studio-layout: Layout Studio, a browser editor in the spirit of Adobe InDesign (see the open-source DesignCraft by ArtCraft:
 // https://github.com/storytold/designcraft). Default category: studio.
+// The quick-start entries open the same editor module with a template, so each one is a focused tool of its own.
 export const cat = 'studio'
 export default [
-  { id: 'layout-studio', name: 'Layout Studio', desc: 'Lay out multi-page documents with text and image frames, master pages, grids and styles; export PDF.', icon: 'layout-template', layout: 'app', tags: 'indesign alternative layout publishing brochure magazine flyer' },
+  { id: 'layout-studio', name: 'Layout Studio', desc: 'Lay out multi-page documents with text and image frames, master pages, grids and styles; export PDF.', icon: 'layout-template', layout: 'app', tags: 'indesign alternative layout publishing brochure magazine flyer dtp page design', ready: true },
+  { id: 'flyer-maker', name: 'Flyer Maker', desc: 'Start from an event flyer: bold header art, details and a call to action. Edit it in Layout Studio and export a PDF.', icon: 'megaphone', layout: 'app', module: 'layout-studio', params: { template: 'flyer' }, tags: 'flyer leaflet event poster template print pdf', also: ['image'], ready: true },
+  { id: 'brochure-maker', name: 'Brochure Maker', desc: 'Start from a tri-fold brochure with three panels per side. Edit text and images, then export a print-ready PDF.', icon: 'book-open', layout: 'app', module: 'layout-studio', params: { template: 'brochure' }, tags: 'brochure trifold leaflet template print pdf', also: ['pdf'], ready: true },
+  { id: 'newsletter-maker', name: 'Newsletter Maker', desc: 'Start from a two-page, two-column newsletter with a masthead, master page numbers and text that flows between frames.', icon: 'newspaper', layout: 'app', module: 'layout-studio', params: { template: 'newsletter' }, tags: 'newsletter magazine columns template print pdf', also: ['pdf'], ready: true },
+  { id: 'poster-maker', name: 'Poster Maker', desc: 'Start from a bold event poster with a huge headline, artwork and details. Edit it and export a PDF or PNG.', icon: 'image', layout: 'app', module: 'layout-studio', params: { template: 'poster' }, tags: 'poster event template print pdf png', also: ['image'], ready: true },
+  { id: 'business-card-maker', name: 'Business Card Maker', desc: 'Start from a two-sided business card with bleed. Change the text, colors and logo, then export a print-ready PDF.', icon: 'id-card', layout: 'app', module: 'layout-studio', params: { template: 'business-card' }, tags: 'business card visiting card template print pdf', also: ['image'], ready: true },
 ]
