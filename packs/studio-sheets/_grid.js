@@ -15,6 +15,7 @@ const HANDLE = 7
 const FIT_ROWS = 100
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
+const box = (g, x, y, w, h, r) => (g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h))
 const sameRect = (a, b) => a.r1 === b.r1 && a.c1 === b.c1 && a.r2 === b.r2 && a.c2 === b.c2
 
 export class GridView {
@@ -203,7 +204,12 @@ export class GridView {
       const m = mergeAt(this.sh, act.r, act.c)
       this.act = m ? { r: m.r1, c: m.c1 } : { r: act.r, c: act.c }
     }
-    if (scroll) this.scrollIntoView(this.head.r, this.head.c)
+    if (scroll) {
+      // whole rows and columns scroll to the active cell, not to the far end of the sheet
+      const hr = g.r1 === 0 && g.r2 >= MAXR - 1 ? this.act.r : this.head.r
+      const hc = g.c1 === 0 && g.c2 >= MAXC - 1 ? this.act.c : this.head.c
+      this.scrollIntoView(hr, hc)
+    }
     this.invalidate()
     if (!quiet) this.cb.onSelect?.()
   }
@@ -754,7 +760,7 @@ export class GridView {
     g.fillStyle = active ? col.accent : col.head
     g.strokeStyle = active ? col.accent : col.lineStrong
     g.lineWidth = 1
-    g.beginPath(); g.roundRect(bx + 0.5, by + 0.5, s - 1, s - 1, 4); g.fill(); g.stroke()
+    g.beginPath(); box(g, bx + 0.5, by + 0.5, s - 1, s - 1, 4); g.fill(); g.stroke()
     g.fillStyle = active ? '#fff' : col.muted
     g.beginPath()
     if (active) { g.moveTo(bx + 4, by + 4.5); g.lineTo(bx + s - 4, by + 4.5); g.lineTo(bx + s / 2 + 1.2, by + 9); g.lineTo(bx + s / 2 + 1.2, by + 12.5); g.lineTo(bx + s / 2 - 1.2, by + 11); g.lineTo(bx + s / 2 - 1.2, by + 9) } else { g.moveTo(bx + 4, by + 6); g.lineTo(bx + s - 4, by + 6); g.lineTo(bx + s / 2, by + 11) }
@@ -810,7 +816,7 @@ export class GridView {
       const A2 = this.rectIn(q, { r1: this.act.r, c1: this.act.c, r2: this.act.r, c2: this.act.c })
       const bx = A2.x + A2.w - 19, by = A2.y + 3, bh = Math.max(10, A2.h - 6)
       g.fillStyle = col.head; g.strokeStyle = col.lineStrong; g.lineWidth = 1
-      g.beginPath(); g.roundRect(bx + 0.5, by + 0.5, 16, bh - 1, 4); g.fill(); g.stroke()
+      g.beginPath(); box(g, bx + 0.5, by + 0.5, 16, bh - 1, 4); g.fill(); g.stroke()
       g.fillStyle = col.muted; g.beginPath(); g.moveTo(bx + 4.5, by + bh / 2 - 2); g.lineTo(bx + 11.5, by + bh / 2 - 2); g.lineTo(bx + 8, by + bh / 2 + 2.5); g.closePath(); g.fill()
     }
     // fill handle
