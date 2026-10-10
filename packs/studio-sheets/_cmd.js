@@ -62,12 +62,14 @@ export const cmd = {
       const msg = dvCheck(this.model, sh, rule, text, this.model.wb.opts.dateOrder)
       if (msg) { this.toast(msg, 'error'); return false }
     }
-    return this.guard('Edit cell', () => {
+    const ok = this.guard('Edit cell', () => {
       if (fill && sh === this.sh) {
         const g = this.grid.sel
         for (let rr = g.r1; rr <= g.r2; rr++) for (let cc = g.c1; cc <= g.c2; cc++) this.model.setInput(sh, rr, cc, text[0] === '=' ? '=' + shiftText(text.slice(1), rr - r, cc - c) : text)
       } else this.model.setInput(sh, r, c, text)
     })
+    if (ok && sh !== this.sh) this.switchSheet(sh) // a formula that was built across sheets finishes on its own sheet
+    return ok
   },
   clear(what = 'contents') {
     const g = this.grid.sel
@@ -103,7 +105,10 @@ export const cmd = {
   },
   mergeSelection() { const g = this.grid.sel; if (g.r1 === g.r2 && g.c1 === g.c2) return this.toast('Select two or more cells to merge'); this.guard('Merge cells', () => ops.mergeCells(this.model, this.sh, g)); this.grid.setSelection(g, { r: g.r1, c: g.c1 }) },
   unmergeSelection() { this.guard('Unmerge cells', () => ops.unmergeCells(this.model, this.sh, this.grid.sel)) },
-  toggleMerge() { const g = this.grid.sel; if (ops.mergeAt(this.sh, g.r1, g.c1) && g.r1 === g.r2 && g.c1 === g.c2 || this.sh.merges.some((m) => m.r1 <= g.r2 && g.r1 <= m.r2 && m.c1 <= g.c2 && g.c1 <= m.c2 && g.r1 === m.r1 && g.c1 === m.c1 && g.r2 === m.r2 && g.c2 === m.c2)) this.unmergeSelection(); else this.mergeSelection() },
+  toggleMerge() {
+    const g = this.grid.sel
+    if (this.sh.merges.some((m) => m.r1 <= g.r2 && g.r1 <= m.r2 && m.c1 <= g.c2 && g.c1 <= m.c2)) this.unmergeSelection(); else this.mergeSelection()
+  },
   recentColors() { return this.store?.recent || [] },
   pickColor(anchor, kind) {
     const st = this.activeStyle()
@@ -255,6 +260,8 @@ export const cmd = {
     if (!this.clipboardTarget()) return
     e.preventDefault()
     const g = { ...this.grid.sel }
+    const ex = this.model.extent(this.sh.id)
+    g.r2 = Math.max(g.r1, Math.min(g.r2, ex.r)); g.c2 = Math.max(g.c1, Math.min(g.c2, ex.c)) // whole columns and rows copy only the used part
     const big = (g.r2 - g.r1 + 1) * (g.c2 - g.c1 + 1)
     if (big > 400000) { this.toast('That selection is too large to copy. Select fewer cells.', 'error'); return }
     const payload = ops.copyPayload(this.model, this.sh, g)

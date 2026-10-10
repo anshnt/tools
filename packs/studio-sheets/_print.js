@@ -3,7 +3,7 @@
 import { jspdf } from '../../lib/libs.js'
 import { ck } from './_a1.js'
 import { formatValue } from './_fmt.js'
-import { cfAt, rulesOf } from './_cf.js'
+import { cfAt, rulesOf, textOn } from './_cf.js'
 import { fontPx } from './_axis.js'
 import { DEFAULT_COL_W, DEFAULT_ROW_H } from './_model.js'
 import { chartImage } from './_charts.js'
@@ -83,7 +83,7 @@ function paint(g, model, sh, rows, cols, k, o) {
     const va = st.va || 'middle'
     const fs = fontPx(st) * k
     g.font = `${st.i ? 'italic ' : ''}${st.b ? '600 ' : ''}${fs}px ${o.font}`
-    g.fillStyle = f.color || st.fc || '#111111'
+    g.fillStyle = f.color || st.fc || (st.bg ? textOn(st.bg) : '#111111')
     g.textBaseline = 'alphabetic'
     const pad = 5 * k + (st.ind ? st.ind * 10 * k : 0)
     let lines = [f.text]

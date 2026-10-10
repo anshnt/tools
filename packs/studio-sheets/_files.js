@@ -225,6 +225,7 @@ export const files = {
 
   // ---------- documents ----------
   loadModel(model) {
+    this.grid.editor.cancel()
     this.unsub?.()
     this.model = model
     this.grid.model = model

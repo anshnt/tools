@@ -3,7 +3,7 @@ import { h } from '../../lib/ui.js'
 import { MAXR, MAXC, ck, colName, rangeContains } from './_a1.js'
 import { Axis, fontPx } from './_axis.js'
 import { formatValue } from './_fmt.js'
-import { cfAt, rulesOf } from './_cf.js'
+import { cfAt, rulesOf, textOn } from './_cf.js'
 import { DEFAULT_COL_W, DEFAULT_ROW_H } from './_model.js'
 import { Editor } from './_edit.js'
 import { mergeAt, expandToMerges } from './_ops.js'
@@ -671,7 +671,7 @@ export class GridView {
     const fs = fontPx(st) * Z
     g.font = `${st.i ? 'italic ' : ''}${st.b ? '600 ' : ''}${fs}px ${this.fontFamily}`
     const link = typeof v === 'string' && !st.fc && /^https?:\/\/\S+$/i.test(v)
-    g.fillStyle = f.color || st.fc || (link ? col.accent : isErr ? col.dark ? '#ff9b8f' : '#c4301f' : col.text)
+    g.fillStyle = f.color || st.fc || (st.bg && !isErr ? textOn(st.bg) : link ? col.accent : isErr ? col.dark ? '#ff9b8f' : '#c4301f' : col.text)
     g.textBaseline = 'alphabetic'
     const pad = PAD * Z + (st.ind ? st.ind * 10 * Z : 0)
     const innerW = n.w - PAD * 2 * Z

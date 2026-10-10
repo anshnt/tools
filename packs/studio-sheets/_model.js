@@ -411,7 +411,10 @@ export class Model {
     if (!j.entries.length) return
     if (metaAfter) j.metaAfter = metaAfter
     this.undoStack.push(j)
-    if (this.undoStack.length > 200) this.undoStack.shift()
+    // keep history bounded by step count and by total journaled cells
+    let total = 0
+    for (const u of this.undoStack) total += u.entries.length
+    while (this.undoStack.length > 1 && (this.undoStack.length > 200 || total > 1500000)) total -= this.undoStack.shift().entries.length
     this.redoStack.length = 0
     this._finish()
   }

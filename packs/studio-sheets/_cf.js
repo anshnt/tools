@@ -113,6 +113,11 @@ export function cfAt(model, sh, rules, r, c, v) {
   }
   return out
 }
+/** Readable text color (dark or white) for a given background. */
+export function textOn(bg) {
+  const [r, g, b] = hex(bg)
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.58 ? '#111111' : '#ffffff'
+}
 export const CF_PRESETS = {
   red: { bg: '#ffc7ce', fc: '#9c0006' }, yellow: { bg: '#ffeb9c', fc: '#9c5700' }, green: { bg: '#c6efce', fc: '#006100' },
   blue: { bg: '#cfe2ff', fc: '#0a3d91' }, boldred: { fc: '#d92d20', b: true }, grey: { bg: '#e5e7eb', fc: '#374151' },

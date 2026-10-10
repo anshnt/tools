@@ -3,11 +3,11 @@ import { parseCell } from './_a1.js'
 import { FMT } from './_fmt.js'
 import { CF_PRESETS } from './_cf.js'
 
-const INK = '#1f2937', ACCENT = '#5b4cf0', SOFT = '#eef0ff', LINE = '#d6d9e4'
+const ACCENT = '#5b4cf0', SOFT = '#eef0ff', LINE = '#a8adbd', BLUE = '#3b82f6'
 const border = { bt: { s: 'thin', c: LINE }, bb: { s: 'thin', c: LINE }, bl: { s: 'thin', c: LINE }, br: { s: 'thin', c: LINE } }
 const head = { b: true, fc: '#ffffff', bg: ACCENT, ha: 'center', va: 'middle' }
-const title = { b: true, fs: 18, fc: INK }
-const label = { b: true, fc: '#4b5563' }
+const title = { b: true, fs: 18 }
+const label = { b: true, fc: '#6b7280' }
 const note = { i: true, fc: '#6b7280' }
 const inr = { nf: FMT.inr0 }
 const inr2 = { nf: FMT.inr }
@@ -40,15 +40,15 @@ function budget() {
   const income = [['Salary', 90000, [90000, 90000, 90000, 90000, 92000, 92000]], ['Freelance', 15000, [12000, 18000, 9000, 15000, 21000, 14000]], ['Other income', 3000, [2500, 0, 4000, 3000, 1000, 3500]]]
   const exp = [['Rent', 28000, [28000, 28000, 28000, 28000, 28000, 28000]], ['Groceries', 12000, [11200, 12800, 10900, 13400, 11800, 12100]], ['Utilities', 4500, [4100, 4600, 4300, 4900, 5200, 4400]], ['Transport', 5000, [4200, 5300, 4800, 5600, 4900, 5100]],
     ['Dining out', 6000, [5200, 7400, 6800, 5100, 6300, 8200]], ['Insurance', 3500, [3500, 3500, 3500, 3500, 3500, 3500]], ['Subscriptions', 1500, [1400, 1400, 1500, 1500, 1500, 1700]], ['Savings', 25000, [25000, 25000, 25000, 25000, 25000, 25000]]]
-  const blue = { fc: '#1d4ed8', ...inr, ...border }
+  const blue = { fc: BLUE, ...inr, ...border }
   const row = (r, name, b, vals, remaining) => {
     s.set('A' + r, name, border).set('C' + r, b, blue)
     vals.forEach((v, j) => s.set(String.fromCharCode(68 + j) + r, v, blue))
     s.set('B' + r, `=SUM(D${r}:I${r})`, { ...inr, ...border, b: true }).set('J' + r, remaining(r), { ...inr, ...border })
   }
   const total = (r, name, a, z) => {
-    s.set('A' + r, name, { b: true, bg: SOFT })
-    'BCDEFGHIJ'.split('').forEach((c) => s.set(c + r, `=SUM(${c}${a}:${c}${z})`, { ...inr, b: true, bg: SOFT }))
+    s.set('A' + r, name, { b: true, bg: SOFT, fc: '#1f2937' })
+    'BCDEFGHIJ'.split('').forEach((c) => s.set(c + r, `=SUM(${c}${a}:${c}${z})`, { ...inr, b: true, bg: SOFT, fc: '#1f2937' }))
   }
   s.set('A5', 'INCOME', { b: true, fc: ACCENT })
   income.forEach(([name, b, vals], i) => row(6 + i, name, b, vals, (r) => `=B${r}-C${r}*6`))
@@ -71,9 +71,9 @@ function loan() {
   s.cols({ 0: 170, 1: 140, 2: 120, 3: 120, 4: 120, 5: 140 })
   s.set('A1', 'Loan EMI calculator', title)
   s.set('A2', 'Change the blue cells. The schedule below follows the tenure you choose (up to 30 years).', note)
-  s.set('A4', 'Loan amount', label).set('B4', 2500000, { ...inr, fc: '#1d4ed8', bg: '#eff6ff', ...border })
-  s.set('A5', 'Annual interest rate', label).set('B5', 0.085, { nf: '0.00%', fc: '#1d4ed8', bg: '#eff6ff', ...border })
-  s.set('A6', 'Tenure (years)', label).set('B6', 20, { nf: '0', fc: '#1d4ed8', bg: '#eff6ff', ...border })
+  s.set('A4', 'Loan amount', label).set('B4', 2500000, { ...inr, fc: BLUE, bg: '#eff6ff', ...border })
+  s.set('A5', 'Annual interest rate', label).set('B5', 0.085, { nf: '0.00%', fc: BLUE, bg: '#eff6ff', ...border })
+  s.set('A6', 'Tenure (years)', label).set('B6', 20, { nf: '0', fc: BLUE, bg: '#eff6ff', ...border })
   s.set('A8', 'Monthly EMI', label).set('B8', '=-PMT(B5/12,B6*12,B4)', { ...inr2, b: true, fs: 14, fc: ACCENT })
   s.set('A9', 'Total payment', label).set('B9', '=B8*B6*12', inr)
   s.set('A10', 'Total interest', label).set('B10', '=B9-B4', inr)
@@ -135,7 +135,7 @@ function grades() {
   names.forEach((nm, i) => {
     const r = 5 + i
     s.set('A' + r, nm, border)
-    marks[i].forEach((m, j) => s.set(String.fromCharCode(66 + j) + r, m, { ...border, nf: '0', fc: '#1d4ed8', ha: 'center' }))
+    marks[i].forEach((m, j) => s.set(String.fromCharCode(66 + j) + r, m, { ...border, nf: '0', fc: BLUE, ha: 'center' }))
     s.set('F' + r, `=SUM(B${r}:E${r})`, { ...border, nf: '0', ha: 'center', b: true })
     s.set('G' + r, `=ROUND(AVERAGE(B${r}:E${r}),1)`, { ...border, nf: '0.0', ha: 'center' })
     s.set('H' + r, `=IFS(G${r}>=90,"A+",G${r}>=80,"A",G${r}>=70,"B",G${r}>=60,"C",G${r}>=50,"D",TRUE,"F")`, { ...border, ha: 'center', b: true })
