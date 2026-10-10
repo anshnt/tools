@@ -972,6 +972,13 @@ export class Editor {
       const text = e.clipboardData.getData('text/plain').replace(/\r/g, '')
       text.split('\n').forEach((line, i) => { if (i) document.execCommand('insertParagraph'); if (line) document.execCommand('insertText', false, line) })
     })
+    el.addEventListener('drop', (e) => {
+      if ([...(e.dataTransfer?.types || [])].includes('Files')) return // files are handled by the canvas drop
+      e.preventDefault()
+      e.stopPropagation()
+      const text = e.dataTransfer?.getData('text/plain') || '' // never let dropped HTML into the editor
+      if (text) document.execCommand('insertText', false, text)
+    })
     try { document.execCommand('styleWithCSS', false, true); document.execCommand('defaultParagraphSeparator', false, 'div') } catch { /* old browsers */ }
     this.sel = [id]
     this.positionEdit()
