@@ -172,8 +172,10 @@ export class Editor {
     if (before && !OPERATOR_BEFORE.test(before)) return this.hideAc()
     const q = m[1].toUpperCase()
     const items = Object.values(FUNCS).filter((f) => f.name.startsWith(q)).sort((a, b) => rankOf(a.name) - rankOf(b.name) || a.name.localeCompare(b.name)).slice(0, 8)
-    if (!items.length || (items.length === 1 && items[0].name === q && this.text[this.caret()] === '(')) return this.hideAc()
-    this.acItems = items
+    const names = Object.values(this.grid.model.wb.names).filter((d) => d.n.toUpperCase().startsWith(q)).slice(0, 4).map((d) => ({ name: d.n, sig: 'named range', desc: d.ref, isName: true }))
+    const all = [...names, ...items].slice(0, 8)
+    if (!all.length || (all.length === 1 && all[0].name.toUpperCase() === q && this.text[this.caret()] === '(')) return this.hideAc()
+    this.acItems = all
     this.acIdx = Math.min(this.acIdx, items.length - 1)
     this.acStart = m.index
     this.renderAc()
@@ -190,8 +192,9 @@ export class Editor {
     const f = this.acItems[this.acIdx]
     if (!f) return false
     const caret = this.caret()
-    const next = this.text.slice(0, this.acStart) + f.name + '(' + this.text.slice(caret)
-    this.setText(next, this.acStart + f.name.length + 1)
+    const tail = f.isName ? '' : '('
+    const next = this.text.slice(0, this.acStart) + f.name + tail + this.text.slice(caret)
+    this.setText(next, this.acStart + f.name.length + tail.length)
     this.hideAc()
     return true
   }

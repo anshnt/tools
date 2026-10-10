@@ -1,6 +1,6 @@
 // Editing operations on the model: styles, clipboard, fill, sort, structure, filter, find. Call inside model.tx(). No DOM.
-import { MAXR, MAXC, ck, ckR, ckC, rangeArea, rangeContains } from './_a1.js'
-import { print, mapRefs, shift } from './_parse.js'
+import { MAXR, MAXC, ck, ckR, ckC, rangeArea, rangeContains, parseRange, colName } from './_a1.js'
+import { print, mapRefs, shift, sheetPrefix } from './_parse.js'
 import { makeCell } from './_model.js'
 import { formatValue, isDateFormat, MONTHS, DAYS, parseInput, generalText } from './_fmt.js'
 import { XErr, compare } from './_val.js'
@@ -256,10 +256,21 @@ export function structural(model, sh, axis, index, count, del) {
   const adj = (g) => adjustRect(g, axis, index, count, del)
   model.setProp(sh, 'merges', sh.merges.map(adj).filter((g) => g && (g.r1 !== g.r2 || g.c1 !== g.c2)), true)
   model.setProp(sh, 'cf', sh.cf.map((x) => { const g = adj(x.range); return g ? { ...x, range: g } : null }).filter(Boolean))
+  model.setProp(sh, 'dv', (sh.dv || []).map((x) => { const g = adj(x.range); return g ? { ...x, range: g } : null }).filter(Boolean))
   if (sh.filter) { const g = adj(sh.filter); model.setProp(sh, 'filter', g ? { ...sh.filter, ...g } : null, true) }
   for (const s of model.sheets) {
     const ch = s.charts.map((x) => (x.src && x.src.sid === sh.id ? (adj(x.src) ? { ...x, src: { ...x.src, ...adj(x.src) } } : null) : x)).filter(Boolean)
     if (ch.length !== s.charts.length || ch.some((x, i) => x !== s.charts[i])) model.setProp(s, 'charts', ch)
+  }
+  for (const [key, d] of Object.entries(model.wb.names)) {
+    const m = /^(?:'((?:[^']|'')+)'|([^!']+))!\$?([A-Z]+)\$?(\d+)(?::\$?([A-Z]+)\$?(\d+))?$/i.exec(d.ref)
+    if (!m) continue
+    const nm = m[1] != null ? m[1].replace(/''/g, "'") : m[2]
+    if (model.sheetByName(nm) !== sh) continue
+    const g = parseRange(`${m[3]}${m[4]}${m[5] ? `:${m[5]}${m[6]}` : ''}`)
+    const adj2 = adjustRect(g, axis, index, count, del)
+    const abs = (x) => `$${colName(x.c1)}$${x.r1 + 1}` + (x.r1 === x.r2 && x.c1 === x.c2 ? '' : `:$${colName(x.c2)}$${x.r2 + 1}`)
+    model.setProp(model.wb.names, key, adj2 ? { n: d.n, ref: `${sheetPrefix(sh.name)}${abs(adj2)}` } : undefined, false, true)
   }
   const fr = { ...sh.freeze }
   if (axis === 'row' && index < fr.r) fr.r = Math.max(0, fr.r + (del ? -Math.min(count, fr.r - index) : count))
@@ -527,3 +538,9 @@ export function autoSumRange(model, sh, r, c) {
   return null
 }
 export { generalText, parseInput }
+
+/** Absolute reference text such as Sheet1!$A$1:$B$5 for defining names. */
+export function absRefText(sh, g) {
+  const a = `$${colName(g.c1)}$${g.r1 + 1}`
+  return sheetPrefix(sh.name) + (g.r1 === g.r2 && g.c1 === g.c2 ? a : `${a}:$${colName(g.c2)}$${g.r2 + 1}`)
+}

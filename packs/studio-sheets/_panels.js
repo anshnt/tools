@@ -7,6 +7,7 @@ import { CHART_TYPES } from './_charts.js'
 import { CF_PRESETS } from './_cf.js'
 import { colorPicker } from './_menu.js'
 import { displayOf, findAll } from './_ops.js'
+import { DV_TYPES, DV_OPS } from './_valid.js'
 
 const sec = (title, ...kids) => h('div', { class: 'sx-sec' }, title && h('h4', title), ...kids)
 const row = (...kids) => h('div', { class: 'sx-row' }, ...kids)
@@ -100,12 +101,41 @@ function dataPanel(app) {
   }
   const filterToggle = toggle('Filter buttons on header row', false, () => app.toggleFilter())
   const dupCols = h('div', { class: 'sx-fl' })
+  // data validation
+  const dvType = select(DV_TYPES, 'list', () => dvForm())
+  const dvRange = input({ mono: true, 'aria-label': 'Apply validation to' })
+  const dvParams = h('div', { class: 'sx-sec' })
+  const dvList = h('div', { class: 'sx-list' })
+  let dvItems, dvSrc, dvOp, dvV1, dvV2
+  function dvForm() {
+    const t = dvType.value
+    dvItems = input({ placeholder: 'Yes, No, Maybe', 'aria-label': 'List items separated by commas' })
+    dvSrc = input({ mono: true, placeholder: 'or a range, e.g. Sheet1!$A$1:$A$10', 'aria-label': 'List source range' })
+    dvOp = select(DV_OPS, 'between')
+    dvV1 = input({ placeholder: 'Value', 'aria-label': 'Value' }); dvV2 = input({ placeholder: 'and', 'aria-label': 'Second value' })
+    dvParams.replaceChildren(...(t === 'list' ? [dvItems, dvSrc] : [dvOp, row(dvV1, dvV2)]))
+  }
+  dvForm()
+  const dvAdd = button('Apply rule', { size: 'sm', variant: 'primary', onClick: () => {
+    const g = parseRange(dvRange.value.trim() || rangeText(app.selectionRect()))
+    if (!g) return app.toast('Enter the cells to validate, such as B2:B20', 'error')
+    const t = dvType.value
+    const rule = { id: 'dv' + Math.random().toString(36).slice(2, 8), range: g, type: t, blank: true }
+    if (t === 'list') {
+      const items = dvItems.value.split(',').map((x) => x.trim()).filter(Boolean)
+      if (items.length) rule.items = items
+      else if (dvSrc.value.trim()) rule.src = dvSrc.value.trim().replace(/^.*!/, '').replace(/\$/g, '')
+      else return app.toast('Type the allowed values separated by commas, or give a range', 'error')
+    } else { rule.op = dvOp.value; rule.v1 = dvV1.value; rule.v2 = dvV2.value; if (rule.v1 === '' || (rule.op.includes('between') && rule.v2 === '')) return app.toast('Enter the limit value(s)', 'error') }
+    app.addValidation(rule)
+  } })
   const frz = [['Freeze top row', () => app.setFreeze(1, 0)], ['Freeze first column', () => app.setFreeze(0, 1)], ['Freeze at selection', () => app.setFreeze(app.grid.act.r, app.grid.act.c)], ['Unfreeze', () => app.setFreeze(0, 0)]]
   const el = h('div', { class: 'sx-pb' },
     sec('Sort', hasHeader, sortBox, row(button('Add level', { size: 'sm', icon: 'plus', disabled: false, onClick: () => { if (levels.length < 4) { levels.push({ col: levels.length, desc: false }); renderSort() } } }),
       button('Sort', { size: 'sm', variant: 'primary', icon: 'arrow-down-a-z', onClick: () => app.sortSelection(levels, hasHeader.input.checked) })), h('div', { class: 'sx-note' }, 'Sorts the data around the selected cell. Formulas keep working because their references move with each row.')),
     sec('Filter', filterToggle, row(button('Clear filters', { size: 'sm', onClick: () => app.clearFilters() }), button('Reapply', { size: 'sm', onClick: () => app.reapplyFilter() }))),
     sec('Remove duplicates', dupCols, row(button('Remove duplicate rows', { size: 'sm', icon: 'copy-x', onClick: () => app.removeDuplicates([...dupCols.querySelectorAll('input:checked')].map((i) => +i.value), hasHeader.input.checked) }))),
+    sec('Data validation', field('Allow', dvType), field('Apply to', dvRange), dvParams, row(dvAdd, button('Use selection', { size: 'sm', onClick: () => { dvRange.value = rangeText(app.selectionRect()) } })), dvList),
     sec('Freeze panes', row(...frz.map(([l, f]) => button(l, { size: 'sm', onClick: f })))),
     sec('Rows and columns', row(button('Hide rows', { size: 'sm', onClick: () => app.hideSel('row', true) }), button('Unhide rows', { size: 'sm', onClick: () => app.hideSel('row', false) })), row(button('Hide columns', { size: 'sm', onClick: () => app.hideSel('col', true) }), button('Unhide columns', { size: 'sm', onClick: () => app.hideSel('col', false) }))))
   return {
@@ -121,6 +151,8 @@ function dataPanel(app) {
         dupCols.replaceChildren(...colOptions().map(([v, l]) => h('label', h('input', { type: 'checkbox', value: v, checked: true }), h('span', l))))
       }
       filterToggle.input.checked = !!app.sh.filter
+      if (!dvRange.value) dvRange.value = rangeText(app.selectionRect())
+      dvList.replaceChildren(...(app.sh.dv || []).map((d) => h('div', { class: 'sx-li' }, h('span', { class: 'grow' }, h('b', rangeText(d.range)), ' ', h('small', d.type === 'list' ? `List: ${(d.items || [d.src]).join(', ')}` : `${d.type} ${d.op || 'between'} ${d.v1}${d.v2 ? ' and ' + d.v2 : ''}`)), iconBtn('trash-2', 'Remove rule', () => app.deleteValidation(d.id)))))
     },
   }
 }
@@ -297,14 +329,28 @@ function settingsPanel(app) {
   const touch = toggle('Touch select mode (drag to select cells)', false, (c) => app.setTouchSelect(c))
   const zoom = select([['0.5', '50%'], ['0.75', '75%'], ['1', '100%'], ['1.25', '125%'], ['1.5', '150%'], ['2', '200%']], '1', (v) => app.setZoom(+v))
   const tabc = button('Sheet tab color', { size: 'sm', onClick: (e) => app.pickColor(e.currentTarget, 'tab') })
+  const names = h('div', { class: 'sx-list' })
+  const nameIn = input({ placeholder: 'Name, e.g. TaxRate', 'aria-label': 'Name' })
+  const nameRef = input({ mono: true, placeholder: 'Range, e.g. B2:B20', 'aria-label': 'Range for the name' })
+  const addName = () => {
+    const g = parseRange(nameRef.value.trim())
+    if (!g) return app.toast('Enter a range such as B2:B20', 'error')
+    app.defineName(nameIn.value.trim(), g)
+  }
   return {
     el: h('div', { class: 'sx-pb' },
+      sec('Named ranges', names, row(nameIn, nameRef), row(button('Add name', { size: 'sm', icon: 'plus', onClick: addName }), button('Use selection', { size: 'sm', onClick: () => { nameRef.value = rangeText(app.selectionRect()) } })),
+        h('div', { class: 'sx-note' }, 'You can also type a name into the box left of the formula bar to name the selected cells.')),
       sec('Workbook', field('Typed dates are read as', order, 'Applies when you type or paste dates such as 05/06/2025.')),
       sec('This sheet', grid, tabc),
       sec('View', field('Zoom', zoom), touch),
       sec('Help', row(button('Keyboard shortcuts', { size: 'sm', icon: 'keyboard', onClick: () => app.showShortcuts() }))),
       sec('Good to know', h('div', { class: 'sx-note' }, 'Your work is saved in this browser automatically. Use Save to download an Excel file. Charts, filters and conditional formats are kept in .xlsx files, but charts are only drawn inside this editor and the PDF export.'))),
-    update() { order.value = app.model.wb.opts.dateOrder; grid.input.checked = app.sh.grid; zoom.value = String(app.grid.zoom); tabc.replaceChildren(swatch(app.sh.color || 'var(--accent)'), h('span', 'Sheet tab color')); touch.input.checked = app.grid.touchSelect },
+    update() {
+      const list = Object.values(app.model.wb.names)
+      names.replaceChildren(...(list.length ? list.map((d) => h('div', { class: 'sx-li' }, h('span', { class: 'grow' }, h('b', d.n), ' ', h('small', d.ref)),
+        iconBtn('arrow-right', 'Go to range', () => app.goToName(d.n)), iconBtn('trash-2', 'Delete name', () => app.deleteName(d.n)))) : [h('div', { class: 'sx-empty' }, 'No names yet.')]))
+      order.value = app.model.wb.opts.dateOrder; grid.input.checked = app.sh.grid; zoom.value = String(app.grid.zoom); tabc.replaceChildren(swatch(app.sh.color || 'var(--accent)'), h('span', 'Sheet tab color')); touch.input.checked = app.grid.touchSelect },
   }
 }
 

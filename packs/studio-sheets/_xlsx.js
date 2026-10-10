@@ -195,8 +195,23 @@ async function readSheetXml(buf) {
       if (hid) info.hiddenRows.add(r - 1)
       if (st && cf && st[1] !== '0') info.rowS[r - 1] = +st[1]
     }
-    const sdoc = xml.includes('<conditionalFormatting') ? parseXml(xml) : null
+    const sdoc = xml.includes('<conditionalFormatting') || xml.includes('<dataValidation') ? parseXml(xml) : null
     if (sdoc) for (const el of sdoc.getElementsByTagNameNS('*', 'conditionalFormatting')) info.cf.push(...cfFromXml(el, book.dxfs))
+    info.dv = []
+    if (sdoc) {
+      for (const el of sdoc.getElementsByTagNameNS('*', 'dataValidation')) {
+        const range = parseRange((attr(el, 'sqref') || '').split(' ')[0])
+        const type = attr(el, 'type')
+        if (!range || !['list', 'whole', 'decimal', 'textLength'].includes(type)) continue
+        const f1 = first(el, 'formula1')?.textContent || '', f2 = first(el, 'formula2')?.textContent || ''
+        const rule = { id: 'dv' + Math.random().toString(36).slice(2, 8), range, type: type === 'textLength' ? 'textlen' : type, blank: attr(el, 'allowBlank') !== '0' }
+        if (type === 'list') { if (/^"/.test(f1)) rule.items = f1.replace(/^"|"$/g, '').split(','); else rule.src = f1.replace(/^.*!/, '').replace(/\$/g, '') } else {
+          const opm = { between: 'between', notBetween: 'notbetween', equal: 'eq', notEqual: 'ne', greaterThan: 'gt', greaterThanOrEqual: 'ge', lessThan: 'lt', lessThanOrEqual: 'le' }
+          rule.op = opm[attr(el, 'operator') || 'between'] || 'between'; rule.v1 = f1; rule.v2 = f2
+        }
+        info.dv.push(rule)
+      }
+    }
     out.set(attr(s, 'name'), info)
   }
   return { book, sheets: out }
@@ -211,11 +226,15 @@ export async function readWorkbook(buf, name) {
   const wb = X.read(buf, { type: 'array', cellFormula: true, cellNF: true, cellText: false, cellDates: false, cellStyles: true })
   let extra = { book: { xfs: [], dxfs: [] }, sheets: new Map() }
   if (isZip && /\.(xlsx|xlsm|xltx|xltm)$/i.test(name)) { try { extra = await readSheetXml(buf) } catch (e) { console.warn('style pass failed', e) } }
-  const out = { name: name.replace(/\.[^.]+$/, ''), sheets: [] }
+  const out = { name: name.replace(/\.[^.]+$/, ''), sheets: [], names: {} }
+  for (const n of wb.Workbook?.Names || []) {
+    if (n.Sheet != null || !n.Name || !/^(?:'[^']+'|[^!']+)!\$?[A-Z]+\$?\d+(?::\$?[A-Z]+\$?\d+)?$/i.test(n.Ref || '')) continue
+    out.names[n.Name.toUpperCase()] = { n: n.Name, ref: n.Ref }
+  }
   wb.SheetNames.forEach((sn, idx) => {
     const ws = wb.Sheets[sn]
     const info = extra.sheets.get(sn)
-    const sheet = { name: sn, cells: [], colW: {}, rowH: {}, hideC: {}, hideR: {}, merges: [], freeze: info?.freeze || { r: 0, c: 0 }, filter: null, cf: info?.cf || [], grid: info ? info.grid : true, color: info?.color || null, colS: {}, rowS: {}, hidden: !!wb.Workbook?.Sheets?.[idx]?.Hidden }
+    const sheet = { name: sn, cells: [], colW: {}, rowH: {}, hideC: {}, hideR: {}, merges: [], freeze: info?.freeze || { r: 0, c: 0 }, filter: null, cf: info?.cf || [], dv: info?.dv || [], grid: info ? info.grid : true, color: info?.color || null, colS: {}, rowS: {}, hidden: !!wb.Workbook?.Sheets?.[idx]?.Hidden }
     const xf = (i) => (i != null ? extra.book.xfs[i] : null)
     const spillSkip = new Set()
     const ref = ws['!ref']
@@ -352,6 +371,17 @@ function cfXml(model, sh, sb, prio) {
   return out
 }
 
+function dvXml(sh) {
+  if (!sh.dv || !sh.dv.length) return ''
+  const opx = { between: 'between', notbetween: 'notBetween', eq: 'equal', ne: 'notEqual', gt: 'greaterThan', ge: 'greaterThanOrEqual', lt: 'lessThan', le: 'lessThanOrEqual' }
+  const items = sh.dv.map((d) => {
+    const base = `<dataValidation type="${d.type === 'textlen' ? 'textLength' : d.type}"${d.type !== 'list' ? ` operator="${opx[d.op || 'between']}"` : ''} allowBlank="${d.blank === false ? 0 : 1}" showErrorMessage="1" sqref="${rangeText(d.range)}">`
+    if (d.type === 'list') return `${base}<formula1>${d.items ? xmlEsc(`"${d.items.join(',')}"`) : xmlEsc(d.src || '')}</formula1></dataValidation>`
+    return `${base}<formula1>${xmlEsc(d.v1)}</formula1>${(d.op || 'between').includes('between') ? `<formula2>${xmlEsc(d.v2)}</formula2>` : ''}</dataValidation>`
+  })
+  return `<dataValidations count="${items.length}">${items.join('')}</dataValidations>`
+}
+
 /** Build an .xlsx Blob from the model. */
 export async function writeXlsx(model) {
   const JSZip = await jszip()
@@ -416,9 +446,10 @@ export async function writeXlsx(model) {
     const pane = fr.r || fr.c ? `<pane${fr.c ? ` xSplit="${fr.c}"` : ''}${fr.r ? ` ySplit="${fr.r}"` : ''} topLeftCell="${colName(fr.c)}${fr.r + 1}" activePane="${fr.r && fr.c ? 'bottomRight' : fr.r ? 'bottomLeft' : 'topRight'}" state="frozen"/>` : ''
     const merges = sh.merges.length ? `<mergeCells count="${sh.merges.length}">${sh.merges.map((m) => `<mergeCell ref="${rangeText(m)}"/>`).join('')}</mergeCells>` : ''
     const filter = sh.filter ? `<autoFilter ref="${rangeText(sh.filter)}"/>` : ''
-    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${sh.color ? `<sheetPr><tabColor rgb="${argb(sh.color)}"/></sheetPr>` : ''}<dimension ref="A1${maxR >= 0 ? ':' + colName(maxC) + (maxR + 1) : ''}"/><sheetViews><sheetView workbookViewId="0"${sh.grid ? '' : ' showGridLines="0"'}${si === model.wb.active ? ' tabSelected="1"' : ''}>${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/>${cols ? `<cols>${cols}</cols>` : ''}<sheetData>${data}</sheetData>${filter}${merges}${cfXml(model, sh, sb, prio)}<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${sh.color ? `<sheetPr><tabColor rgb="${argb(sh.color)}"/></sheetPr>` : ''}<dimension ref="A1${maxR >= 0 ? ':' + colName(maxC) + (maxR + 1) : ''}"/><sheetViews><sheetView workbookViewId="0"${sh.grid ? '' : ' showGridLines="0"'}${si === model.wb.active ? ' tabSelected="1"' : ''}>${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/>${cols ? `<cols>${cols}</cols>` : ''}<sheetData>${data}</sheetData>${filter}${merges}${cfXml(model, sh, sb, prio)}${dvXml(sh)}<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`
   })
-  const wbXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="${model.wb.active}"/></bookViews><sheets>${sheets.map((s, i) => `<sheet name="${xmlEsc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`
+  const names = Object.values(model.wb.names || {})
+  const wbXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="${model.wb.active}"/></bookViews><sheets>${sheets.map((s, i) => `<sheet name="${xmlEsc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets>${names.length ? `<definedNames>${names.map((d) => `<definedName name="${xmlEsc(d.n)}">${xmlEsc(d.ref)}</definedName>`).join('')}</definedNames>` : ''}<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`
   zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`)
   zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`)
   zip.file('docProps/core.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xmlEsc(model.wb.name)}</dc:title><dc:creator>Sheets</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString()}</dcterms:created></cp:coreProperties>`)

@@ -229,6 +229,12 @@ export class GridView {
   // ---------- pointer ----------
   local(e) { const b = this.sc.getBoundingClientRect(); return { x: e.clientX - b.left, y: e.clientY - b.top } }
   overScrollbar(e, x, y) { return e.target === this.sc && (x > this.sc.clientWidth || y > this.sc.clientHeight) }
+  /** Screen rect of the dropdown arrow when the active cell has a list rule (viewport coordinates). */
+  dropdownRect() {
+    if (!this.cb.hasDropdown || !this.cb.hasDropdown(this.act.r, this.act.c) || this.editor.active) return null
+    const rc = this.cellRect(this.act.r, this.act.c, true)
+    return rc ? { x: rc.x + rc.w - 19, y: rc.y + 3, w: 17, h: Math.max(10, rc.h - 6), cell: rc } : null
+  }
   handleRect() {
     const g = this.sel
     const x = this.xOf(g.c2 + 1), y = this.yOf(g.r2 + 1)
@@ -283,6 +289,8 @@ export class GridView {
     }
     const fb = this.filterButtonAt(x, y)
     if (fb) { e.preventDefault(); this.drag = null; this.cb.onFilterClick?.(fb.c, fb.rect); return }
+    const dd = this.dropdownRect()
+    if (dd && this.sel.r1 === this.sel.r2 && this.sel.c1 === this.sel.c2 && x >= dd.x && x <= dd.x + dd.w && y >= dd.y && y <= dd.y + dd.h) { e.preventDefault(); this.drag = null; this.cb.onDropdown?.(this.act.r, this.act.c, dd.cell); return }
     const hr = this.handleRect()
     if (x >= hr.x && x <= hr.x + hr.w && y >= hr.y && y <= hr.y + hr.h && !touch) { this.drag = { type: 'fill', src: { ...this.sel } }; return }
     const { r, c } = this.hit(x, y)
@@ -397,6 +405,8 @@ export class GridView {
     if (x >= HW && y >= HH) {
       const fb = this.filterButtonAt(x, y)
       if (fb) return
+      const hr = this.handleRect()
+      if (x >= hr.x && x <= hr.x + hr.w && y >= hr.y && y <= hr.y + hr.h) { this.cb.onFillDouble?.({ ...this.sel }); return }
       const { r, c } = this.hit(x, y)
       this.selectCell(r, c)
       this.startEdit({ mode: 'edit' })
@@ -794,6 +804,15 @@ export class GridView {
     if (this.fillPreview) {
       const P = this.rectIn(q, this.fillPreview)
       g.setLineDash([4, 3]); g.lineWidth = 1.5; g.strokeStyle = col.text; g.strokeRect(P.x + 0.5, P.y + 0.5, P.w - 1, P.h - 1); g.setLineDash([])
+    }
+    // dropdown arrow of a list validation on the active cell
+    const dd = this.dropdownRect()
+    if (dd && s.r1 === s.r2 && s.c1 === s.c2) {
+      const A2 = this.rectIn(q, { r1: this.act.r, c1: this.act.c, r2: this.act.r, c2: this.act.c })
+      const bx = A2.x + A2.w - 19, by = A2.y + 3, bh = Math.max(10, A2.h - 6)
+      g.fillStyle = col.head; g.strokeStyle = col.lineStrong; g.lineWidth = 1
+      g.beginPath(); g.roundRect(bx + 0.5, by + 0.5, 16, bh - 1, 4); g.fill(); g.stroke()
+      g.fillStyle = col.muted; g.beginPath(); g.moveTo(bx + 4.5, by + bh / 2 - 2); g.lineTo(bx + 11.5, by + bh / 2 - 2); g.lineTo(bx + 8, by + bh / 2 + 2.5); g.closePath(); g.fill()
     }
     // fill handle
     g.fillStyle = col.accent; g.strokeStyle = col.bg; g.lineWidth = 1.5

@@ -111,7 +111,7 @@ function ev(n, env) {
       if (!(a instanceof Ref) || !(b instanceof Ref) || a.sid !== b.sid) return E.VALUE
       return a.sub(Math.min(a.r1, b.r1), Math.min(a.c1, b.c1), Math.max(a.r2, b.r2), Math.max(a.c2, b.c2))
     }
-    case 'name': return E.NAME
+    case 'name': return env.host.name(n.name) || E.NAME
     case 'arr': return n.rows.map((row) => row.map((x) => { const v = deref(env, ev(x, env)); return v === undefined ? null : v }))
     case 'un': {
       const v = deref(env, ev(n.e, env))

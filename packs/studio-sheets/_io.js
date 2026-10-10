@@ -3,7 +3,7 @@ import { ext } from '../../lib/files.js'
 import { Model, makeCell } from './_model.js'
 import { ck, ckR } from './_a1.js'
 import { DEFAULT_ROW_H } from './_model.js'
-import { parseInput } from './_fmt.js'
+import { parseInput, FMT } from './_fmt.js'
 import { fontPx } from './_axis.js'
 import { parseDelimited, sniffDelimiter, toDelimited } from './_text.js'
 import { readWorkbook } from './_xlsx.js'
@@ -44,6 +44,7 @@ export function modelFromDesc(desc, opts = {}) {
   const m = new Model()
   m.wb.name = desc.name || 'Untitled'
   if (opts.dateOrder) m.wb.opts.dateOrder = opts.dateOrder
+  m.wb.names = desc.names || {}
   m.wb.sheets.length = 0
   m.byId.clear()
   m.nextSid = 1
@@ -59,6 +60,7 @@ export function modelFromDesc(desc, opts = {}) {
     sh.merges = d.merges || []
     sh.filter = d.filter || null
     sh.cf = d.cf || []
+    sh.dv = d.dv || []
     sh.charts = (d.charts || []).map((ch) => ({ ...ch, src: { ...ch.src, sid: sh.id } }))
     sh.colW = d.colW || {}
     sh.rowH = d.rowH || {}
@@ -67,8 +69,11 @@ export function modelFromDesc(desc, opts = {}) {
     for (const [c, st] of Object.entries(d.colS || {})) { const id = m.styleId(st); if (id) sh.colS[c] = id }
     for (const [r, st] of Object.entries(d.rowS || {})) { const id = m.styleId(st); if (id) sh.rowS[r] = id }
     if (!Object.keys(sh.colW).length) sh.colW = fitWidths(d.cells)
-    for (const [r, c, v, f, st] of d.cells) {
+    const localDate = m.wb.opts.dateOrder === 'mdy' ? FMT.mdy : FMT.dmy
+    for (const [r, c, v, f, st0] of d.cells) {
       const cell = f != null ? makeCell(f) : { v: v === undefined ? null : v, f: null }
+      // the file's short-date format follows the reader's locale
+      const st = st0 && (st0.nf === 'm/d/yy' || st0.nf === 'mm-dd-yy') ? { ...st0, nf: localDate } : st0
       const s = st && Object.keys(st).length ? m.styleId(st) : 0
       if (s) cell.s = s
       sh.cells.set(ck(r, c), cell)

@@ -100,7 +100,7 @@ export const files = {
       copy.cells.set(k, c)
     }
     const clone = (o) => JSON.parse(JSON.stringify(o))
-    Object.assign(copy, { colW: clone(sh.colW), rowH: clone(sh.rowH), hideR: clone(sh.hideR), hideC: clone(sh.hideC), fHide: clone(sh.fHide), colS: clone(sh.colS), rowS: clone(sh.rowS), freeze: clone(sh.freeze), filter: clone(sh.filter), cf: clone(sh.cf).map((r) => ({ ...r, id: 'cf' + Math.random().toString(36).slice(2, 8) })), merges: clone(sh.merges), color: sh.color, grid: sh.grid, extDirty: true })
+    Object.assign(copy, { colW: clone(sh.colW), rowH: clone(sh.rowH), hideR: clone(sh.hideR), hideC: clone(sh.hideC), fHide: clone(sh.fHide), colS: clone(sh.colS), rowS: clone(sh.rowS), freeze: clone(sh.freeze), filter: clone(sh.filter), cf: clone(sh.cf).map((r) => ({ ...r, id: 'cf' + Math.random().toString(36).slice(2, 8) })), merges: clone(sh.merges), dv: clone(sh.dv || []), color: sh.color, grid: sh.grid, extDirty: true })
     copy.charts = clone(sh.charts).map((c) => ({ ...c, id: 'ch' + Math.random().toString(36).slice(2, 9), src: { ...c.src, sid: c.src.sid === sh.id ? copy.id : c.src.sid } }))
     const arr = [...this.model.sheets]
     arr.splice(arr.indexOf(sh) + 1, 0, copy)

@@ -1,7 +1,7 @@
 // Workbook model: sheets, cells, styles, dependency graph, recalculation (with spilled arrays), and an undo journal.
 // Every mutation goes through begin()/commit() so it can be undone. No DOM.
-import { MAXR, MAXC, gk, ck, ckR, ckC, parseRange } from './_a1.js'
-import { parse, print, ParseError, refsOf, hasVolatile } from './_parse.js'
+import { MAXR, MAXC, gk, ck, ckR, ckC, parseRange, isCellRef } from './_a1.js'
+import { parse, print, ParseError, refsOf, hasVolatile, walk } from './_parse.js'
 import { XErr, E, Ref, errFor } from './_val.js'
 import { VOLATILE } from './_funcs.js'
 import { evaluate, settle } from './_eval.js'
@@ -15,7 +15,7 @@ const DATE_FN = { TODAY: FMT.dmy, DATE: FMT.dmy, EDATE: FMT.dmy, EOMONTH: FMT.dm
 
 export const newSheet = (id, name) => ({
   id, name, cells: new Map(), spill: new Map(), spillOwner: new Map(), spillBlocked: new Set(),
-  colW: {}, rowH: {}, hideR: {}, hideC: {}, fHide: {}, colS: {}, rowS: {}, freeze: { r: 0, c: 0 }, filter: null, cf: [], charts: [], merges: [],
+  colW: {}, rowH: {}, hideR: {}, hideC: {}, fHide: {}, colS: {}, rowS: {}, freeze: { r: 0, c: 0 }, filter: null, cf: [], charts: [], merges: [], dv: [],
   color: null, grid: true, maxR: -1, maxC: -1, extDirty: false,
 })
 
@@ -29,7 +29,7 @@ const hasContent = (cell) => !!(cell && (cell.f != null || cell.v !== null))
 export class Model {
   constructor() {
     this.nextSid = 1
-    this.wb = { name: 'Untitled', sheets: [], opts: { dateOrder: 'dmy' }, active: 0 }
+    this.wb = { name: 'Untitled', sheets: [], opts: { dateOrder: 'dmy' }, active: 0, names: {} }
     this.styles = [{}]
     this._sk = new Map([['{}', 0]])
     this.depCells = new Map()
@@ -158,6 +158,7 @@ export class Model {
       extent: (sid) => this.extent(sid),
       rowHidden: (sid, r, manual) => { const sh = this.byId.get(sid); return !!(sh && (sh.fHide[r] || (manual && sh.hideR[r]))) },
       parseRef: (text, sid) => this.parseRefText(text, sid),
+      name: (n) => { const d = this.wb.names[n.toUpperCase()]; return d ? this.parseRefText(d.ref, null) : null },
     }
   }
   parseRefText(text, sid) {
@@ -178,6 +179,11 @@ export class Model {
       if (sid === undefined) continue
       deps.push({ sid, r1: ref.r1, c1: ref.c1, r2: ref.r2, c2: ref.c2 })
     }
+    walk(cell.ast, (n) => {
+      if (n.t !== 'name') return
+      const r = this.host.name(n.name)
+      if (r) deps.push({ sid: r.sid, r1: r.r1, c1: r.c1, r2: r.r2, c2: r.c2 })
+    })
     cell.deps = deps
     for (const d of deps) {
       if (d.r1 === d.r2 && d.c1 === d.c2) {
@@ -435,7 +441,7 @@ export class Model {
       const v = undo ? e.old : e.new
       if (v === undefined) delete e.obj[e.key]; else e.obj[e.key] = v
       if (e.layout) { this._layout = true; this.layoutVer++ }
-      if (e.key === 'name' && e.obj.cells) this._struct = true // formulas name sheets: rebuild the dependency graph
+      if ((e.key === 'name' && e.obj.cells) || e.struct) this._struct = true // formulas name sheets and ranges: rebuild the dependency graph
     }
     else if (e.k === 'sheets') { this.wb.sheets = undo ? e.old : e.new; this._reindex(); this._struct = true; this._layout = true; this.layoutVer++ }
     else if (e.k === 'wb') { Object.assign(this.wb, undo ? e.old : e.new); this._layout = true }
@@ -482,10 +488,11 @@ export class Model {
     this._log({ k: 'cell', sid: sh.id, key, old, new: cell })
     this._rawPut(sh, key, cell)
   }
-  setProp(obj, key, val, layout = false) {
+  setProp(obj, key, val, layout = false, struct = false) {
     const old = obj[key]
     if (old === val) return
-    this._log({ k: 'prop', obj, key, old, new: val, layout })
+    this._log({ k: 'prop', obj, key, old, new: val, layout, struct })
+    if (struct) this._struct = true
     if (val === undefined) delete obj[key]; else obj[key] = val
     if (layout) { this._layout = true; this.layoutVer++ }
     if (key === 'name' && obj.cells) this._struct = true
@@ -503,6 +510,14 @@ export class Model {
     this._log({ k: 'wb', old, new: patch })
     Object.assign(this.wb, patch)
     this._layout = true
+  }
+
+  // ---------- defined names ----------
+  static validName(n) { return /^[A-Za-z_][A-Za-z0-9_.]{0,63}$/.test(n) && !isCellRef(n) && !/^(true|false)$/i.test(n) && !/^[rc]\d*$/i.test(n) }
+  /** Define or change a name for a range such as Sheet1!$A$1:$B$5 (undoable; pass null to remove). */
+  setName(name, ref) {
+    const key = name.toUpperCase()
+    this.setProp(this.wb.names, key, ref == null ? undefined : { n: name, ref }, false, true)
   }
 
   // ---------- cell-level editing helpers ----------
@@ -560,7 +575,7 @@ export class Model {
   toJSON() {
     const enc = (v) => (v instanceof XErr ? { e: v.code } : v)
     return {
-      v: 1, name: this.wb.name, opts: this.wb.opts, active: this.wb.active, nextSid: this.nextSid, styles: this.styles,
+      v: 1, name: this.wb.name, opts: this.wb.opts, active: this.wb.active, nextSid: this.nextSid, styles: this.styles, names: this.wb.names,
       sheets: this.wb.sheets.map((sh) => {
         const cells = []
         for (const [k, cell] of sh.cells) {
@@ -570,7 +585,7 @@ export class Model {
         }
         return {
           id: sh.id, name: sh.name, color: sh.color, grid: sh.grid, cells, colW: sh.colW, rowH: sh.rowH, hideR: sh.hideR, hideC: sh.hideC, fHide: sh.fHide,
-          colS: sh.colS, rowS: sh.rowS, freeze: sh.freeze, filter: sh.filter, cf: sh.cf, charts: sh.charts, merges: sh.merges,
+          colS: sh.colS, rowS: sh.rowS, freeze: sh.freeze, filter: sh.filter, cf: sh.cf, charts: sh.charts, merges: sh.merges, dv: sh.dv,
         }
       }),
     }
@@ -581,14 +596,14 @@ export class Model {
     return m
   }
   loadJSON(j) {
-    this.wb = { name: j.name || 'Untitled', opts: { dateOrder: 'dmy', ...(j.opts || {}) }, active: j.active || 0, sheets: [] }
+    this.wb = { name: j.name || 'Untitled', opts: { dateOrder: 'dmy', ...(j.opts || {}) }, active: j.active || 0, sheets: [], names: j.names || {} }
     this.styles = j.styles && j.styles.length ? j.styles : [{}]
     this._sk = new Map(this.styles.map((s, i) => [JSON.stringify(s), i]))
     this.byId = new Map()
     this.nextSid = j.nextSid || 1
     for (const js of j.sheets) {
       const sh = newSheet(js.id, js.name)
-      for (const k of ['color', 'grid', 'colW', 'rowH', 'hideR', 'hideC', 'fHide', 'colS', 'rowS', 'freeze', 'filter', 'cf', 'charts', 'merges']) if (js[k] !== undefined) sh[k] = js[k]
+      for (const k of ['color', 'grid', 'colW', 'rowH', 'hideR', 'hideC', 'fHide', 'colS', 'rowS', 'freeze', 'filter', 'cf', 'charts', 'merges', 'dv']) if (js[k] !== undefined) sh[k] = js[k]
       for (const [r, c, v, f, s] of js.cells) {
         const cell = f != null ? makeCell(f) : { v: v && typeof v === 'object' && v.e ? errFor(v.e) : v ?? null, f: null }
         if (s) cell.s = s

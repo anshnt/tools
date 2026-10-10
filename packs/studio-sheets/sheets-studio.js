@@ -12,6 +12,7 @@ import { files } from './_files.js'
 import { injectStyle } from './_style.js'
 import { menu } from './_menu.js'
 import * as ops from './_ops.js'
+import { dvAt } from './_valid.js'
 import { CHART_TYPES } from './_charts.js'
 import { rangeText, MAXR, MAXC, colName } from './_a1.js'
 import { FMT, nfLabel, generalText } from './_fmt.js'
@@ -200,6 +201,9 @@ class SheetsApp {
       onContext: (e, info) => this.contextMenu(e, info),
       onFilterClick: (c, rect) => this.openFilterMenu(c, rect),
       onFill: (src, end) => this.fill(src, end),
+      onFillDouble: (src) => this.fillToEnd(src),
+      hasDropdown: (r, c) => { const d = dvAt(this.sh, r, c); return !!d && d.type === 'list' },
+      onDropdown: (r, c, rect) => this.openDropdown(r, c, rect),
       onResize: (kind, idx, size) => this.resizeAxis(kind, idx, size),
       onAutofit: (kind, idx) => this.autofit(kind, idx),
       onKey: (e) => this.onKey(e),
@@ -319,8 +323,17 @@ class SheetsApp {
     this.nameBox.value = single ? colName(g.c1) + (g.r1 + 1) : rangeText(g)
   }
   goToName(text) {
-    const ref = this.model.parseRefText(text.trim(), this.sh.id)
-    if (!ref) { this.toast(`"${text}" is not a cell or range`, 'error'); this.updateNameBox(); return }
+    const t = text.trim()
+    const def = this.model.wb.names[t.toUpperCase()]
+    const ref = this.model.parseRefText(def ? def.ref : t, this.sh.id)
+    if (!ref && !def && Model.validName(t)) {
+      // an unknown valid name defines it for the selection (like a spreadsheet's name box)
+      const ok = this.guard('Define name', () => this.model.setName(t, ops.absRefText(this.sh, this.selectionRect())))
+      if (ok) this.toast(`Defined name ${t} for ${rangeText(this.selectionRect())}. Use it in formulas, for example =SUM(${t}).`, 'success')
+      this.updateNameBox(); this.grid.focus(); this.refreshPanels()
+      return
+    }
+    if (!ref) { this.toast(`"${text}" is not a cell, a range or a valid name`, 'error'); this.updateNameBox(); return }
     const sh = this.model.sheet(ref.sid)
     if (sh !== this.sh) this.switchSheet(sh)
     this.grid.selectRect({ r1: ref.r1, c1: ref.c1, r2: ref.r2, c2: ref.c2 }, { r: ref.r1, c: ref.c1 })

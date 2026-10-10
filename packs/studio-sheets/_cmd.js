@@ -3,9 +3,10 @@ import { MAXR, MAXC, ckR, ckC, rangeText, colName } from './_a1.js'
 import { adjustDecimals } from './_fmt.js'
 import { shift, print, ParseError } from './_parse.js'
 import * as ops from './_ops.js'
-import { colorPicker } from './_menu.js'
+import { colorPicker, menu } from './_menu.js'
+import { dvAt, dvItems, dvCheck } from './_valid.js'
 import { fontPx } from './_axis.js'
-import { DEFAULT_COL_W, DEFAULT_ROW_H, makeCell } from './_model.js'
+import { DEFAULT_COL_W, DEFAULT_ROW_H, makeCell, Model } from './_model.js'
 
 export const cmd = {
   // ---------- transactions with undo of the selection ----------
@@ -56,6 +57,11 @@ export const cmd = {
     if (!sh) return true
     const before = this.model.getCellText(sh, r, c)
     if (!fill && before === text) return true
+    const rule = dvAt(sh, r, c)
+    if (rule) {
+      const msg = dvCheck(this.model, sh, rule, text, this.model.wb.opts.dateOrder)
+      if (msg) { this.toast(msg, 'error'); return false }
+    }
     return this.guard('Edit cell', () => {
       if (fill && sh === this.sh) {
         const g = this.grid.sel
@@ -214,6 +220,13 @@ export const cmd = {
   setZoom(z) { this.grid.setZoom(z); this.charts.reposition(); this.updateStatus() },
   setTouchSelect(on) { this.grid.touchSelect = on; this.grid.sc.classList.toggle('select-mode', on); this.tb.touch?.setAttribute('aria-pressed', String(on)) },
 
+  defineName(name, g) {
+    if (!Model.validName(name)) return this.toast('A name starts with a letter or underscore and has no spaces. It cannot look like a cell such as A1.', 'error')
+    this.guard('Define name', () => this.model.setName(name, ops.absRefText(this.sh, g)))
+    this.refreshPanels()
+  },
+  deleteName(name) { this.guard('Delete name', () => this.model.setName(name, null)); this.refreshPanels() },
+
   // ---------- structure ----------
   insertRC(axis, after = false) {
     const g = this.grid.sel
@@ -309,6 +322,17 @@ export const cmd = {
 
   // ---------- fill ----------
   fill(src, end) { this.guard('Fill', () => ops.fillExtend(this.model, this.sh, src, end)) },
+  /** Double-click on the fill handle: fill down as far as the neighbouring column has data. */
+  fillToEnd(src) {
+    const m = this.model, sid = this.sh.id
+    const has = (r, c) => c >= 0 && m.valueAt(sid, r, c) !== null
+    const side = [src.c1 - 1, src.c2 + 1].find((c) => has(src.r2 + 1, c) && c >= 0)
+    if (side === undefined) return this.toast('Fill down needs data next to the selection')
+    let r = src.r2 + 1
+    while (has(r + 1, side) && r < MAXR - 2) r++
+    this.fill(src, { ...src, r2: r })
+    this.grid.selectRect({ ...src, r2: r }, { r: src.r1, c: src.c1 })
+  },
   fillDirection(right) {
     const g = this.grid.sel
     if (g.r1 === g.r2 && !right) { const a = this.grid.act; this.fill({ r1: a.r - 1, c1: g.c1, r2: a.r - 1, c2: g.c2 }, { r1: a.r - 1, c1: g.c1, r2: a.r, c2: g.c2 }); return }
@@ -425,6 +449,18 @@ export const cmd = {
   },
   addRule(r) { this.guard('Add rule', () => this.model.setProp(this.sh, 'cf', [...this.sh.cf, r])); this.toast('Rule added', 'success') },
   deleteRule(id) { this.guard('Delete rule', () => this.model.setProp(this.sh, 'cf', this.sh.cf.filter((r) => r.id !== id))) },
+
+  // ---------- data validation ----------
+  openDropdown(r, c, rect) {
+    const rule = dvAt(this.sh, r, c)
+    if (!rule) return
+    const items = dvItems(this.model, this.sh, rule)
+    const box = this.grid.sc.getBoundingClientRect()
+    const cur = this.model.getCellText(this.sh, r, c)
+    menu(this.root, { x: box.left + rect.x, y: box.top + rect.y + rect.h }, items.length ? items.slice(0, 200).map((t) => ({ label: t, checked: String(t) === cur ? true : undefined, onClick: () => { this.guard('Pick value', () => this.model.setInput(this.sh, r, c, t)); this.grid.focus() } })) : [{ label: 'No choices yet', disabled: true }])
+  },
+  addValidation(rule) { this.guard('Data validation', () => this.model.setProp(this.sh, 'dv', [...this.sh.dv.filter((d) => !(d.range.r1 === rule.range.r1 && d.range.c1 === rule.range.c1 && d.range.r2 === rule.range.r2 && d.range.c2 === rule.range.c2)), rule])); this.toast('Validation added', 'success') },
+  deleteValidation(id) { this.guard('Remove validation', () => this.model.setProp(this.sh, 'dv', this.sh.dv.filter((d) => d.id !== id))) },
 
   // ---------- functions and find ----------
   insertFunction(name) {

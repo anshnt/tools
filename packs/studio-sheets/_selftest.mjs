@@ -93,6 +93,18 @@ const pay = ops.copyPayload(m3, w, { r1: 0, c1: 0, r2: 3, c2: 1 })
 m3.tx('paste', () => ops.pasteCells(m3, w, 0, 8, pay, 'all')); chk('J2', 6, 'paste shifted formula'); if (m3.getCellText(w, 1, 9) !== '=I2*2') { fails++; console.log('FAIL paste text', m3.getCellText(w, 1, 9)) }
 w.filter = { r1: 0, c1: 0, r2: 3, c2: 0, cols: { 0: { hide: ['3'] } } }; m3.tx('filter', () => ops.applyFilter(m3, w)); if (!w.fHide[1]) { fails++; console.log('FAIL filter hide', JSON.stringify(w.fHide)) }
 const hits = ops.findAll(m3, { text: 'item', sheet: w }); if (hits.length < 1) { fails++; console.log('FAIL find') }
+// ---- defined names ----
+const m4 = new Model(); const n4 = m4.sheets[0]
+const set4 = (a, t) => { const p = parseCell(a); m4.tx('s', () => m4.setInput(n4, p.r, p.c, t)) }
+const v4 = (a) => { const p = parseCell(a); return show(m4.valueAt(n4.id, p.r, p.c)) }
+set4('A1', '5'); set4('A2', '7'); set4('A3', '9')
+m4.tx('name', () => m4.setName('Vals', 'Sheet1!$A$1:$A$3'))
+set4('C1', '=SUM(Vals)*2'); if (v4('C1') !== 42) { fails++; console.log('FAIL name sum', v4('C1')) }
+set4('A2', '10'); if (v4('C1') !== 48) { fails++; console.log('FAIL name recalc', v4('C1')) }
+m4.tx('ins', () => ops.structural(m4, n4, 'row', 0, 1, false)); if (v4('C2') !== 48 || m4.wb.names.VALS.ref !== 'Sheet1!$A$2:$A$4') { fails++; console.log('FAIL name insert', v4('C2'), m4.wb.names.VALS.ref) }
+m4.undo(); if (m4.wb.names.VALS.ref !== 'Sheet1!$A$1:$A$3') { fails++; console.log('FAIL name undo') }
+set4('D1', '=Nope'); if (v4('D1') !== '#NAME?') { fails++; console.log('FAIL unknown name', v4('D1')) }
+if (Model.fromJSON(JSON.parse(JSON.stringify(m4.toJSON()))).wb.names.VALS.ref !== 'Sheet1!$A$1:$A$3') { fails++; console.log('FAIL name json') }
 const j = JSON.parse(JSON.stringify(m.toJSON()))
 const m2 = Model.fromJSON(j)
 const v2 = (a) => { const p = parseCell(a); return show(m2.valueAt(m2.sheets[0].id, p.r, p.c)) }
