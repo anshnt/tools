@@ -50,6 +50,7 @@ export class Editor {
     this.threading = null
     this.crop = false
     this.textEdit = null
+    this.holdFocus = 0
     this.snapLines = []
     this.hover = null
     this.activeLayer = null
@@ -81,6 +82,8 @@ export class Editor {
     this.el = h('div', { class: 'ls-stage' }, this.view, this.rh, this.rv, this.rc)
     const v = this.view
     v.addEventListener('pointerdown', (e) => this.onDown(e))
+    // The browser moves focus to the canvas on the mousedown that follows the double-click pointerdown; keep it in the editor that just opened.
+    v.addEventListener('mousedown', (e) => { if (this.textEdit && performance.now() < this.holdFocus && !e.target.closest?.('.ls-edit')) { e.preventDefault(); this.holdFocus = 0 } })
     v.addEventListener('pointermove', (e) => this.onMove(e))
     v.addEventListener('pointerup', (e) => this.onUp(e))
     v.addEventListener('pointercancel', (e) => this.onUp(e, true))
@@ -521,7 +524,7 @@ export class Editor {
   }
 
   doubleClick(it, e) {
-    if (it.type === 'text') this.startTextEdit(it.id, { point: e && { x: e.clientX, y: e.clientY } })
+    if (it.type === 'text') { this.startTextEdit(it.id, { point: e && { x: e.clientX, y: e.clientY } }); this.holdFocus = performance.now() + 700 }
     else if (it.type === 'image') { this.crop = !this.crop; this.emit('crop'); this.requestRender(); if (!it.asset) this.emit('placeImage', it.id) }
   }
 
@@ -1028,7 +1031,9 @@ export class Editor {
     const te = this.textEdit
     if (!te) return
     clearTimeout(te.timer)
-    cmd.setStoryText(this.store, te.story, domToParas(this.doc, te.el))
+    const paras = domToParas(this.doc, te.el)
+    if (JSON.stringify(paras) === JSON.stringify(this.doc.stories[te.story]?.paras)) return // nothing changed: no empty undo step
+    cmd.setStoryText(this.store, te.story, paras)
   }
   endTextEdit(commit = true) {
     const te = this.textEdit

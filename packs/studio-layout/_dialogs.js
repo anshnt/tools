@@ -148,7 +148,7 @@ export function exportDialog({ store, scene }) {
     dpiField.hidden = o.kind === 'pdf'
     marks.input.disabled = !o.bleed
     if (!o.bleed) { marks.input.checked = false; o.marks = false }
-    note.textContent = o.kind === 'pdf' ? 'Real text and vector shapes, with the fonts embedded. Text stays selectable and searchable, and the file is small.'
+    note.textContent = o.kind === 'pdf' ? 'Real text and vector shapes, with the fonts embedded. Text stays selectable and searchable, and the file is small. Font files load from a public CDN the first time (your document is never uploaded).'
       : o.kind === 'rpdf' ? 'Every page is rendered as one picture. Text is not selectable, but it looks identical everywhere. Use it if a font or viewer misbehaves.'
         : 'One PNG per page. Several pages are delivered as a ZIP.'
   }
@@ -177,7 +177,7 @@ export function exportDialog({ store, scene }) {
     } else blob = await exportRasterPdf(scene, { dpi: o.dpi, ...popts })
     download(blob, `${base}.pdf`)
     result.replaceChildren(alert('success', h('strong', 'Done. '), `${o.pages ? pageList(o.pages, store.doc.pages.length).length : store.doc.pages.length} page(s), ${formatBytes(blob.size)}. ${o.kind === 'pdf' ? 'Text is selectable.' : 'Pages are images.'}`))
-    if (blob.replaced) result.append(alert('warn', `${blob.replaced} character${blob.replaced > 1 ? 's were' : ' was'} not in the bundled Latin fonts and show as ? in the PDF. Use the image PDF to keep every character exactly as it looks on screen.`))
+    if (blob.replaced) result.append(alert('warn', `${blob.replaced} character${blob.replaced > 1 ? 's were' : ' was'} not in the Latin font files used for the PDF and show as ? in the PDF. Use the image PDF to keep every character exactly as it looks on screen.`))
   }
   btn.addEventListener('click', () => busy(btn, run('export'), { label: 'Exporting', errorTo: result, progress: prog }))
   printBtn.addEventListener('click', () => busy(printBtn, run('print'), { label: 'Preparing', errorTo: result, progress: prog }))

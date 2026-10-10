@@ -194,7 +194,7 @@ export async function exportPdf(scene, { bleed = false, marks = false, pages, on
   pdf.setProducer('Layout Studio with pdf-lib')
   pdf.setCreationDate(new Date())
   const blob = await savePdf(pdf)
-  blob.replaced = replaced // characters the bundled fonts could not draw (shown as ? in the file)
+  blob.replaced = replaced // characters the loaded Latin font files could not draw (shown as ? in the file)
   return blob
 }
 

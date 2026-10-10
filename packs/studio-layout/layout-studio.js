@@ -10,7 +10,7 @@ import { contextBar, designPanel } from './_inspector.js'
 import { pagesPanel, layersPanel, stylesPanel } from './_sidebars.js'
 import { makeTemplate } from './_templates.js'
 import { templateGallery, customDocDialog, shortcutsDialog, openDialog, exportDialog } from './_dialogs.js'
-import { saveProjectZip, openProjectZip } from './_export.js'
+import { saveProjectZip, openProjectZip, printDoc } from './_export.js'
 import * as cmd from './_commands.js'
 import { ibtn } from './_ui.js'
 import { injectCss } from './_css.js'
@@ -44,14 +44,14 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
 
   // ---------- Toolbar ----------
   const docName = h('input', { class: 'ls-docname', value: store.doc.name, 'aria-label': 'Document name', oninput: (e) => cmd.setDocSetup(store, { name: e.target.value }) })
-  const undoBtn = ibtn('undo-2', 'Undo (Ctrl+Z)', { onClick: () => store.undo() })
-  const redoBtn = ibtn('redo-2', 'Redo (Ctrl+Shift+Z)', { onClick: () => store.redo() })
-  const zoomSel = h('select', { class: 'ls-zoomval select', 'aria-label': 'Zoom', onchange: (e) => { const v = e.target.value; if (v === 'page') ed.fitPage(); else if (v === 'width') ed.fitWidth(); else ed.setZoom(+v / 100) } },
+  const undoBtn = ibtn('undo-2', 'Undo (Ctrl+Z)', { cls: 'ls-top1', onClick: () => store.undo() })
+  const redoBtn = ibtn('redo-2', 'Redo (Ctrl+Shift+Z)', { cls: 'ls-top1', onClick: () => store.redo() })
+  const zoomSel = h('select', { class: 'ls-zoomval select ls-sm-hide', 'aria-label': 'Zoom', onchange: (e) => { const v = e.target.value; if (v === 'page') ed.fitPage(); else if (v === 'width') ed.fitWidth(); else ed.setZoom(+v / 100) } },
     [['page', 'Fit page'], ['width', 'Fit width'], ...[25, 50, 75, 100, 150, 200, 400].map((z) => [String(z), `${z}%`])].map(([v, l]) => h('option', { value: v }, l)))
   const zoomLbl = h('option', { value: 'cur', disabled: true }, '80%')
   zoomSel.prepend(zoomLbl)
   const saveState = h('span', { class: 'ls-save' }, icon('check'), h('span', 'Saved'))
-  const panelBtn = ibtn('panel-right', 'Show or hide the panels', { cls: 'ls-panelbtn', onClick: () => { wrap.classList.toggle('side-open') } })
+  const panelBtn = ibtn('panel-right', 'Show or hide the panels', { cls: 'ls-panelbtn ls-top1', onClick: () => { wrap.classList.toggle('side-open') } })
   const top = h('div', { class: 'ls-top' },
     docName,
     h('span', { class: 'ls-sepv' }),
@@ -59,14 +59,14 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
     ibtn('folder-open', 'Open a saved document', { onClick: () => showOpen() }),
     ibtn('save', 'Save project file (Ctrl+S)', { onClick: () => saveFile() }),
     ibtn('download', 'Export PDF or PNG (Ctrl+E)', { label: 'Export', onClick: () => showExport(), cls: 'primary' }),
-    ibtn('printer', 'Print (Ctrl+P)', { onClick: () => showExport(true) }),
+    ibtn('printer', 'Print (Ctrl+P)', { onClick: () => printNow() }),
     h('span', { class: 'ls-sepv' }),
     undoBtn, redoBtn,
     h('span', { class: 'ls-sepv' }),
-    ibtn('zoom-out', 'Zoom out (Ctrl+-)', { onClick: () => ed.zoomAt(0.8) }), zoomSel, ibtn('zoom-in', 'Zoom in (Ctrl++)', { onClick: () => ed.zoomAt(1.25) }),
+    ibtn('zoom-out', 'Zoom out (Ctrl+-)', { cls: 'ls-sm-hide', onClick: () => ed.zoomAt(0.8) }), zoomSel, ibtn('zoom-in', 'Zoom in (Ctrl++)', { cls: 'ls-sm-hide', onClick: () => ed.zoomAt(1.25) }),
     ibtn('scan', 'Fit the page (Ctrl+0)', { onClick: () => ed.fitPage() }),
     h('span', { class: 'ls-spacer' }), saveState,
-    ibtn('keyboard', 'Keyboard shortcuts', { onClick: () => shortcutsDialog() }), panelBtn)
+    ibtn('keyboard', 'Keyboard shortcuts', { cls: 'ls-sm-hide', onClick: () => shortcutsDialog() }), panelBtn)
 
   // ---------- Tool rail ----------
   const TOOLS = [['select', 'mouse-pointer-2', 'Select (V)'], ['text', 'type', 'Text frame (T)'], ['image', 'image', 'Image frame (I)'], ['rect', 'square', 'Rectangle (R)'], ['ellipse', 'circle', 'Ellipse (O)'], ['line', 'minus', 'Line (L)'], ['hand', 'hand', 'Hand: pan the canvas (H or hold Space)']]
@@ -186,6 +186,7 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
     try { download(await saveProjectZip(store), `${safeName(store.doc.name)}.layout-studio.zip`); toast('Project saved as a ZIP with its images.', 'success') } catch (e) { toast(e.message, 'error') }
   }
   function showExport() { ed.endTextEdit(); exportDialog({ store, scene }) }
+  async function printNow() { ed.endTextEdit(); try { await printDoc(scene, { dpi: 150 }); ed.view.focus({ preventScroll: true }) } catch (e) { toast(e.message, 'error') } }
 
   // ---------- Syncing ----------
   let raf = 0
@@ -223,7 +224,7 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
     const k = e.key.toLowerCase()
     if (mod && k === 's') { e.preventDefault(); saveFile(); return }
     if (mod && k === 'e') { e.preventDefault(); showExport(); return }
-    if (mod && k === 'p') { e.preventDefault(); showExport(); return }
+    if (mod && k === 'p') { e.preventDefault(); printNow(); return }
     if (e.target.closest?.('input, textarea, select') && !e.target.classList.contains('ls-view')) return
     if ((e.key === 'Enter' || e.key === ' ') && e.target.closest?.('button, summary, a, [role="tab"]')) return // keep keyboard activation of controls working
     if (ed.handleKey(e)) e.preventDefault()

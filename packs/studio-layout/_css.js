@@ -174,8 +174,6 @@ export const CSS = `
 .t-ls .ls-panelbtn { display: none; }
 @media (max-width: 860px) {
   .t-ls { height: calc(100dvh - var(--header-h, 64px) - 120px); min-height: 520px; border-radius: 14px; }
-  .t-ls .ls-top { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .t-ls .ls-top::-webkit-scrollbar { display: none; }
   .t-ls .ls-docname { width: 120px; }
   .t-ls .ls-main { flex-direction: column; }
   .t-ls .ls-rail { width: auto; flex-direction: row; justify-content: flex-start; overflow-x: auto; padding: 4px 8px; border-right: 0; border-bottom: 1px solid var(--border); }
@@ -190,6 +188,14 @@ export const CSS = `
   .t-ls .ls-fab { bottom: 8px; right: 8px; }
   .t-ls .ls-welcome { padding: 18px 14px; }
 }
+/* phone toolbar: wrap onto two rows (name, undo, redo, panels / file and export actions); pinch zooms, so the zoom controls and shortcuts list go */
+@media (max-width: 600px) {
+  .t-ls .ls-top > * { order: 2; }
+  .t-ls .ls-top > .ls-docname, .t-ls .ls-top > .ls-top1 { order: 1; }
+  .t-ls .ls-docname { flex: 1 1 170px; width: auto; min-width: 0; }
+  .t-ls .ls-sepv, .t-ls .ls-sm-hide, .t-ls .ls-save, .t-ls .ls-top > .ls-spacer { display: none; }
+}
+@media (max-width: 600px) { .tool-page:has(.t-ls) .page-head > .head-text > p { display: none; } }
 @media (prefers-reduced-motion: reduce) { .ls-card, .ls-card:hover { transition: none; transform: none; } }
 `
 
