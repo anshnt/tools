@@ -42,7 +42,7 @@ export async function mount(root, { params = {}, signal }) {
   const confirmReplace = (what, go) => {
     const m = modal({
       title: what, icon: 'triangle-alert',
-      body: h('p', 'Your current project will be replaced. Use Save to keep a copy of it as a file first. You can undo nothing after this, so be sure.'),
+      body: h('p', 'Your current project will be replaced and cannot be brought back. Choose Save first if you want a copy as a file.'),
       actions: [button('Cancel', { onClick: () => m.close() }), button('Continue', { variant: 'primary', onClick: () => { m.close(); go() } })],
     })
   }

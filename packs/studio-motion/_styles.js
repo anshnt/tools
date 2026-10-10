@@ -40,6 +40,8 @@ const CSS = `
 .ms-saved.bad .icon { color: var(--danger); }
 .ms-app[data-size="m"] .ms-btn.txt:not(.primary) span, .ms-app[data-size="s"] .ms-btn.txt:not(.primary) span, .ms-app[data-size="m"] .ms-saved span, .ms-app[data-size="s"] .ms-saved span { display: none; }
 .ms-app[data-size="s"] .ms-bar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.ms-app[data-size="s"] .ms-bar .ms-btn.primary { order: -1; position: sticky; left: 0; z-index: 2; }
+.ms-app[data-size="s"] .ms-bar .ms-saved { display: none; }
 
 /* tool rail */
 .ms-rail { grid-area: rail; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 5px; border-right: 1px solid var(--border); background: var(--surface); min-height: 0; overflow: visible; }

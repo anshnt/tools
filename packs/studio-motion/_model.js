@@ -185,9 +185,23 @@ export function sanitizeDoc(raw) {
       inPoint: num(r.inPoint, 0, 0, doc.comp.duration), outPoint: num(r.outPoint, doc.comp.duration, 0, doc.comp.duration), blend: BLENDS.some((b) => b[0] === r.blend) ? r.blend : 'source-over' }
     for (const [k, d] of Object.entries(tmp.props)) l.props[k] = fixProp(r.props?.[k], d.v)
     l.data = { ...tmp.data, ...(r.data || {}) }
+    const D = l.data, hex = (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
+    for (const [k, [a, b]] of Object.entries({ size: [1, 4000], weight: [100, 900], tracking: [-100, 1000], lineHeight: [0.3, 5], strokeWidth: [0, 1000], w: [0, 20000], h: [0, 20000], radius: [0, 20000], sides: [3, 40], inner: [1, 100] })) {
+      if (k in D) D[k] = num(D[k], tmp.data[k], a, b)
+    }
+    for (const k of ['fill', 'stroke', 'color']) if (k in D && !hex(D[k])) D[k] = tmp.data[k]
+    if ('text' in D) D.text = String(D.text).slice(0, 2000)
+    if ('font' in D && !FONTS.includes(D.font)) D.font = 'Geist'
+    if ('align' in D && !['left', 'center', 'right'].includes(D.align)) D.align = 'center'
+    if ('kind' in D && !SHAPES.some((s) => s[0] === D.kind)) D.kind = 'rect'
+    if ('cap' in D && !['round', 'butt', 'square'].includes(D.cap)) D.cap = 'round'
+    if ('italic' in D) D.italic = !!D.italic
+    if ('fillOn' in D) D.fillOn = D.fillOn !== false
+    if ('asset' in D) D.asset = String(D.asset).slice(0, 40)
     l.effects = (r.effects || []).filter((e) => EFFECTS[e?.type]).map((e) => {
       const fx = makeEffect(e.type)
       fx.id = e.id || fx.id; fx.enabled = e.enabled !== false; fx.opts = { ...fx.opts, ...(e.opts || {}) }
+      if ('color' in fx.opts && fx.opts.color !== '' && !hex(fx.opts.color)) fx.opts.color = EFFECTS[e.type].opts.color
       for (const k of Object.keys(fx.params)) fx.params[k] = fixProp(e.params?.[k], fx.params[k].v)
       return fx
     })

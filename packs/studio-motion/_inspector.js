@@ -180,7 +180,15 @@ export function createInspector({ store, onKeyed }) {
     if (L.type === 'shape') {
       const k = d.kind
       return section('Shape', [
-        dSelect(id, 'Kind', 'kind', SHAPES),
+        frow('Kind', (() => {
+          const s = select(SHAPES, k, (v) => store.edit('Shape kind', (doc) => {
+            const d = findLayer(doc, id).layer.data
+            d.kind = v
+            if (v === 'line' && !(d.strokeWidth > 0)) d.strokeWidth = 10
+          }))
+          reg(() => { const kk = live(id)?.data.kind; if (kk) s.value = kk })
+          return s
+        })()),
         dNum(id, k === 'line' ? 'Length' : 'Width', 'w', { min: 1, max: 20000, unit: 'px' }),
         k === 'line' ? null : dNum(id, 'Height', 'h', { min: 1, max: 20000, unit: 'px' }),
         k === 'rect' ? dNum(id, 'Corner radius', 'radius', { min: 0, max: 5000, unit: 'px' }) : null,

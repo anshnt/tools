@@ -2,7 +2,7 @@
 import { h, icon, select } from '../../lib/ui.js'
 import { valueAt, setValue, clamp } from './_anim.js'
 import { makeLayer, pathTo } from './_model.js'
-import { renderFrame, localBounds, localMatrix, chainMatrix, mul, invert, apply, visibleAt } from './_render.js'
+import { renderFrame, requestFonts, localBounds, localMatrix, chainMatrix, mul, invert, apply, visibleAt } from './_render.js'
 import { addLayer } from './_ops.js'
 import { tip } from './_ui.js'
 
@@ -336,7 +336,11 @@ export function createStage({ store, getTool, setTool, onEditText, onFiles }) {
     onFiles?.(files)
   })
 
-  const off = store.on((type) => { if (type === 'doc' || type === 'time' || type === 'select' || type === 'assets') queue() })
+  const off = store.on((type) => {
+    if (type === 'doc') requestFonts(store.doc)
+    if (type === 'doc' || type === 'time' || type === 'select' || type === 'assets') queue()
+  })
+  requestFonts(store.doc)
   const onFonts = () => queue()
   document.fonts?.addEventListener?.('loadingdone', onFonts)
   queue()

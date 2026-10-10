@@ -92,19 +92,42 @@ export function layoutText(d) {
     l.y = -height / 2 + (i + 0.5) * lh
     l.x0 = d.align === 'left' ? -width / 2 : d.align === 'right' ? width / 2 - l.w : -l.w / 2
   })
-  const res = { lines, width, height, nChars: Math.max(1, ci), nWords: Math.max(1, wi + 1), nLines: lines.length }
+  // pivots (centres) of words and lines, so word and line animators scale and rotate around the whole unit
+  const wordC = [], lineC = []
+  for (const l of lines) {
+    lineC.push([l.x0 + l.w / 2, l.y])
+    const spans = new Map()
+    for (const c of l.chars) {
+      if (/\s/.test(c.ch)) continue
+      const s = spans.get(c.wi) || [Infinity, -Infinity]
+      spans.set(c.wi, [Math.min(s[0], c.x), Math.max(s[1], c.x + c.w)])
+    }
+    for (const [w, [a, b]] of spans) wordC[w] = [l.x0 + (a + b) / 2, l.y]
+  }
+  const res = { lines, width, height, wordC, lineC, nChars: Math.max(1, ci), nWords: Math.max(1, wi + 1), nLines: lines.length }
   if (layoutCache.size > 300) layoutCache.clear()
   layoutCache.set(key, res)
   return res
 }
 
-/** Wait for the web fonts used by text layers so exports never fall back to a default font. */
-export async function preloadFonts(doc) {
+const requestedFonts = new Set()
+/** Ask the browser to load the web fonts text layers use (canvas never triggers a font load by itself). force = also wait for fonts already requested. */
+export function requestFonts(doc, force = false) {
   const jobs = []
-  const walkL = (list) => { for (const L of list) { if (L.type === 'text') jobs.push(document.fonts.load(fontString(L.data), L.data.text || 'A').catch(() => {})); if (L.children) walkL(L.children) } }
+  const walkL = (list) => {
+    for (const L of list) {
+      if (L.type === 'text') {
+        const fs = fontString(L.data)
+        if (force || !requestedFonts.has(fs)) { requestedFonts.add(fs); jobs.push(document.fonts.load(fs, L.data.text || 'A').catch(() => {})) }
+      }
+      if (L.children) walkL(L.children)
+    }
+  }
   walkL(doc.layers)
-  await Promise.all(jobs)
+  return Promise.all(jobs)
 }
+/** Exports wait for every font to be ready so frames never fall back to a default font. */
+export const preloadFonts = (doc) => requestFonts(doc, true)
 
 /** Selector amount (0..1) of a unit at x percent for a range [S, E]. */
 export function selAmount(shape, x, S, E) {
@@ -197,24 +220,27 @@ function drawText(ctx, L, t) {
   for (const ln of lay.lines) {
     for (const c of ln.chars) {
       if (/\s/.test(c.ch)) continue
-      let op = 1, dx = 0, dy = 0, sx = 1, sy = 1, rot = 0
+      const cx = ln.x0 + c.x + c.w / 2, cy = ln.y
+      let op = 1, hidden = false
+      ctx.save()
       for (const a of ans) {
         const i = a.unit === 'words' ? c.wi : a.unit === 'lines' ? c.li : c.ci
         const k = a.amounts[Math.min(i, a.amounts.length - 1)]
         if (!k) continue
         op *= 1 + (a.opacity - 1) * k
-        dx += a.position[0] * k; dy += a.position[1] * k
-        sx *= 1 + (a.scale[0] / 100 - 1) * k; sy *= 1 + (a.scale[1] / 100 - 1) * k
-        rot += a.rotation * k
+        const sx = 1 + (a.scale[0] / 100 - 1) * k, sy = 1 + (a.scale[1] / 100 - 1) * k
+        if (!sx && !sy) hidden = true
+        const [px, py] = a.unit === 'words' ? lay.wordC[c.wi] || [cx, cy] : a.unit === 'lines' ? lay.lineC[c.li] : [cx, cy]
+        ctx.translate(px + a.position[0] * k, py + a.position[1] * k)
+        if (a.rotation) ctx.rotate(a.rotation * k * Math.PI / 180)
+        ctx.scale(sx, sy)
+        ctx.translate(-px, -py)
       }
-      if (op * base < 0.002 || (!sx && !sy)) continue
-      ctx.save()
-      ctx.translate(ln.x0 + c.x + c.w / 2 + dx, ln.y + dy)
-      if (rot) ctx.rotate(rot * Math.PI / 180)
-      ctx.scale(sx, sy)
-      ctx.globalAlpha = base * clamp(op, 0, 1)
-      if (stroke) ctx.strokeText(c.ch, -c.w / 2, 0)
-      ctx.fillText(c.ch, -c.w / 2, 0)
+      if (!hidden && op * base >= 0.002) {
+        ctx.globalAlpha = base * clamp(op, 0, 1)
+        if (stroke) ctx.strokeText(c.ch, cx - c.w / 2, cy)
+        ctx.fillText(c.ch, cx - c.w / 2, cy)
+      }
       ctx.restore()
     }
   }
@@ -225,18 +251,18 @@ function applyEffect(e, src, t, env) {
   const v = (k) => valueAt(e.params[k], t)
   const dst = acquire(env.W, env.H), d = dst.getContext('2d'), S = env.S
   if (e.type === 'blur') {
-    const r = Math.max(0, v('radius')) * S
+    const r = clamp(v('radius'), 0, 600) * S
     d.filter = r > 0.05 ? `blur(${r}px)` : 'none'
     d.drawImage(src, 0, 0)
   } else if (e.type === 'shadow') {
-    const a = v('angle') * Math.PI / 180, dist = v('distance') * S, [r, g, b] = hexRgb(e.opts.color)
-    d.filter = `drop-shadow(${Math.cos(a) * dist}px ${Math.sin(a) * dist}px ${Math.max(0, v('blur')) * S}px rgba(${r},${g},${b},${clamp(v('opacity') / 100, 0, 1)}))`
+    const a = v('angle') * Math.PI / 180, dist = clamp(v('distance'), 0, 2000) * S, [r, g, b] = hexRgb(e.opts.color)
+    d.filter = `drop-shadow(${Math.cos(a) * dist}px ${Math.sin(a) * dist}px ${clamp(v('blur'), 0, 600) * S}px rgba(${r},${g},${b},${clamp(v('opacity') / 100, 0, 1)}))`
     d.drawImage(src, 0, 0)
   } else if (e.type === 'color') {
-    d.filter = `brightness(${v('brightness')}%) contrast(${v('contrast')}%) saturate(${v('saturation')}%) hue-rotate(${v('hue')}deg)`
+    d.filter = `brightness(${clamp(v('brightness'), 0, 1000)}%) contrast(${clamp(v('contrast'), 0, 1000)}%) saturate(${clamp(v('saturation'), 0, 1000)}%) hue-rotate(${v('hue')}deg)`
     d.drawImage(src, 0, 0)
   } else if (e.type === 'glow') {
-    const r = Math.max(0, v('radius')) * S, k = Math.max(0, v('intensity')) / 100
+    const r = clamp(v('radius'), 0, 600) * S, k = clamp(v('intensity'), 0, 800) / 100
     let g = src, tint = null
     if (e.opts.color) {
       tint = acquire(env.W, env.H)
