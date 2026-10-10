@@ -18,6 +18,9 @@ const STYLE_MAP = [
   "p[style-name='Subtitle'] => p.dc-subtitle:fresh",
   "p[style-name='Quote'] => blockquote > p:fresh",
   "p[style-name='Intense Quote'] => blockquote > p:fresh",
+  "p[style-name='Code Block'] => pre:fresh",
+  "p[style-name='Source Code'] => pre:fresh",
+  "p[style-name='HTML Preformatted'] => pre:fresh",
   "u => u",
   "br[type='page'] => hr.dc-pb",
 ]
@@ -62,7 +65,7 @@ async function fromDocx(file, title) {
     if (!meta.length) return r
     return { ...r, children: r.children.map((c) => (c.type === 'text' ? { ...c, value: `${MA}${meta.join(';')}${MB}${c.value}${MC}` } : c)) }
   })
-  const styleMap = [...STYLE_MAP, ...colors.map((c) => `r[style-name='dcc${c}'] => span.dcc${c}`)]
+  const styleMap = [...STYLE_MAP, ...colors.map((id) => `r[style-name='${id}'] => span.${id}`)]
   let res
   try {
     res = await mm.convertToHtml({ arrayBuffer }, { styleMap, transformDocument: (d) => runs(paragraphs(d)) })
@@ -95,8 +98,8 @@ async function shrinkImages(body) {
 }
 
 /**
- * mammoth does not read run colours. Before conversion, tag every coloured run with a synthetic character style
- * (dccRRGGBB) that the style map turns into a span, which applyMarkers turns back into a colour.
+ * mammoth does not read run colours or run shading. Before conversion, tag every such run with a synthetic character style
+ * (dcx_cRRGGBB_bRRGGBB) that the style map turns into a span, which applyMarkers turns back into colour and background.
  */
 async function withColorStyles(buffer) {
   try {
@@ -105,22 +108,55 @@ async function withColorStyles(buffer) {
     const docFile = zip.file('word/document.xml')
     const stylesFile = zip.file('word/styles.xml')
     if (!docFile || !stylesFile) return { buffer, colors: [] }
-    const colors = new Set()
+    const ids = new Set()
     const xml = (await docFile.async('string')).replace(/<w:rPr>([\s\S]*?)<\/w:rPr>/g, (m, inner) => {
       if (/<w:rStyle\b/.test(inner)) return m
-      const c = inner.match(/<w:color\b[^>]*\bw:val="([0-9A-Fa-f]{6})"/)
-      const hex = c?.[1].toUpperCase()
-      if (!hex || hex === '000000') return m
-      colors.add(hex)
-      return `<w:rPr><w:rStyle w:val="dcc${hex}"/>${inner}</w:rPr>`
+      const c = inner.match(/<w:color\b[^>]*\bw:val="([0-9A-Fa-f]{6})"/)?.[1].toUpperCase()
+      const b = inner.match(/<w:shd\b[^>]*\bw:fill="([0-9A-Fa-f]{6})"/)?.[1].toUpperCase()
+      const color = c && c !== '000000' ? c : null
+      const bg = b && b !== 'FFFFFF' ? b : null
+      if (!color && !bg) return m
+      const id = `dcx${color ? `_c${color}` : ''}${bg ? `_b${bg}` : ''}`
+      ids.add(id)
+      return `<w:rPr><w:rStyle w:val="${id}"/>${inner}</w:rPr>`
     })
-    if (!colors.size) return { buffer, colors: [] }
-    const defs = [...colors].map((c) => `<w:style w:type="character" w:styleId="dcc${c}"><w:name w:val="dcc${c}"/></w:style>`).join('')
+    if (!ids.size) return { buffer, colors: [] }
+    const defs = [...ids].map((id) => `<w:style w:type="character" w:styleId="${id}"><w:name w:val="${id}"/></w:style>`).join('')
     zip.file('word/document.xml', xml)
     zip.file('word/styles.xml', (await stylesFile.async('string')).replace('</w:styles>', `${defs}</w:styles>`))
-    return { buffer: await zip.generateAsync({ type: 'arraybuffer' }), colors: [...colors] }
+    return { buffer: await zip.generateAsync({ type: 'arraybuffer' }), colors: [...ids] }
   } catch {
     return { buffer, colors: [] }
+  }
+}
+
+/** Paragraphs that start with a ballot box glyph (Word users type them for check lists) become task list items. */
+function tasksFromGlyphs(body) {
+  for (const p of [...body.querySelectorAll('p')]) {
+    if (p.closest('li, td, th, blockquote')) continue
+    const m = p.textContent.match(/^\s*([\u2610\u2611\u2612])\s*/)
+    if (!m) continue
+    let need = m[0].length
+    const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT)
+    for (let n = walker.nextNode(); n && need > 0; n = walker.nextNode()) {
+      const cut = Math.min(need, n.nodeValue.length)
+      n.nodeValue = n.nodeValue.slice(cut)
+      need -= cut
+    }
+    for (const span of p.querySelectorAll('span')) if (!span.textContent) span.remove()
+    let ul = p.previousElementSibling
+    if (!ul?.matches('ul[data-task]')) {
+      ul = document.createElement('ul')
+      ul.setAttribute('data-task', '')
+      p.before(ul)
+    }
+    const li = document.createElement('li')
+    li.setAttribute('data-task', '')
+    li.setAttribute('data-checked', String(m[1] !== '\u2610'))
+    p.style.marginLeft = ''
+    if (!p.getAttribute('style')) p.removeAttribute('style')
+    li.append(p)
+    ul.append(li)
   }
 }
 
@@ -129,9 +165,20 @@ function applyMarkers(body) {
   for (const br of body.querySelectorAll('hr.dc-pb')) {
     for (const sib of [br.previousElementSibling, br.nextElementSibling]) if (sib?.tagName === 'P' && !sib.firstChild) sib.remove()
   }
-  for (const span of body.querySelectorAll('span[class^="dcc"]')) {
-    span.style.color = `#${span.className.slice(3, 9)}`
+  for (const span of body.querySelectorAll('span[class^="dcx"]')) {
+    const c = span.className.match(/_c([0-9A-F]{6})/)?.[1]
+    const b = span.className.match(/_b([0-9A-F]{6})/)?.[1]
+    if (c) span.style.color = `#${c}`
+    if (b) span.style.backgroundColor = `#${b}`
     span.removeAttribute('class')
+  }
+  // a code block is one paragraph per line in Word: join neighbouring ones
+  for (const pre of body.querySelectorAll('pre')) {
+    for (let next = pre.nextElementSibling; next?.tagName === 'PRE'; next = pre.nextElementSibling) {
+      pre.textContent += `
+${next.textContent}`
+      next.remove()
+    }
   }
   const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT)
   const texts = []
@@ -175,6 +222,7 @@ function applyMarkers(body) {
     if (last < v.length) frag.append(v.slice(last))
     t.replaceWith(frag)
   }
+  tasksFromGlyphs(body)
 }
 
 /** Paper size, orientation and margins from the last section of word/document.xml. Null when they cannot be read. */

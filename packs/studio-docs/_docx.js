@@ -212,7 +212,7 @@ export async function buildDocx(doc, settings, title) {
           margins: { top: 60, bottom: 60, left: 100, right: 100 },
         }))
       }
-      rows.push(new TableRow({ children: cells, tableHeader: allHeader && rows.length === 0, cantSplit: true }))
+      rows.push(new TableRow({ children: cells, ...(allHeader && rows.length === 0 ? { tableHeader: true } : {}), cantSplit: true }))
     }
     return new Table({
       rows, columnWidths, width: { size: total, type: WidthType.DXA }, layout: TableLayoutType.FIXED,

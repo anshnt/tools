@@ -25,7 +25,7 @@ export async function buildPdf(doc, settings, title) {
   const bad = new Set()
   doc.descendants((n) => { if (n.isText) for (const ch of n.text) if (!supported(ch)) bad.add(ch) })
   if (bad.size) {
-    throw new Error(`This document has characters the built-in PDF fonts cannot draw (${[...bad].slice(0, 6).join(' ')}). Use Print, then choose Save as PDF, which supports every script.`)
+    throw Object.assign(new Error(`This document has characters the built-in PDF fonts cannot draw (${[...bad].slice(0, 6).join(' ')}). Use Print, then choose Save as PDF, which supports every script.`), { code: 'UNICODE' })
   }
   const JsPDF = await jspdf()
   const { w: wmm, h: hmm } = pageMm(settings)

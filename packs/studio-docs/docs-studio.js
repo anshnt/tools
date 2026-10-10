@@ -624,9 +624,17 @@ export async function mount(root, { params = {}, signal } = {}) {
     }),
     pdf: () => task('Building PDF...', async () => {
       const { buildPdf } = await import('./_pdf.js')
-      const { blob, notes } = await buildPdf(ed.state.doc, S.settings, S.title)
-      download(blob, `${fileBase()}.pdf`)
-      notes.forEach((n) => toast(n, 'info', 7000))
+      let built
+      try {
+        built = await buildPdf(ed.state.doc, S.settings, S.title)
+      } catch (e) {
+        if (e.code !== 'UNICODE') throw e
+        // the built-in PDF fonts are Latin only: hand over to the browser, which has fonts for every script
+        toast('This document uses characters the built-in PDF fonts cannot draw. In the print window, choose Save as PDF.', 'info', 8000)
+        return exporters.print()
+      }
+      download(built.blob, `${fileBase()}.pdf`)
+      built.notes.forEach((n) => toast(n, 'info', 7000))
       toast('Downloaded PDF', 'success')
     }),
     print: () => task('Preparing print view...', () => printHtml(buildHtml(ed.state.doc, S.settings, S.title), t, () => ed.focus())),
