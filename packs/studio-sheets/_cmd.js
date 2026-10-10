@@ -69,7 +69,8 @@ export const cmd = {
   applyStyle(patch, label = 'Format') {
     const g = this.grid.sel
     if (this.guard(label, () => ops.applyStyle(this.model, this.sh, g, patch))) {
-      if (patch.wr !== undefined || patch.fs !== undefined) this.autofitWrapped(g)
+      if (patch.wr !== undefined) this.autofitWrapped(g)
+      if (patch.fs !== undefined) this.growRowsForFont(g)
       this.grid.focus()
     }
   },
@@ -178,6 +179,18 @@ export const cmd = {
       }
     })
   },
+  growRowsForFont(g) {
+    const sh = this.sh, m = this.model
+    const need = {}
+    for (const [k, cell] of ops.existingIn(sh, { r1: g.r1, c1: 0, r2: Math.min(g.r2, g.r1 + 3000), c2: MAXC - 1 })) {
+      const st = m.style(cell.s || 0)
+      if (!st.fs) continue
+      const r = ckR(k), h = Math.ceil(fontPx(st) * 1.25 + 8)
+      if (h > DEFAULT_ROW_H && (!need[r] || h > need[r])) need[r] = h
+    }
+    const rows = Object.entries(need).filter(([r, h]) => (sh.rowH[r] ?? DEFAULT_ROW_H) < h)
+    if (rows.length) this.guard('Row height', () => { for (const [r, h] of rows) m.setProp(sh.rowH, +r, h, true) })
+  },
   autofitWrapped(g) {
     const hasWrap = ops.existingIn(this.sh, g).some(([, cell]) => this.model.style(cell.s || 0).wr)
     if (hasWrap) this.autofitRows(g, true)
@@ -218,8 +231,12 @@ export const cmd = {
     this.grid.focus()
     try { document.execCommand(cut ? 'cut' : 'copy') } catch { /* handled by the event below when available */ }
   },
+  clipboardTarget() {
+    const ae = document.activeElement
+    return ae === this.grid.sc || (!!ae && this.root.contains(ae) && !ae.matches('input, textarea, select') && !ae.closest('.sx-ed'))
+  },
   onClipboardEvent(e, cut) {
-    if (document.activeElement !== this.grid.sc) return
+    if (!this.clipboardTarget()) return
     e.preventDefault()
     const g = { ...this.grid.sel }
     const big = (g.r2 - g.r1 + 1) * (g.c2 - g.c1 + 1)
@@ -233,7 +250,7 @@ export const cmd = {
     this.toast(cut ? 'Cut. Select a cell and paste.' : 'Copied')
   },
   onPasteEvent(e) {
-    if (document.activeElement !== this.grid.sc) return
+    if (!this.clipboardTarget()) return
     e.preventDefault()
     const text = e.clipboardData.getData('text/plain')
     this.pasteFromText(text, e.shiftKey || this._valuesOnly ? 'values' : 'all')

@@ -29,7 +29,7 @@ export function matOf(env, x) {
 /** Ref clipped to the used part of its sheet (safe for whole-column references). */
 export function clip(env, ref) {
   const ex = env.host.extent(ref.sid)
-  return new Ref(ref.sid, ref.r1, ref.c1, Math.max(ref.r1, Math.min(ref.r2, ex.r)), Math.max(ref.c1, Math.min(ref.c2, ex.c)))
+  return ref.sub(ref.r1, ref.c1, Math.max(ref.r1, Math.min(ref.r2, ex.r)), Math.max(ref.c1, Math.min(ref.c2, ex.c)))
 }
 const cmat = (env, x) => (x instanceof Ref ? env.host.matrix(clip(env, x)) : matOf(env, x))
 const flat = (env, x) => cmat(env, x).flat()
@@ -186,7 +186,7 @@ function alignedMats(env, refs) {
   const cols = Math.max(...refs.map((r, i) => (r instanceof Ref ? clipped[i].cols : matOf(env, r)[0].length)))
   return refs.map((r) => {
     if (!(r instanceof Ref)) return matOf(env, r)
-    const rr = new Ref(r.sid, r.r1, r.c1, Math.min(r.r2, r.r1 + rows - 1), Math.min(r.c2, r.c1 + cols - 1))
+    const rr = r.sub(r.r1, r.c1, Math.min(r.r2, r.r1 + rows - 1), Math.min(r.c2, r.c1 + cols - 1))
     return env.host.matrix(rr)
   })
 }
@@ -200,7 +200,7 @@ function ifs(env, sumArg, pairsArr) {
   const R = mats[0].length, C = mats[0][0].length
   for (const m of mats) if (m.length !== R || m[0].length !== C) throw E.VALUE
   if (sm && (sm.length !== R || sm[0].length !== C)) {
-    if (sumArg instanceof Ref) sm = env.host.matrix(new Ref(sumArg.sid, sumArg.r1, sumArg.c1, sumArg.r1 + R - 1, sumArg.c1 + C - 1))
+    if (sumArg instanceof Ref) sm = env.host.matrix(sumArg.sub(sumArg.r1, sumArg.c1, sumArg.r1 + R - 1, sumArg.c1 + C - 1))
     else throw E.VALUE
   }
   const hits = []
@@ -399,7 +399,7 @@ A('INDEX', 'Lookup', 'array, row_num, [column_num]', 'Value at a row and column 
   if (r < 0 || c < 0 || r > rows || c > cols) return E.REF
   if (arr instanceof Ref) {
     const r1 = r ? arr.r1 + r - 1 : arr.r1, r2 = r ? r1 : arr.r2, c1 = c ? arr.c1 + c - 1 : arr.c1, c2 = c ? c1 : arr.c2
-    return new Ref(arr.sid, r1, c1, r2, c2)
+    return arr.sub(r1, c1, r2, c2)
   }
   const m = matOf(env, arr)
   const sub = (r ? [m[r - 1]] : m).map((row) => (c ? [row[c - 1]] : row))
@@ -410,7 +410,7 @@ A('OFFSET', 'Lookup', 'reference, rows, cols, [height], [width]', 'A reference s
   const r = ref.r1 + toInt(scalar1(env, rs)), c = ref.c1 + toInt(scalar1(env, cs))
   const hh = h === undefined || h === null ? ref.rows : toInt(h), ww = w === undefined || w === null ? ref.cols : toInt(w)
   if (r < 0 || c < 0 || hh < 1 || ww < 1) return E.REF
-  return new Ref(ref.sid, r, c, r + hh - 1, c + ww - 1)
+  return ref.sub(r, c, r + hh - 1, c + ww - 1)
 })
 A('INDIRECT', 'Lookup', 'ref_text, [a1]', 'Reference from text such as "A1" or "Sheet2!B3".', (env, [t]) => env.host.parseRef(toStr(scalar1(env, t)), env.sid) || E.REF)
 A('ROW', 'Lookup', '[reference]', 'Row number of a reference.', (env, [r]) => { if (r === undefined) return env.r + 1; if (!(r instanceof Ref)) throw E.VALUE; return r.rows === 1 ? r.r1 + 1 : Array.from({ length: r.rows }, (_, i) => [r.r1 + i + 1]) })

@@ -166,7 +166,16 @@ class SheetsApp {
     window.addEventListener('beforeunload', this.onUnload)
     this.themeMo = new MutationObserver(() => this.charts.sync(true))
     this.themeMo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
-    this.root.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && e.target === this.fbar) { e.preventDefault() } })
+    // shortcuts keep working while a toolbar button or panel has focus
+    this.root.addEventListener('keydown', (e) => {
+      const t = e.target
+      if (t === this.grid.sc || t.closest?.('.sx-ed') || t.closest?.('.sx-chart')) return
+      const typing = t.matches?.('input, textarea, select, [contenteditable]')
+      const ctrl = e.ctrlKey || e.metaKey
+      if (typing && !(ctrl && ['s', 'f', 'h', 'p', 'o'].includes(e.key.toLowerCase()))) return
+      if (!ctrl && !e.altKey) return
+      if (this.onKey(e)) e.preventDefault()
+    })
     this.sc = this.grid.sc
   }
   measureScrollbars() {

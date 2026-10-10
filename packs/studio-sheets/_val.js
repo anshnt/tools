@@ -14,10 +14,19 @@ export const isErr = (v) => v instanceof XErr
 
 /** A reference to a rectangle of cells on a sheet (0-based, inclusive). */
 export class Ref {
-  constructor(sid, r1, c1, r2, c2) { this.sid = sid; this.r1 = r1; this.c1 = c1; this.r2 = r2; this.c2 = c2 }
+  constructor(sid, r1, c1, r2, c2, host) { this.sid = sid; this.r1 = r1; this.c1 = c1; this.r2 = r2; this.c2 = c2; this.host = host }
   get rows() { return this.r2 - this.r1 + 1 }
   get cols() { return this.c2 - this.c1 + 1 }
   get single() { return this.r1 === this.r2 && this.c1 === this.c2 }
+  /** Same sheet, another rectangle. */
+  sub(r1, c1, r2, c2) { return new Ref(this.sid, r1, c1, r2, c2, this.host) }
+  /** The value of a single-cell reference (so functions can use a cell reference as a plain argument). */
+  scalar() {
+    if (!this.single || !this.host) throw E.VALUE
+    const v = this.host.value(this.sid, this.r1, this.c1)
+    if (v instanceof XErr) throw v
+    return v
+  }
 }
 export const isMat = (v) => Array.isArray(v)
 
@@ -28,6 +37,7 @@ export function strToNum(s) {
   return p.kind === 'value' && typeof p.v === 'number' ? p.v : null
 }
 export function toNum(v) {
+  if (v instanceof Ref) v = v.scalar()
   if (typeof v === 'number') return v
   if (v == null) return 0
   if (typeof v === 'boolean') return v ? 1 : 0
@@ -36,6 +46,7 @@ export function toNum(v) {
   throw E.VALUE
 }
 export function toStr(v) {
+  if (v instanceof Ref) v = v.scalar()
   if (typeof v === 'string') return v
   if (v == null) return ''
   if (typeof v === 'number') return numToString(v)
@@ -44,6 +55,7 @@ export function toStr(v) {
   throw E.VALUE
 }
 export function toBool(v) {
+  if (v instanceof Ref) v = v.scalar()
   if (typeof v === 'boolean') return v
   if (v == null) return false
   if (typeof v === 'number') return v !== 0

@@ -164,7 +164,7 @@ export class Model {
     const m = /^(?:'((?:[^']|'')+)'|([^!']+))!(.*)$/.exec(t)
     if (m) { const s = this.sheetByName(m[1] != null ? m[1].replace(/''/g, "'") : m[2]); if (!s) return null; sh = s.id; t = m[3] }
     const g = parseRange(t)
-    return g ? new Ref(sh, g.r1, g.c1, g.r2, g.c2) : null
+    return g ? new Ref(sh, g.r1, g.c1, g.r2, g.c2, this.host) : null
   }
 
   // ---------- dependency graph ----------
@@ -430,7 +430,12 @@ export class Model {
 
   _apply(e, undo) {
     if (e.k === 'cell') this._rawPut(this.byId.get(e.sid), e.key, undo ? e.old : e.new)
-    else if (e.k === 'prop') { const v = undo ? e.old : e.new; if (v === undefined) delete e.obj[e.key]; else e.obj[e.key] = v; if (e.layout) { this._layout = true; this.layoutVer++ } }
+    else if (e.k === 'prop') {
+      const v = undo ? e.old : e.new
+      if (v === undefined) delete e.obj[e.key]; else e.obj[e.key] = v
+      if (e.layout) { this._layout = true; this.layoutVer++ }
+      if (e.key === 'name' && e.obj.cells) this._struct = true // formulas name sheets: rebuild the dependency graph
+    }
     else if (e.k === 'sheets') { this.wb.sheets = undo ? e.old : e.new; this._reindex(); this._struct = true; this._layout = true; this.layoutVer++ }
     else if (e.k === 'wb') { Object.assign(this.wb, undo ? e.old : e.new); this._layout = true }
   }
@@ -482,6 +487,7 @@ export class Model {
     this._log({ k: 'prop', obj, key, old, new: val, layout })
     if (val === undefined) delete obj[key]; else obj[key] = val
     if (layout) { this._layout = true; this.layoutVer++ }
+    if (key === 'name' && obj.cells) this._struct = true
   }
   setSheets(arr) {
     const old = this.wb.sheets

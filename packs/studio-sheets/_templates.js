@@ -60,7 +60,7 @@ function budget() {
   s.set('A23', 'Savings rate', { b: true }).set('B23', '=IF(B9=0,0,B22/B9)', { nf: FMT.pct0, b: true })
   s.set('A24', 'Average monthly spend', { b: true }).set('B24', '=B20/COUNT(D20:I20)', { ...inr, b: true })
   s.set('A25', 'Highest spending category', { b: true }).set('B25', '=INDEX(A12:A19,MATCH(MAX(B12:B19),B12:B19,0))', { b: true, ha: 'right' })
-  s.freeze = { r: 4, c: 1 }
+  s.freeze = { r: 4, c: 0 }
   s.cf = [rule(rng('J12', 'J19'), { type: 'cell', op: 'lt', v1: '0', style: CF_PRESETS.red }), rule(rng('J12', 'J19'), { type: 'cell', op: 'ge', v1: '0', style: CF_PRESETS.green }), rule(rng('B12', 'B19'), { type: 'bar', color: '#8b7dff' })]
   s.charts = [{ id: id(), type: 'bar', title: 'Spend by category', src: { r1: 11, c1: 0, r2: 18, c2: 1 }, by: 'cols', headers: false, labels: true, legend: false, x: 20, y: 700, w: 600, h: 300 }]
   return { name: 'Budget planner', sheets: [s] }
@@ -91,7 +91,7 @@ function loan() {
   }
   s.freeze = { r: 13, c: 0 }
   s.cf = [rule({ r1: first - 1, c1: 3, r2: last - 1, c2: 3 }, { type: 'bar', color: '#f59e0b' }), rule({ r1: first - 1, c1: 4, r2: last - 1, c2: 4 }, { type: 'bar', color: '#10b981' })]
-  s.charts = [{ id: id(), type: 'area', title: 'Outstanding balance', src: { r1: 12, c1: 5, r2: 12 + 360, c2: 5 }, by: 'cols', headers: true, labels: false, legend: false, x: 560, y: 20, w: 620, h: 320 }]
+  s.charts = [{ id: id(), type: 'area', title: 'Outstanding balance', src: { r1: 12, c1: 5, r2: 12 + 360, c2: 5 }, by: 'cols', headers: true, labels: false, legend: false, x: 560, y: 12, w: 600, h: 262 }]
   return { name: 'Loan EMI calculator', sheets: [s] }
 }
 
@@ -149,7 +149,7 @@ function grades() {
   'BCDEF'.split('').forEach((c) => s.set(c + '18', `=MIN(${c}5:${c}14)`, { nf: '0', ha: 'center' }))
   s.set('A19', 'Students below 50 average', label).set('G19', '=COUNTIF(G5:G14,"<50")', { nf: '0', ha: 'center' })
   s.set('A20', 'Top student', label).set('G20', '=INDEX(A5:A14,MATCH(1,I5:I14,0))', { b: true, ha: 'center' })
-  s.freeze = { r: 4, c: 1 }
+  s.freeze = { r: 4, c: 0 }
   s.cf = [rule(rng('B5', 'E14'), { type: 'cell', op: 'lt', v1: '50', style: CF_PRESETS.red }), rule(rng('F5', 'F14'), { type: 'scale', c1: '#fde2e2', c2: '#bbf7d0' }), rule(rng('H5', 'H14'), { type: 'text', op: 'begins', v: 'A', style: CF_PRESETS.green })]
   s.charts = [{ id: id(), type: 'bar', title: 'Average by student', src: { r1: 3, c1: 6, r2: 13, c2: 6 }, by: 'cols', headers: true, labels: false, legend: false, x: 20, y: 520, w: 640, h: 300 }]
   return { name: 'Grade book', sheets: [s] }

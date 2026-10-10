@@ -246,7 +246,7 @@ export class GridView {
   pointerDown(e) {
     const { x, y } = this.local(e)
     if (this.overScrollbar(e, x, y) || e.button === 2) return
-    this.focus()
+    if (!this.editor.active) this.focus()
     const touch = e.pointerType === 'touch'
     this.px = { x, y, id: e.pointerId, touch, moved: false }
     const ed = this.editor
@@ -254,11 +254,9 @@ export class GridView {
     if (x >= HW && y >= HH && ed.active && ed.canPoint()) {
       e.preventDefault()
       const { r, c } = this.hit(x, y)
-      const m = mergeAt(this.sh, r, c)
-      ed.pt = null
-      const g = m ? { r1: m.r1, c1: m.c1, r2: m.r2, c2: m.c2 } : { r1: r, c1: c, r2: r, c2: c }
-      ed.point(g)
-      ed.pt.anchor = { r, c }; ed.pt.head = { r, c }; ed.pt.g = g
+      const anchor = e.shiftKey && ed.pt && ed.pp ? ed.pp.anchor : { r, c }
+      ed.pointCells(anchor, { r, c })
+      ed.refocus()
       this.drag = { type: 'point' }
       this.sc.setPointerCapture(e.pointerId)
       return
@@ -344,10 +342,7 @@ export class GridView {
     } else if (d.type === 'point') {
       const ed = this.editor
       const { r, c } = this.hit(clamp(x, HW + 1, this.sc.clientWidth - 1), clamp(y, HH + 1, this.sc.clientHeight - 1))
-      if (ed.pt && ed.pt.anchor) {
-        const g = { r1: Math.min(ed.pt.anchor.r, r), c1: Math.min(ed.pt.anchor.c, c), r2: Math.max(ed.pt.anchor.r, r), c2: Math.max(ed.pt.anchor.c, c) }
-        if (!sameRect(g, ed.pt.g)) { const a = ed.pt.anchor; ed.point(g); ed.pt.anchor = a; ed.pt.head = { r, c }; ed.pt.g = g }
-      }
+      if (ed.pp && (r !== ed.pp.head.r || c !== ed.pp.head.c)) ed.pointCells(ed.pp.anchor, { r, c })
     }
   }
   pointerUp(e, cancelled = false) {
@@ -378,7 +373,7 @@ export class GridView {
       this.fillPreview = null
       if (!cancelled && d.end && !sameRect(d.end, d.src)) { this.cb.onFill?.(d.src, d.end); this.selectRect(d.end, { r: d.src.r1, c: d.src.c1 }) }
       this.invalidate()
-    } else if (d.type === 'point') this.focus()
+    } else if (d.type === 'point') this.editor.refocus()
   }
   updateCursor(x, y) {
     let cur = ''
@@ -488,6 +483,8 @@ export class GridView {
       this.selectCell(u ? u.r2 : 0, u ? u.c2 : 0, e.shiftKey)
     } else if (k === 'F2') {
       e.preventDefault(); this.startEdit({ mode: 'edit' })
+    } else if (k === 'Process' || k === 'Unidentified' || e.isComposing || e.keyCode === 229) {
+      this.startEdit({ text: '', mode: 'enter' }) // IME and soft keyboards: the first characters arrive in the editor
     } else if (k.length === 1 && !ctrl && !e.altKey) {
       e.preventDefault()
       this.startEdit({ text: k, mode: 'enter' })

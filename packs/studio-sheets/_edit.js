@@ -7,6 +7,8 @@ import { fontPx } from './_axis.js'
 
 export const REF_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c', '#0891b2', '#be185d']
 const OPERATOR_BEFORE = /[=(,+\-*/^&<>;:{\s]$/
+const POPULAR = ['SUM', 'IF', 'AVERAGE', 'COUNT', 'COUNTA', 'MAX', 'MIN', 'VLOOKUP', 'XLOOKUP', 'SUMIF', 'SUMIFS', 'COUNTIF', 'COUNTIFS', 'AVERAGEIF', 'INDEX', 'MATCH', 'ROUND', 'TEXT', 'CONCAT', 'TODAY', 'NOW', 'AND', 'OR', 'IFERROR', 'LEFT', 'RIGHT', 'MID', 'LEN', 'TRIM', 'UPPER', 'LOWER', 'DATE', 'PMT', 'ABS', 'IFS']
+const rankOf = (n) => { const i = POPULAR.indexOf(n); return i < 0 ? 999 : i }
 
 /** Reference-looking pieces of a formula: [{start, end, text, sheet, g}] */
 export function refsInText(text) {
@@ -98,6 +100,7 @@ export class Editor {
   changed(text, source) {
     if (source === 'cell') this.fbar.value = text; else this.ta.value = text
     this.pt = null
+    this.pp = null
     this.position()
     this.refresh()
   }
@@ -128,10 +131,10 @@ export class Editor {
     return pre + rangeText(g)
   }
   /** Insert or replace the pointed reference with a rect. */
-  point(g, keepStart = false) {
+  point(g) {
     const text = this.text
-    let start, end
-    if (this.pt) { start = this.pt.start; end = this.pt.end } else { start = end = this.caret() }
+    const start = this.pt ? this.pt.start : this.caret()
+    const end = this.pt ? this.pt.end : start
     const ref = this.refText(g)
     const next = text.slice(0, start) + ref + text.slice(end)
     this.pt = { start, end: start + ref.length }
@@ -142,7 +145,20 @@ export class Editor {
     this.position()
     this.grid.setRefBoxes(refsInText(next).map((x, i) => ({ g: x.g, sheet: x.sheet, color: REF_COLORS[i % REF_COLORS.length] })))
     this.hideAc()
-    void keepStart
+  }
+  /** Point at a cell or range between two cells (the anchor stays put while the head moves). */
+  pointCells(anchor, head) {
+    const g = { r1: Math.min(anchor.r, head.r), c1: Math.min(anchor.c, head.c), r2: Math.max(anchor.r, head.r), c2: Math.max(anchor.c, head.c) }
+    this.point(g)
+    this.pp = { anchor, head, g }
+  }
+
+  refocus() {
+    if (!this.active) return
+    const el = this.from === 'bar' ? this.fbar : this.ta
+    const p = this.pt ? this.pt.end : this.caret()
+    el.focus({ preventScroll: true })
+    el.setSelectionRange(p, p)
   }
 
   // ----- autocomplete and hints -----
@@ -155,7 +171,7 @@ export class Editor {
     const before = t.slice(0, m.index)
     if (before && !OPERATOR_BEFORE.test(before)) return this.hideAc()
     const q = m[1].toUpperCase()
-    const items = Object.values(FUNCS).filter((f) => f.name.startsWith(q)).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 8)
+    const items = Object.values(FUNCS).filter((f) => f.name.startsWith(q)).sort((a, b) => rankOf(a.name) - rankOf(b.name) || a.name.localeCompare(b.name)).slice(0, 8)
     if (!items.length || (items.length === 1 && items[0].name === q && this.text[this.caret()] === '(')) return this.hideAc()
     this.acItems = items
     this.acIdx = Math.min(this.acIdx, items.length - 1)
@@ -218,22 +234,13 @@ export class Editor {
       return
     }
     if (e.key.startsWith('Arrow') && !e.altKey && !fromBar) {
-      const dirs = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key]
+      const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key]
       if (this.canPoint() && !e.ctrlKey && !e.metaKey) {
         e.preventDefault()
-        const cur = this.pt ? this.pt.g : { r1: this.r, c1: this.c, r2: this.r, c2: this.c }
-        const head = this.pt ? this.pt.head : { r: this.r, c: this.c }
-        if (e.shiftKey && this.pt) {
-          const nh = { r: Math.max(0, head.r + dirs[0]), c: Math.max(0, head.c + dirs[1]) }
-          const g = { r1: Math.min(this.pt.anchor.r, nh.r), c1: Math.min(this.pt.anchor.c, nh.c), r2: Math.max(this.pt.anchor.r, nh.r), c2: Math.max(this.pt.anchor.c, nh.c) }
-          this.point(g); this.pt.head = nh; this.pt.anchor = this.pt.anchor; this.pt.g = g
-        } else {
-          const nr = Math.max(0, head.r + dirs[0]), nc = Math.max(0, head.c + dirs[1])
-          const g = { r1: nr, c1: nc, r2: nr, c2: nc }
-          this.point(g); this.pt.head = { r: nr, c: nc }; this.pt.anchor = { r: nr, c: nc }; this.pt.g = g
-        }
-        void cur
-        this.grid.scrollIntoView(this.pt.head.r, this.pt.head.c)
+        const base = this.pt && this.pp ? this.pp : { anchor: { r: this.r, c: this.c }, head: { r: this.r, c: this.c } }
+        const head = { r: Math.max(0, base.head.r + d[0]), c: Math.max(0, base.head.c + d[1]) }
+        this.pointCells(e.shiftKey && this.pt && this.pp ? base.anchor : head, head)
+        this.grid.scrollIntoView(head.r, head.c)
         return
       }
       if (this.mode === 'enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); this.commit({ ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }[e.key]) }

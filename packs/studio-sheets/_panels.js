@@ -197,7 +197,7 @@ function rulesPanel(app) {
     if (k === 'bar') { stylePick.replaceChildren(colorBtn('Bar color', () => barColor, (v) => { barColor = v || barColor })); return }
     const opts = Object.entries({ red: 'Light red', yellow: 'Yellow', green: 'Green', blue: 'Blue', boldred: 'Red text', grey: 'Grey', custom: 'Custom' })
     const sel = select(opts, preset, (v) => { preset = v; renderStyle() })
-    stylePick.replaceChildren(sel, preset === 'custom' ? colorBtn('Fill', () => custom.bg, (v) => { custom.bg = v || undefined }) : null, preset === 'custom' ? colorBtn('Text', () => custom.fc, (v) => { custom.fc = v || undefined }) : null)
+    stylePick.replaceChildren(...[sel, preset === 'custom' ? colorBtn('Fill', () => custom.bg, (v) => { custom.bg = v || undefined }) : null, preset === 'custom' ? colorBtn('Text', () => custom.fc, (v) => { custom.fc = v || undefined }) : null].filter(Boolean))
   }
   function colorBtn(label, get, set) {
     const b = button(label, { size: 'sm', onClick: (e) => colorPicker(app.root, e.currentTarget, { current: get(), onPick: (v) => { set(v); renderStyle() }, noneLabel: 'None' }) })

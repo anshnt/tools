@@ -40,6 +40,9 @@ f('SUBSTITUTE("a-b-c","-","+")', 'a+b+c'); f('FIND("b","abc")', 2); f('SEARCH("B
 f('MOD(-3,5)', 2); f('POWER(2,10)', 1024); f('SQRT(16)', 4); f('INT(-1.5)', -2); f('CEILING(2.1,0.5)', 2.5); f('FLOOR(2.7,0.5)', 2.5); f('GCD(12,18)', 6); f('LCM(4,6)', 12); f('FACT(5)', 120)
 f('-2^2', 4); f('2^3^2', 64); f('50%*2', 1); f('"a"&1+1', 'a2'); f('1<2', true); f('"a"="A"', true); f('"b">"a"', true)
 f('SUM(A1:A3)*2', 12); f('SUM(Sheet1!A1:A3)', 6)
+// scalar arguments given as cell references
+put('Y1', '3'); put('Y2', '2')
+f('RANK(A3,A1:A10)', 8); f('LARGE(A1:A10,Y1)', 8); f('VLOOKUP(A5,A1:C10,Y1,FALSE)', 50); f('INDEX(A1:C10,Y2,Y1)', 20); f('MATCH(A4,A1:A10,Y1-3)', 4); f('ROUND(A1/3,Y2)', 0.33); f('SMALL(A1:A10,Y2)', 2)
 // whole column and cross sheet
 const s2 = m.tx('sheet', () => { const a = m.addSheetRaw('Data 2'); m.setSheets([...m.sheets]); return a })
 put('A1', '5', s2); put('A2', '7', s2); put('B1', "=SUM('Data 2'!A:A)")

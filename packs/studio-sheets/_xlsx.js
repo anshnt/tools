@@ -181,7 +181,7 @@ async function readSheetXml(buf) {
       if (!mn || !mx) continue
       const w = /\bwidth="([\d.]+)"/.exec(a), hid = /\bhidden="(1|true)"/.test(a), st = /\bstyle="(\d+)"/.exec(a)
       for (let c = mn; c <= Math.min(mx, mn + 400); c++) {
-        if (w) info.colW[c - 1] = Math.round(parseFloat(w[1]) * 7 + 5)
+        if (w) info.colW[c - 1] = Math.round(parseFloat(w[1]) * 7)
         if (hid) info.hiddenCols.add(c - 1)
         if (st && st[1] !== '0') info.colS[c - 1] = +st[1]
       }
@@ -243,12 +243,12 @@ export async function readWorkbook(buf, name) {
       }
     }
     for (const m of ws['!merges'] || []) sheet.merges.push({ r1: m.s.r, c1: m.s.c, r2: m.e.r, c2: m.e.c })
-    ;(ws['!cols'] || []).forEach((c, i) => { if (!c) return; if (c.wpx) sheet.colW[i] = Math.round(c.wpx); else if (c.wch) sheet.colW[i] = Math.round(c.wch * 7 + 5); if (c.hidden) sheet.hideC[i] = 1 })
+    ;(ws['!cols'] || []).forEach((c, i) => { if (!c) return; if (c.wpx) sheet.colW[i] = Math.round(c.wpx); else if (c.wch) sheet.colW[i] = Math.round(c.wch * 7); if (c.hidden) sheet.hideC[i] = 1 })
     ;(ws['!rows'] || []).forEach((r, i) => { if (!r) return; if (r.hpx) sheet.rowH[i] = Math.round(r.hpx); if (r.hidden) sheet.hideR[i] = 1 })
     if (info) {
-      for (const [c, w] of Object.entries(info.colW)) if (!sheet.colW[c]) sheet.colW[c] = w
+      for (const [c, w] of Object.entries(info.colW)) sheet.colW[c] = w
       for (const c of info.hiddenCols) sheet.hideC[c] = 1
-      for (const [r, h] of Object.entries(info.rowH)) if (!sheet.rowH[r]) sheet.rowH[r] = h
+      for (const [r, h] of Object.entries(info.rowH)) sheet.rowH[r] = h
       for (const r of info.hiddenRows) sheet.hideR[r] = 1
       for (const [c, i] of Object.entries(info.colS)) if (xf(i)) sheet.colS[c] = xf(i)
       for (const [r, i] of Object.entries(info.rowS)) if (xf(i)) sheet.rowS[r] = xf(i)
@@ -411,7 +411,7 @@ export async function writeXlsx(model) {
     let maxR = -1, maxC = -1
     for (const [r, cs] of rows) { maxR = Math.max(maxR, r); for (const [c] of cs) maxC = Math.max(maxC, c) }
     const colNums = [...new Set([...Object.keys(sh.colW), ...Object.keys(sh.hideC), ...Object.keys(sh.colS)].map(Number))].sort((a, b) => a - b)
-    const cols = colNums.map((c) => `<col min="${c + 1}" max="${c + 1}" width="${(((sh.colW[c] ?? 88) - 5) / 7).toFixed(2)}" customWidth="1"${sh.hideC[c] ? ' hidden="1"' : ''}${sh.colS[c] ? ` style="${sb.xf(sh.colS[c])}"` : ''}/>`).join('')
+    const cols = colNums.map((c) => `<col min="${c + 1}" max="${c + 1}" width="${((sh.colW[c] ?? 88) / 7).toFixed(2)}" customWidth="1"${sh.hideC[c] ? ' hidden="1"' : ''}${sh.colS[c] ? ` style="${sb.xf(sh.colS[c])}"` : ''}/>`).join('')
     const fr = sh.freeze
     const pane = fr.r || fr.c ? `<pane${fr.c ? ` xSplit="${fr.c}"` : ''}${fr.r ? ` ySplit="${fr.r}"` : ''} topLeftCell="${colName(fr.c)}${fr.r + 1}" activePane="${fr.r && fr.c ? 'bottomRight' : fr.r ? 'bottomLeft' : 'topRight'}" state="frozen"/>` : ''
     const merges = sh.merges.length ? `<mergeCells count="${sh.merges.length}">${sh.merges.map((m) => `<mergeCell ref="${rangeText(m)}"/>`).join('')}</mergeCells>` : ''
@@ -454,6 +454,9 @@ export async function writeOds(model) {
     if (sh.merges.length) ws['!merges'] = sh.merges.map((m) => ({ s: { r: m.r1, c: m.c1 }, e: { r: m.r2, c: m.c2 } }))
     X.utils.book_append_sheet(wb, ws, sh.name.slice(0, 31))
   }
-  const out = X.write(wb, { bookType: 'ods', type: 'array' })
+  const quiet = console.error
+  console.error = () => {} // SheetJS logs a warning for date formats such as dd-mmm-yyyy
+  let out
+  try { out = X.write(wb, { bookType: 'ods', type: 'array' }) } finally { console.error = quiet }
   return new Blob([out], { type: 'application/vnd.oasis.opendocument.spreadsheet' })
 }

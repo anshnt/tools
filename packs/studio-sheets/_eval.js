@@ -95,21 +95,21 @@ function ev(n, env) {
       const sid = sheetOf(n, env)
       const r = n.ra ? n.r : n.r + env.dr, c = n.ca ? n.c : n.c + env.dc
       if (r < 0 || c < 0 || r >= MAXR || c >= MAXC) return E.REF
-      return new Ref(sid, r, c, r, c)
+      return new Ref(sid, r, c, r, c, env.host)
     }
     case 'range': {
       const sid = sheetOf(n, env)
       const r1 = n.k === 'col' || n.a[0] ? n.r1 : n.r1 + env.dr, r2 = n.k === 'col' || n.a[2] ? n.r2 : n.r2 + env.dr
       const c1 = n.k === 'row' || n.a[1] ? n.c1 : n.c1 + env.dc, c2 = n.k === 'row' || n.a[3] ? n.c2 : n.c2 + env.dc
       if (r1 < 0 || c1 < 0 || r2 >= MAXR || c2 >= MAXC) return E.REF
-      return new Ref(sid, Math.min(r1, r2), Math.min(c1, c2), Math.max(r1, r2), Math.max(c1, c2))
+      return new Ref(sid, Math.min(r1, r2), Math.min(c1, c2), Math.max(r1, r2), Math.max(c1, c2), env.host)
     }
     case 'rng': {
       const a = ev(n.a, env), b = ev(n.b, env)
       if (a instanceof XErr) return a
       if (b instanceof XErr) return b
       if (!(a instanceof Ref) || !(b instanceof Ref) || a.sid !== b.sid) return E.VALUE
-      return new Ref(a.sid, Math.min(a.r1, b.r1), Math.min(a.c1, b.c1), Math.max(a.r2, b.r2), Math.max(a.c2, b.c2))
+      return a.sub(Math.min(a.r1, b.r1), Math.min(a.c1, b.c1), Math.max(a.r2, b.r2), Math.max(a.c2, b.c2))
     }
     case 'name': return E.NAME
     case 'arr': return n.rows.map((row) => row.map((x) => { const v = deref(env, ev(x, env)); return v === undefined ? null : v }))

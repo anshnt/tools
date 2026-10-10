@@ -1,8 +1,10 @@
 // Opening and saving: CSV/TSV, Excel and ODS (SheetJS), the project JSON, and CSV export.
 import { ext } from '../../lib/files.js'
 import { Model, makeCell } from './_model.js'
-import { ck } from './_a1.js'
+import { ck, ckR } from './_a1.js'
+import { DEFAULT_ROW_H } from './_model.js'
 import { parseInput } from './_fmt.js'
+import { fontPx } from './_axis.js'
 import { parseDelimited, sniffDelimiter, toDelimited } from './_text.js'
 import { readWorkbook } from './_xlsx.js'
 import { displayOf } from './_ops.js'
@@ -21,6 +23,20 @@ function fitWidths(cells, cols = 60, rows = 300) {
   }
   void cols
   return w
+}
+
+/** Rows holding larger fonts grow to fit them (like a spreadsheet does when no height was set). */
+export function fitFontRows(m, sh) {
+  const need = {}
+  for (const [k, cell] of sh.cells) {
+    const st = m.style(cell.s || 0)
+    if (!st.fs || st.fs <= 11) continue
+    const r = ckR(k)
+    const h = Math.ceil(fontPx(st) * 1.25 + 8)
+    if (h > DEFAULT_ROW_H && (!need[r] || h > need[r])) need[r] = h
+  }
+  for (const [r, h] of Object.entries(need)) if (sh.rowH[r] === undefined) sh.rowH[r] = h
+  m.layoutVer++
 }
 
 /** Turn a plain description (from import) into a Model. */
@@ -64,7 +80,7 @@ export function modelFromDesc(desc, opts = {}) {
   m.rebuildDeps()
   m.recalcAll()
   m.layoutVer++
-  if (m.wb.sheets.some((s) => s.filter)) { /* hidden rows come from the file; filter criteria are not imported */ }
+  for (const sh of m.wb.sheets) fitFontRows(m, sh)
   return m
 }
 

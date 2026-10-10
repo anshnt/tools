@@ -5,6 +5,7 @@ const CSS = `
   font-size: 13px; color: var(--text); overflow: hidden; }
 .tool-body.app:fullscreen .sx { height: calc(100dvh - 24px); }
 .sx *:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sx .sx-sc:focus-visible, .sx .sx-ed:focus-visible { outline: none; }
 .sx button { font-family: inherit; }
 .sx-top { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .sx-title { flex: 1 1 160px; min-width: 120px; max-width: 360px; height: 34px; padding: 0 10px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
@@ -181,8 +182,11 @@ const CSS = `
   .sx-rail .sx-b { width: 40px; height: 36px; flex: none; }
   .sx-rail .sx-b[aria-pressed="true"]::before { left: 9px; right: 9px; top: auto; bottom: -4px; width: auto; height: 3px; }
   .sx-insp { position: absolute; left: 0; right: 0; bottom: 0; z-index: 60; height: min(62%, 470px); border: 1px solid var(--border-strong); border-radius: 16px 16px 0 0; box-shadow: 0 -18px 50px -20px rgba(0,0,0,.5); }
-  .sx-title { font-size: 14px; }
-  .sx-top { padding: 6px 8px; gap: 6px; }
+  .sx-title { font-size: 14px; flex: 1 1 0; min-width: 0; }
+  .sx-top { padding: 6px 8px; gap: 6px; flex-wrap: nowrap; }
+  .sx-top .btn span, .sx-save span { display: none; }
+  .sx-top .btn { min-width: 36px; padding: 0 9px; }
+  .sx-spacer { flex: 0 0 0; }
   .sx-name { width: 78px; }
   .sx-zoom input[type=range] { width: 70px; }
   .sx-status { gap: 8px; }

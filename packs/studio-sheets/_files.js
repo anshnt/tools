@@ -60,6 +60,7 @@ export const files = {
   switchSheet(sh) {
     if (this.grid.editing) { if (!this.grid.editor.isFormula) this.grid.editor.commit(); }
     this.model.wb.active = this.model.sheets.indexOf(sh)
+    this.sh = sh
     this.grid.setSheet(sh)
     this.charts.select(null)
     this.renderTabs()
@@ -85,6 +86,7 @@ export const files = {
     const go = () => {
       this.guard('Delete sheet', () => this.model.setSheets(this.model.sheets.filter((s) => s !== sh)))
       this.ensureSheet(); this.renderTabs(); this.charts.sync(true); this.onSelectionChange()
+      this.grid.focus()
     }
     const hasData = sh.cells.size > 0
     if (!hasData) return go()
@@ -198,12 +200,14 @@ export const files = {
     all.addEventListener('change', () => { const q = search.value.trim().toLowerCase(); for (const k of checks) if (!q || k.x.text.toLowerCase().includes(q)) k.box.checked = all.checked })
     renderList()
     const apply = () => {
-      const hid = checks.filter((k) => !k.box.checked).map((k) => k.x.text)
+      const q = search.value.trim().toLowerCase()
+      const hid = checks.filter((k) => !k.box.checked || (q && !k.x.text.toLowerCase().includes(q))).map((k) => k.x.text)
       const cond = condSel.value ? { op: condSel.value, v1: v1.value, v2: v2.value } : null
       const cols = { ...(f.cols || {}) }
       if (!hid.length && !cond) delete cols[c]; else cols[c] = { hide: hid, cond }
       this.guard('Filter', () => { this.model.setProp(sh, 'filter', { ...f, cols }, true); ops.applyFilter(this.model, sh) })
       closePopup()
+      this.grid.focus()
     }
     const sortCol = (desc) => { closePopup(); this.guard('Sort', () => ops.sortRect(this.model, sh, f, [{ col: c, desc }], true)); if (sh.filter) this.guard('Reapply filter', () => ops.applyFilter(this.model, sh)) }
     const box = this.grid.sc.getBoundingClientRect()
