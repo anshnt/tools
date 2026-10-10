@@ -90,6 +90,12 @@ export function printHtml(html, host = document.body, onDone) {
 
 // ---------- Markdown ----------
 function simplifyForMarkdown(dom) {
+  // turndown drops empty elements, so a page break becomes a paragraph holding the HTML that marks it
+  for (const pb of dom.querySelectorAll('div[data-page-break]')) {
+    const p = document.createElement('p')
+    p.textContent = '<div style="page-break-after: always"></div>'
+    pb.replaceWith(p)
+  }
   for (const el of dom.querySelectorAll('li > p:only-child, td > p:only-child, th > p:only-child')) el.replaceWith(...el.childNodes)
   for (const cell of dom.querySelectorAll('td, th')) {
     const ps = [...cell.children].filter((c) => c.tagName === 'P')
@@ -103,7 +109,6 @@ export async function exportMarkdown(doc) {
   td.addRule('strike', { filter: ['s', 'del', 'strike'], replacement: (c) => `~~${c}~~` })
   td.addRule('underline', { filter: 'u', replacement: (c) => `<u>${c}</u>` })
   td.addRule('highlight', { filter: 'mark', replacement: (c) => c })
-  td.addRule('pageBreak', { filter: (n) => n.nodeName === 'DIV' && n.hasAttribute('data-page-break'), replacement: () => '\n\n<div style="page-break-after: always"></div>\n\n' })
   td.addRule('taskItem', {
     filter: (n) => n.nodeName === 'LI' && n.hasAttribute('data-task'),
     replacement(content, node) {
@@ -123,7 +128,12 @@ export async function exportMarkdown(doc) {
   })
   const dom = serializeToDom(doc)
   simplifyForMarkdown(dom)
-  return `${td.turndown(dom.innerHTML).trim()}\n`
+  const md = td.turndown(dom.innerHTML)
+    .replace(/^(\s*)([-*+]) {3}/gm, '$1$2 ') // "-   item" -> "- item"
+    .replace(/^(\s*)(\d+\.) {2}/gm, '$1$2 ')
+    .replace(/[ \t]+$/gm, (m) => (m.length === 2 ? m : '')) // keep the two-space hard break, drop other trailing spaces
+    .replace(/\n{3,}/g, '\n\n')
+  return `${md.trim()}\n`
 }
 
 // ---------- Plain text ----------
@@ -155,7 +165,7 @@ function textBlock(node) {
     }
     case 'table': {
       const rows = []
-      node.forEach((row) => { const cells = []; row.forEach((c) => cells.push(c.textContent.replace(/\s+/g, ' ').trim())); rows.push(cells.join('\t')) })
+      node.forEach((row) => { const cells = []; row.forEach((c) => cells.push(blocks(c, true).join(' ').replace(/\s+/g, ' ').trim())); rows.push(cells.join('\t')) })
       return rows
     }
     default: return [node.textContent]

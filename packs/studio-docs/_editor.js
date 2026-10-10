@@ -68,6 +68,7 @@ function keymapFor(ctx) {
     'Mod-Enter': cmd.insertPageBreak,
     'Mod-]': cmd.changeIndent(1), 'Mod-[': cmd.changeIndent(-1),
     'Shift-Mod-.': cmd.stepFontSize(1), 'Shift-Mod-,': cmd.stepFontSize(-1),
+    Escape: (st, d, view) => { view.dom.blur(); return true }, // lets keyboard users leave the editor (Tab otherwise indents)
     Enter: chain(L.splitListItem(N.task_item), L.splitListItem(N.list_item), C.newlineInCode, C.createParagraphNear, C.liftEmptyBlock, splitKeepAttrs),
     'Shift-Enter': (st, dispatch) => { if (dispatch) dispatch(st.tr.replaceSelectionWith(N.hard_break.create()).scrollIntoView()); return true },
     Tab: (st, dispatch, view) => {

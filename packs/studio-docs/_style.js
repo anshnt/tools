@@ -77,7 +77,9 @@ const CSS = `
 .dc-pgap > .w { display: block; }
 .dc-pgap > .b { background: var(--bg-2); box-shadow: inset 0 7px 7px -7px rgba(16, 16, 40, .35), inset 0 -7px 7px -7px rgba(16, 16, 40, .35); }
 .dc-pgap > .f { align-items: flex-end; padding-bottom: 14px; } .dc-pgap > .h { align-items: flex-start; padding-top: 14px; }
-.dc-nopage .dc-pgap { display: none; }
+.dc-nopage .dc-pgap, .dc-nopage .dc-pgrow { display: none; }
+.dc-pgrow > td { padding: 0 !important; border: 0 !important; background: none !important; }
+.dc-pgrow:hover { background: none; }
 .dc-pgap + * { margin-top: 0 !important; }
 .dc-hf { position: absolute; left: var(--ml, 96px); right: var(--mr, 96px); font: 9pt var(--font); color: #8a8a98; display: flex; justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -106,7 +108,7 @@ const CSS = `
 .dc-task-box input { width: 16px; height: 16px; margin: 0; accent-color: #5b4cf0; cursor: pointer; }
 .dc-task-body { flex: 1; min-width: 0; }
 .dc-task[data-checked="true"] > .dc-task-body > p:first-child { color: #8a8a98; text-decoration: line-through; }
-.dc-prose .tableWrapper { overflow-x: auto; margin: 0 0 10pt; }
+.dc-prose .tableWrapper { overflow: visible; margin: 0 0 10pt; }
 .dc-prose .tableWrapper table { margin: 0; }
 .dc-prose td, .dc-prose th { vertical-align: top; position: relative; }
 .dc-prose .selectedCell::after { z-index: 2; position: absolute; content: ""; inset: 0; background: rgba(91, 76, 240, .18); pointer-events: none; }

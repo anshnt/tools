@@ -33,6 +33,7 @@ export function createPopovers(root) {
     if (cur && cur.anchor === anchor) { close(); return null }
     close()
     const el = h('div', { class: 'dc-pop', role: 'dialog', onmousedown: (e) => { if (!e.target.closest('input, select, textarea')) e.preventDefault() } }, content)
+    el.setAttribute('aria-label', anchor.getAttribute('aria-label') || anchor.textContent.trim() || 'Options')
     el.style.visibility = 'hidden'
     root.append(el)
     const a = anchor.getBoundingClientRect(), r = root.getBoundingClientRect()

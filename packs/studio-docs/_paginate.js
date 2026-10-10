@@ -1,7 +1,7 @@
 // Soft pagination for the page view. The document stays one continuous flow; where a page ends we insert a spacer widget
 // (rest of the page + footer + visible gap + next header) so text, headings and tables start on the next sheet, like a word
 // processor. Spacers are decorations only: they never enter the document, the print output or any export.
-import { state as S, view as V } from './vendor/prosemirror.js'
+import { state as S, view as V, tables as T } from './vendor/prosemirror.js'
 
 const { Plugin, PluginKey } = S
 const { Decoration, DecorationSet } = V
@@ -23,13 +23,22 @@ function gapElement(cut, p) {
   }
   const footer = [p.footer, p.pageNumbers ? String(cut.page) : ''].filter(Boolean).join('   ')
   el.append(part('w', cut.wasted), part('f', p.mb, footer), part('b', p.band), part('h', p.mt, p.header))
-  return el
+  if (!cut.row) return el
+  // inside a table the gap has to be a table row that spans every column
+  const tr = document.createElement('tr')
+  tr.className = 'dc-pgrow'
+  tr.contentEditable = 'false'
+  const td = document.createElement('td')
+  td.colSpan = cut.cols
+  td.append(el)
+  tr.append(td)
+  return tr
 }
 
 function build(doc, cuts, p) {
   if (!cuts.length) return DecorationSet.empty
   return DecorationSet.create(doc, cuts.map((c) => Decoration.widget(c.pos, () => gapElement(c, p), {
-    side: -1, ignoreSelection: true, stopEvent: () => true, key: `pg${c.page}:${Math.round(c.wasted)}:${p.mb}:${p.mt}:${p.band}:${p.footer}:${p.header}:${p.pageNumbers}`,
+    side: -1, ignoreSelection: true, stopEvent: () => true, key: `pg${c.page}${c.row ? 'r' : ''}:${Math.round(c.wasted)}:${p.mb}:${p.mt}:${p.band}:${p.footer}:${p.header}:${p.pageNumbers}`,
   })))
 }
 
@@ -63,7 +72,12 @@ function lineBoxes(view, dom, origin, zoom) {
     if (last && r.top < last.bottomV - (r.height * 0.5)) { last.bottomV = Math.max(last.bottomV, r.bottom); last.leftV = Math.min(last.leftV, r.left); continue }
     lines.push({ topV: r.top, bottomV: r.bottom, leftV: r.left })
   }
-  return lines.map((l) => ({ top: (l.topV - origin) / zoom, bottom: (l.bottomV - origin) / zoom, leftV: l.leftV, midV: (l.topV + l.bottomV) / 2 }))
+  // text rectangles are shorter than line boxes: add the half-leading so the boxes tile the paragraph exactly
+  const lh = parseFloat(getComputedStyle(dom).lineHeight)
+  return lines.map((l) => {
+    const pad = Number.isFinite(lh) ? Math.max(0, (lh - (l.bottomV - l.topV) / zoom) / 2) : 0
+    return { top: (l.topV - origin) / zoom - pad, bottom: (l.bottomV - origin) / zoom + pad, leftV: l.leftV, midV: (l.topV + l.bottomV) / 2 }
+  })
 }
 
 /**
@@ -84,7 +98,16 @@ export function measure(view, p) {
       units.push({ kind: 'text', node, pos, cutPos, heading: name === 'heading' })
       return false
     }
-    if (name === 'table' || name === 'horizontal_rule') { units.push({ kind: 'block', node, pos, cutPos: pos }); return false }
+    if (name === 'table') {
+      const dom = view.nodeDOM(pos)
+      const tall = dom instanceof Element && dom.getBoundingClientRect().height / zoom > H
+      if (!tall) { units.push({ kind: 'block', node, pos, cutPos: pos }); return false }
+      // a table taller than a page can break between rows
+      const cols = T.TableMap.get(node).width
+      node.forEach((row, offset) => units.push({ kind: 'row', node: row, pos: pos + 1 + offset, cutPos: pos + 1 + offset, cols }))
+      return false
+    }
+    if (name === 'horizontal_rule') { units.push({ kind: 'block', node, pos, cutPos: pos }); return false }
     if (name === 'page_break') { units.push({ kind: 'break', node, pos, cutPos: pos }); return false }
     return true
   })
@@ -101,7 +124,7 @@ export function measure(view, p) {
   let force = false
   const lines = (u) => (u.lines ??= lineBoxes(view, u.el, origin, zoom))
   const cutBefore = (u, ix) => {
-    cuts.push({ pos: u.cutPos, wasted: Math.max(0, boundary - u.top), page: cuts.length + 1 })
+    cuts.push({ pos: u.cutPos, wasted: Math.max(0, boundary - u.top), page: cuts.length + 1, ...(u.kind === 'row' ? { row: true, cols: u.cols } : {}) })
     boundary = u.top + H
     void ix
   }

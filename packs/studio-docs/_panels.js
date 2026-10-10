@@ -131,9 +131,10 @@ export const SHORTCUTS = [
   ['Clear formatting', [`${MOD}+\\`]],
   ['Undo, redo', [`${MOD}+Z`, `${MOD}+Y`]],
   ['Find and replace', [`${MOD}+F`, `${MOD}+H`]],
-  ['Save a copy (download DOCX)', [`${MOD}+S`]],
+  ['Save now (documents also autosave)', [`${MOD}+S`]],
   ['Print or save as PDF', [`${MOD}+P`]],
   ['Next or previous table cell', ['Tab', 'Shift+Tab']],
+  ['Leave the editor (Tab then moves on)', ['Esc']],
   ['Zoom in, out, reset', [`${MOD}+Wheel`, `${MOD}+0`]],
   ['Markdown: heading, list, quote, check list', ['# ', '- ', '> ', '[ ] ']],
 ]
