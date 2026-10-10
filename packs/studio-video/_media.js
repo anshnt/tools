@@ -1,4 +1,4 @@
-// Media library for Video Studio: import (with a converter fallback for formats the browser cannot play), thumbnails,
+// Media library for Video Studio: import (formats the browser cannot play are refused with a pointer to the converter tools), thumbnails,
 // waveforms, decoded audio, and IndexedDB persistence of the original files. Nothing leaves the device.
 import { fileType } from '../../lib/ui.js'
 import { loadImage } from '../../lib/image.js'
@@ -92,20 +92,6 @@ function makeWave(buf) {
   return c.toDataURL('image/png')
 }
 
-async function convertForEditing(file, kind, onStatus) {
-  const { runFFmpeg } = await import('../../lib/ffmpeg.js')
-  const inName = `in.${(file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin'}`
-  const video = kind === 'video'
-  const args = video
-    ? ['-i', inName, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23', '-pix_fmt', 'yuv420p', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', 'out.mp4']
-    : ['-i', inName, '-vn', '-c:a', 'aac', '-b:a', '192k', 'out.m4a']
-  const out = await runFFmpeg({
-    inputs: [{ name: inName, data: file }], args, output: video ? 'out.mp4' : 'out.m4a',
-    onProgress: (f, label) => onStatus?.(f == null ? label : `${label} ${Math.round(f * 100)}%`),
-  })
-  return new File([out], file.name.replace(/\.[^.]+$/, '') + (video ? '.mp4' : '.m4a'), { type: out.type })
-}
-
 /** Large data: URLs repeated in many style attributes are slow; a short blob: URL for the same bytes is not. */
 export function dataUrlToBlobUrl(dataUrl) {
   const [head, b64] = dataUrl.split(',')
@@ -162,8 +148,8 @@ export class MediaStore {
     if (m.kind === 'video' && !m.width) throw new Error('no video')
   }
 
-  /** Import a file. Formats the browser cannot play are converted with the in-browser engine (lib/ffmpeg.js). */
-  async add(file, { onStatus } = {}) {
+  /** Import a file. Formats the browser cannot play are refused with a pointer to the site's converters (no GPL engine in the editor). */
+  async add(file) {
     const kind = kindOf(file)
     if (!kind) throw new Error('Use a video, audio or image file.')
     const m = { id: uid('m'), name: file.name, kind, size: file.size, status: 'ok', duration: 0, width: 0, height: 0, blob: file, url: null, audio: undefined, persisted: false }
@@ -175,10 +161,7 @@ export class MediaStore {
         await this.readTimed(m)
       } catch {
         if (m.url) URL.revokeObjectURL(m.url)
-        onStatus?.(`Converting ${file.name} so it can be edited. The first conversion downloads the video engine (about 31 MB).`)
-        m.blob = await convertForEditing(file, kind, onStatus)
-        m.size = m.blob.size
-        try { await this.readTimed(m) } catch { throw new Error('This file could not be read, even after converting it.') }
+        throw new Error(`Your browser cannot play this ${kind} format. Convert it first with the ${kind === 'video' ? 'Video to MP4' : 'Audio to MP3'} tool on this site, then import the result.`)
       }
       if (kind === 'audio') m.hasAudio = true
     }

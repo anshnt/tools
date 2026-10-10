@@ -1,5 +1,5 @@
-// Export: MP4 with WebCodecs + mp4-muxer (fast, frame exact), WebM via MediaRecorder (real time), and MP4 through
-// lib/ffmpeg.js for browsers without H.264 encoding. All local; nothing is uploaded.
+// Export: MP4 with WebCodecs + mp4-muxer (fast, frame exact) and WebM via MediaRecorder (real time, the fallback for
+// browsers without a video encoder). Permissive libraries only (no ffmpeg/GPL). All local; nothing is uploaded.
 import { h, busy, alert, progress, modal, downloadButton, button, field, select, toast, formatBytes, formatDuration, clear } from '../../lib/ui.js'
 import { safeName } from '../../lib/files.js'
 import { projectDuration, layersAt } from './_model.js'
@@ -185,16 +185,6 @@ export async function recordWebM({ doc, media, W, H, fps, quality, signal, onPro
   }
 }
 
-/** Convert a WebM recording to a widely compatible MP4 with the in-browser engine. */
-export async function webmToMp4(blob, { fps, onProgress, signal }) {
-  const { runFFmpeg } = await import('../../lib/ffmpeg.js')
-  return runFFmpeg({
-    inputs: [{ name: 'in.webm', data: blob }],
-    args: ['-i', 'in.webm', '-r', String(fps), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', 'out.mp4'],
-    output: 'out.mp4', onProgress: (f, label) => onProgress(f == null ? null : f, label), signal,
-  })
-}
-
 export function openExport({ doc, media, player, signal }) {
   const p = doc.p
   const dur = projectDuration(p)
@@ -207,7 +197,7 @@ export function openExport({ doc, media, player, signal }) {
   let url = null
   let running = false
 
-  const fmt = select([...(wc ? [['mp4', 'MP4 (H.264 and AAC), fastest']] : []), ['webm', 'WebM, recorded in real time'], ['mp4-convert', 'MP4 converted from a recording']], wc ? 'mp4' : 'webm')
+  const fmt = select([...(wc ? [['mp4', 'MP4 (H.264 and AAC), fastest']] : []), ['webm', 'WebM, recorded in real time']], wc ? 'mp4' : 'webm')
   const size = select(sizes.map((s) => { const [w, hh] = outSize(p, s); return [s, `${w} x ${hh}${s === short ? ' (project size)' : ''}`] }), short)
   const fpsSel = select([[24, '24 fps'], [25, '25 fps'], [30, '30 fps'], [60, '60 fps']], p.fps)
   const quality = select([['draft', 'Draft (small)'], ['standard', 'Standard'], ['high', 'High']], 'standard')
@@ -220,8 +210,7 @@ export function openExport({ doc, media, player, signal }) {
     const bytes = ((bitrateFor(W, H, +fpsSel.value, quality.value) + 192000) * dur) / 8
     estimate.textContent = `About ${formatBytes(bytes)} for ${formatDuration(dur)}.`
     note.textContent = fmt.value === 'mp4' ? 'Renders every frame, so the result is exact. Speed depends on the clips: long videos with sparse keyframes take longer.'
-      : fmt.value === 'webm' ? 'Plays the timeline once in real time and records it. Keep this tab in front until it finishes.'
-        : 'Records in real time, then converts with the built-in video engine (about 31 MB, downloaded once).'
+      : 'Plays the timeline once in real time and records it. Keep this tab in front until it finishes.'
   }
   for (const s of [fmt, size, fpsSel, quality]) s.addEventListener('change', update)
   update()
@@ -254,20 +243,17 @@ export function openExport({ doc, media, player, signal }) {
       prog.set(f, `${label}${eta}`)
     }
     const args = { doc, media, W, H, fps, quality: quality.value, signal: sig, onProgress: onP }
-    let kind = fmt.value
     let blob
     try {
-      if (kind === 'mp4') {
+      if (fmt.value === 'mp4') {
         try { blob = await renderMp4(args) } catch (e) {
           if (e.code !== 'UNSUPPORTED') throw e
-          result.append(alert('warn', `${e.message} Recording in real time instead.`))
-          kind = 'mp4-convert'
+          result.append(alert('warn', `${e.message} Recording a WebM in real time instead.`))
         }
       }
       if (!blob) {
         prog.set(0, 'Recording')
-        const rec = await recordWebM(args)
-        blob = kind === 'webm' ? rec : await webmToMp4(rec, { fps, onProgress: onP, signal: sig })
+        blob = await recordWebM(args)
       }
     } finally {
       running = false

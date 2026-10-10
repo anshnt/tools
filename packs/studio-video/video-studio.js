@@ -164,7 +164,7 @@ export async function mount(root, { tool, params = {}, signal }) {
     if (!files.length) return
     const added = []
     for (const f of files) {
-      try { showBusy(`Importing ${f.name}`); added.push(await media.add(f, { onStatus: showBusy })) } catch (e) { toast(`${f.name}: ${e.message || 'Could not import this file.'}`, 'error') }
+      try { showBusy(`Importing ${f.name}`); added.push(await media.add(f)) } catch (e) { toast(`${f.name}: ${e.message || 'Could not import this file.'}`, 'error') }
     }
     showBusy(null)
     if (!added.length) return

@@ -14,8 +14,8 @@ export function createMediaPanel({ media, doc, ui, actions }) {
   })
   const el = h('section', { class: 'vs-panel vs-media', 'aria-label': 'Media' },
     h('div', { class: 'vs-ph' }, 'Media', h('small', { id: 'vs-mcount' })),
-    h('div', { class: 'vs-scrollbox' }, zone, list,
-      h('p', { class: 'vs-tip' }, 'Drag media onto a track, or press + to add it at the playhead. Files stay on this device.')))
+    h('div', { class: 'vs-scrollbox' }, zone, list),
+    h('p', { class: 'vs-tip' }, 'Drag media onto a track, or press + to add it at the playhead.'))
   const count = el.querySelector('#vs-mcount')
 
   function used(id) { return doc.p.clips.some((c) => c.mediaId === id) }

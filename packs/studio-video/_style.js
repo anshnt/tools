@@ -44,7 +44,7 @@ const CSS = `
 .vs-mn b { display:block; font-size:12.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .vs-mn span { display:block; font-size:11.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .vs-mi .btn { height:30px; width:30px; padding:0; }
-.vs-tip { margin:0 10px 10px; padding:9px 11px; font-size:12px; color:var(--muted); background:var(--surface-2); border-radius:10px; line-height:1.45; }
+.vs-tip { flex:none; margin:0 10px 10px; padding:9px 11px; font-size:12px; color:var(--muted); background:var(--surface-2); border-radius:10px; line-height:1.45; }
 
 .vs-mon { display:flex; flex-direction:column; min-width:0; min-height:0; }
 .vs-stage { flex:1; min-height:160px; position:relative; display:grid; place-items:center; overflow:hidden; background:var(--surface-3); border-radius:var(--radius) var(--radius) 0 0; }
@@ -147,16 +147,17 @@ select.vs-in { appearance:auto; }
 
 @media (max-width:1100px) { .vs-main { grid-template-columns:minmax(190px,230px) minmax(0,1fr) minmax(230px,260px); } }
 @media (max-width:860px) {
-  .vs { display:flex; flex-direction:column; height:auto; --head:78px; }
+  .vs { display:flex; flex-direction:column; height:auto; --head:118px; }
   .vs-main { display:contents; }
-  .vs-bar { order:0; } .vs-mon { order:1; } .vs-tl { order:2; height:310px; flex:none; } .vs-mtabs { order:3; display:flex; justify-content:center; } .vs-media, .vs-insp { order:4; } .vs-foot { order:5; }
+  .vs-bar { order:0; } .vs-mon { order:1; } .vs-tl { order:2; height:356px; flex:none; } .vs-mtabs { order:3; display:flex; justify-content:center; } .vs-media, .vs-insp { order:4; } .vs-foot { order:5; }
   .vs-stage { flex:none; width:100%; aspect-ratio:var(--ar, 1.78); max-height:54vh; min-height:0; border-radius:var(--radius) var(--radius) 0 0; }
   .vs-mon { flex:none; }
   .vs-media, .vs-insp { max-height:380px; flex:none; }
   .vs[data-m="media"] .vs-insp, .vs[data-m="inspector"] .vs-media { display:none; }
   .vs-name { flex:1 1 100%; width:auto; } .vs-bar .vs-sep { display:none; }
-  .vs-head b { display:none; }
-  .vs-head { padding-left:6px; }
+  .vs-head { padding-left:6px; padding-right:2px; }
+  .vs-head b { font-size:11px; }
+  .vs-head .btn { width:20px; }
   .vs-tlbar input[type=range] { width:70px; }
 }
 @media (prefers-reduced-motion:reduce) { .vs * { transition:none !important; animation:none !important; } }
