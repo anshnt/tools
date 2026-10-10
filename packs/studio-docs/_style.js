@@ -72,12 +72,17 @@ const CSS = `
 .dc-canvas[data-view="web"] .dc-paper { width: 100%; max-width: 860px; min-height: 100%; margin: 0 auto; padding: 22px 20px 90px; box-shadow: none; border-radius: 0; background: #fff; }
 .dc-canvas[data-view="web"] .dc-guides { display: none; }
 .dc-guides { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.dc-seam { position: absolute; left: 0; right: 0; height: 0; border-top: 1px dashed #c3c3cf; }
-.dc-seam span { position: absolute; right: 10px; top: 3px; font: 600 10px/1 var(--font); color: #9a9aa8; letter-spacing: .04em; }
+.dc-pgap { display: block; margin: 0 calc(-1 * var(--mr, 96px)) 0 calc(-1 * var(--ml, 96px)); padding: 0; user-select: none; pointer-events: none; white-space: normal; text-indent: 0; text-align: left; font: 9pt/1 var(--font); color: #8a8a98; }
+.dc-pgap > i { display: flex; align-items: center; justify-content: center; font-style: normal; overflow: hidden; }
+.dc-pgap > .w { display: block; }
+.dc-pgap > .b { background: var(--bg-2); box-shadow: inset 0 7px 7px -7px rgba(16, 16, 40, .35), inset 0 -7px 7px -7px rgba(16, 16, 40, .35); }
+.dc-pgap > .f { align-items: flex-end; padding-bottom: 14px; } .dc-pgap > .h { align-items: flex-start; padding-top: 14px; }
+.dc-nopage .dc-pgap { display: none; }
+.dc-pgap + * { margin-top: 0 !important; }
 .dc-hf { position: absolute; left: var(--ml, 96px); right: var(--mr, 96px); font: 9pt var(--font); color: #8a8a98; display: flex; justify-content: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* document surface */
-.dc-prose { display: flow-root; outline: none; min-height: calc(var(--ph, 1123px) - var(--mt, 96px) - var(--mb, 96px)); white-space: pre-wrap; word-wrap: break-word; font-variant-ligatures: none; position: relative; }
+.dc-prose { display: flow-root; outline: none; min-height: calc(var(--pages, 1) * (var(--ph, 1123px) - var(--mt, 96px) - var(--mb, 96px)) + (var(--pages, 1) - 1) * (var(--mt, 96px) + var(--mb, 96px) + var(--band, 18px))); white-space: pre-wrap; word-wrap: break-word; font-variant-ligatures: none; position: relative; }
 .t-docs .dc-prose > :first-child { margin-top: 0 !important; }
 .dc-prose .dc-empty::before { content: attr(data-placeholder); color: #a2a2b0; float: left; height: 0; pointer-events: none; }
 .dc-prose .dc-find { background: #ffe08a; border-radius: 2px; }
@@ -120,6 +125,12 @@ const CSS = `
 .dc-find-row input { flex: 1; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
 .dc-find-row input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--ring); }
 .dc-find-count { min-width: 64px; text-align: center; font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+.dc-linktip { position: absolute; z-index: 30; display: flex; align-items: center; gap: 4px; padding: 5px 6px 5px 10px; max-width: min(380px, calc(100% - 16px)); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg); font-size: 13px; animation: dc-in .15s var(--ease); }
+.dc-linktip[hidden] { display: none; }
+.dc-linktip a { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 4px; }
+.dc-linktip a .icon { width: 14px; height: 14px; flex: none; }
 
 /* popovers */
 .dc-pop { position: absolute; z-index: 70; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-lg); padding: 8px; min-width: 180px; max-width: calc(100% - 16px); max-height: calc(100% - 16px); overflow: auto; animation: dc-in .15s var(--ease); }

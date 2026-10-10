@@ -16,6 +16,7 @@ import { importFile, OPEN_ACCEPT } from './_import.js'
 import { buildHtml, printHtml, exportMarkdown, exportText, projectJson } from './_export.js'
 import { setQuery, stepMatch, replaceCurrent, replaceAll, findState, selectMatch } from './_find.js'
 import { fileToImageAttrs } from './_img.js'
+import { createPaginator } from './_paginate.js'
 import * as store from './_store.js'
 
 const { TextSelection } = PS
@@ -112,7 +113,8 @@ export async function mount(root, { params = {}, signal } = {}) {
   const paper = h('div', { class: 'dc-paper' }, guides, host)
   const sheet = h('div', { class: 'dc-sheet' }, paper)
   const canvas = h('div', { class: 'dc-canvas', 'data-view': 'page' }, sheet)
-  const work = h('div', { class: 'dc-work' }, findBar, canvas)
+  const linkTip = h('div', { class: 'dc-linktip', hidden: true, onmousedown: (e) => { if (!e.target.closest('a')) e.preventDefault() } })
+  const work = h('div', { class: 'dc-work' }, findBar, linkTip, canvas)
 
   // status bar
   const stat = h('span', { class: 'dc-stat', 'aria-live': 'polite' })
@@ -148,63 +150,86 @@ export async function mount(root, { params = {}, signal } = {}) {
   ctxSlot.replaceWith(toolbar.ctx)
 
   // ---------- status, layout, zoom ----------
+  const BAND = 18 // visible gap between two sheets in page view, css px
+  let pager = null
   let rafTool = 0
-  function onChange(tr, next) {
+  let stats = { words: 0, chars: 0 }
+  let statsStale = true
+  const runStats = debounce(() => { updateStatus(); updateOutline() }, 160)
+  const scheduleStats = (docChanged) => { if (docChanged) statsStale = true; runStats() }
+  function onChange(tr) {
     const docChanged = !tr || tr.docChanged
     cancelAnimationFrame(rafTool)
-    rafTool = requestAnimationFrame(() => { toolbar.update(ed.state); updateOutlineCursor() })
-    if (docChanged) {
-      if (tr) { S.untouched = false; dirty() }
-      scheduleStats()
-    } else scheduleStats()
-    void next
+    rafTool = requestAnimationFrame(() => { toolbar.update(ed.state); updateOutlineCursor(); updateLinkTip() })
+    if (docChanged && tr) { S.untouched = false; dirty() }
+    if (docChanged) pager?.refresh()
+    scheduleStats(docChanged)
   }
-  const scheduleStats = debounce(() => { updateStatus(); updateOutline() }, 160)
+
+  /** A small card under the caret when it sits inside a link: open it, edit it or remove it. */
+  function updateLinkTip() {
+    const st = ed.state
+    const mark = st.selection.empty && ed.view.hasFocus() ? cmd.linkAt(st) : null
+    if (!mark || S.dead) { linkTip.hidden = true; return }
+    const href = mark.attrs.href
+    const label = href.length > 42 ? `${href.slice(0, 40)}...` : href
+    linkTip.replaceChildren(
+      h('a', { href, target: '_blank', rel: 'noopener noreferrer', title: href }, icon('external-link'), label),
+      h('button', { type: 'button', class: 'dc-btn label txt', onclick: () => openLinkDialog() }, h('span', 'Edit')),
+      h('button', { type: 'button', class: 'dc-btn label txt', onclick: () => { const r = cmd.linkRange(ed.state); if (r) ed.view.dispatch(ed.state.tr.removeMark(r.from, r.to, schema.marks.link)); ed.focus() } }, h('span', 'Remove')))
+    linkTip.hidden = false
+    const c = ed.view.coordsAtPos(st.selection.head)
+    const wr = work.getBoundingClientRect()
+    const w = linkTip.offsetWidth
+    linkTip.style.left = `${Math.max(8, Math.min(c.left - wr.left, wr.width - w - 8))}px`
+    linkTip.style.top = `${Math.min(wr.height - linkTip.offsetHeight - 8, c.bottom - wr.top + 8)}px`
+  }
+  canvas.addEventListener('scroll', () => { linkTip.hidden = true }, { passive: true })
 
   function updateStatus() {
     if (S.dead) return
     const st = ed.state
     const sel = st.selection
-    const text = docText(st.doc)
-    const words = wordCount(text)
-    const chars = text.replace(/\n/g, '').length
+    if (statsStale) {
+      const text = docText(st.doc)
+      stats = { words: wordCount(text), chars: text.replace(/\n/g, '').length }
+      statsStale = false
+    }
     let s
     if (!sel.empty && sel.from !== sel.to) {
       const selWords = wordCount(st.doc.textBetween(sel.from, sel.to, ' ', ' '))
-      s = `${formatNumber(selWords, 0)} of ${formatNumber(words, 0)} words selected`
-    } else s = `${formatNumber(words, 0)} words`
-    const pageNow = currentPage()
-    stat.textContent = `${s} · ${formatNumber(chars, 0)} characters${S.view === 'page' ? ` · Page ${Math.min(pageNow, S.pages)} of ${S.pages}` : ''}`
+      s = `${formatNumber(selWords, 0)} of ${formatNumber(stats.words, 0)} words selected`
+    } else s = `${formatNumber(stats.words, 0)} ${stats.words === 1 ? 'word' : 'words'}`
+    stat.textContent = `${s} · ${formatNumber(stats.chars, 0)} characters${S.view === 'page' ? ` · Page ${Math.min(currentPage(), S.pages)} of ${S.pages}` : ''}`
   }
 
   function currentPage() {
     try {
-      const head = ed.state.selection.head
-      const c = ed.view.coordsAtPos(head)
+      const c = ed.view.coordsAtPos(ed.state.selection.head)
       const r = paper.getBoundingClientRect()
-      const z = S.view === 'page' ? S.zoom : 1
-      return Math.max(1, Math.floor((c.top - r.top) / z / pagePx(S.settings).h) + 1)
+      return Math.max(1, Math.floor((c.top - r.top) / S.zoom / (pagePx(S.settings).h + BAND)) + 1)
     } catch { return 1 }
   }
 
+  function pageParams() {
+    const p = pagePx(S.settings)
+    return { H: p.h - p.mt - p.mb, zoom: S.zoom, mt: p.mt, mb: p.mb, band: BAND, header: S.settings.header, footer: S.settings.footer, pageNumbers: !!S.settings.pageNumbers }
+  }
+
+  /** Size the scroll area for the zoom level and draw the header of the first page and the footer of the last. */
   function layoutGuides() {
     if (S.dead) return
     const p = pagePx(S.settings)
-    const z = S.view === 'page' ? S.zoom : 1
     if (S.view === 'page') {
+      const z = S.zoom
       sheet.style.width = `${p.w * z}px`
       sheet.style.height = `${paper.offsetHeight * z}px`
       paper.style.transform = z === 1 ? '' : `scale(${z})`
-      const pages = Math.max(1, Math.ceil((paper.offsetHeight - 2) / p.h))
-      S.pages = pages
       const parts = []
-      for (let i = 0; i < pages; i++) {
-        if (i > 0) parts.push(h('div', { class: 'dc-seam', style: { top: `${i * p.h}px` } }, h('span', `Page ${i + 1}`)))
-        if (S.settings.header) parts.push(h('div', { class: 'dc-hf', style: { top: `${i * p.h + p.mt * 0.4}px` } }, S.settings.header))
-        if (S.settings.footer || S.settings.pageNumbers) {
-          const label = [S.settings.footer, S.settings.pageNumbers ? String(i + 1) : ''].filter(Boolean).join('   ')
-          parts.push(h('div', { class: 'dc-hf', style: { top: `${(i + 1) * p.h - p.mb * 0.62}px` } }, label))
-        }
+      if (S.settings.header) parts.push(h('div', { class: 'dc-hf', style: { top: `${p.mt * 0.4}px` } }, S.settings.header))
+      if (S.settings.footer || S.settings.pageNumbers) {
+        const label = [S.settings.footer, S.settings.pageNumbers ? String(S.pages) : ''].filter(Boolean).join('   ')
+        parts.push(h('div', { class: 'dc-hf', style: { bottom: `${p.mb * 0.38}px` } }, label))
       }
       guides.replaceChildren(...parts)
     } else {
@@ -212,13 +237,17 @@ export async function mount(root, { params = {}, signal } = {}) {
       sheet.style.height = ''
       paper.style.transform = ''
       guides.replaceChildren()
-      S.pages = 1
     }
     updateStatus()
   }
   const scheduleLayout = (() => { let r = 0; return () => { cancelAnimationFrame(r); r = requestAnimationFrame(layoutGuides) } })()
-  const ro = new ResizeObserver(() => scheduleLayout())
+  const ro = new ResizeObserver(() => { scheduleLayout(); pager?.refresh(120) })
   ro.observe(paper)
+  pager = createPaginator({
+    view: ed.view, params: pageParams,
+    onPages: (n) => { if (n !== S.pages) { S.pages = n; paper.style.setProperty('--pages', String(n)); scheduleLayout() } },
+  })
+  document.fonts?.ready.then(() => pager?.refresh(0))
 
   function applySettings() {
     const p = pagePx(S.settings)
@@ -229,10 +258,12 @@ export async function mount(root, { params = {}, signal } = {}) {
     st.setProperty('--mr', `${p.mr}px`)
     st.setProperty('--mb', `${p.mb}px`)
     st.setProperty('--ml', `${p.ml}px`)
+    st.setProperty('--band', `${BAND}px`)
     st.setProperty('--doc-font', FONT_STACK[S.settings.font] || FONT_STACK.Calibri)
     st.setProperty('--doc-size', `${S.settings.fontSize}pt`)
     pagePanel.sync()
     scheduleLayout()
+    pager?.refresh(0)
     toolbar?.update(ed.state)
   }
   function setSettings(patch) {
@@ -261,6 +292,8 @@ export async function mount(root, { params = {}, signal } = {}) {
     for (const b of [zoomOut, zoomIn, fitBtn]) b.disabled = v !== 'page'
     zoomVal.style.opacity = v === 'page' ? '' : '.4'
     if (persist) prefs.update((p) => ({ ...p, view: v }))
+    pager?.enable(v === 'page')
+    if (v !== 'page') { S.pages = 1; paper.style.setProperty('--pages', '1') }
     layoutGuides()
   }
   canvas.addEventListener('wheel', (e) => {
@@ -289,7 +322,7 @@ export async function mount(root, { params = {}, signal } = {}) {
     if (name === 'docs') refreshDocs()
     if (name === 'outline') updateOutline()
     if (name === 'page') pagePanel.sync()
-    later(layoutGuides, 30)
+    later(() => { layoutGuides(); pager?.refresh(0) }, 30)
   }
   async function refreshDocs() {
     S.docs = await store.listDocs()
@@ -531,6 +564,7 @@ export async function mount(root, { params = {}, signal } = {}) {
         const r2 = cmd.linkRange(ed.state)
         ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, r2.from, r2.to)))
         ok = ed.run(cmd.setLink(href))
+        if (ok) ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, r2.to)))
       }
       if (!ok) return toast('That address is not allowed. Use http, https or mailto links.', 'error')
       m.close()
@@ -681,6 +715,7 @@ export async function mount(root, { params = {}, signal } = {}) {
   return () => {
     S.dead = true
     ro.disconnect()
+    pager?.destroy()
     pop.close()
     for (const x of timers) clearTimeout(x)
     document.removeEventListener('visibilitychange', onHide)

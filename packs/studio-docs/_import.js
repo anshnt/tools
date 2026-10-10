@@ -4,7 +4,7 @@ import { ext, baseName } from '../../lib/files.js'
 import { htmlToDoc, jsonToDoc, schema } from './_schema.js'
 import { PAPERS, TWIPS_PER_MM } from './_page.js'
 
-export const OPEN_ACCEPT = '.docx,.md,.markdown,.html,.htm,.txt,.json,.docs.json'
+export const OPEN_ACCEPT = '.docx,.md,.markdown,.html,.htm,.txt,.json'
 const MAX_BYTES = 40 * 1024 * 1024
 // Private-use characters carry paragraph and run formatting from mammoth's document model into its HTML output.
 const MA = '', MB = '', MC = '', PA = '', PB = ''
@@ -62,7 +62,12 @@ async function fromDocx(file, title) {
     return { ...r, children: r.children.map((c) => (c.type === 'text' ? { ...c, value: `${MA}${meta.join(';')}${MB}${c.value}${MC}` } : c)) }
   })
   const styleMap = [...STYLE_MAP, ...colors.map((c) => `r[style-name='dcc${c}'] => span.dcc${c}`)]
-  const res = await mm.convertToHtml({ arrayBuffer }, { styleMap, transformDocument: (d) => runs(paragraphs(d)) })
+  let res
+  try {
+    res = await mm.convertToHtml({ arrayBuffer }, { styleMap, transformDocument: (d) => runs(paragraphs(d)) })
+  } catch (e) {
+    throw Object.assign(new Error('Could not read this Word file. It may be damaged, password-protected, or not a real .docx file.'), { cause: e })
+  }
   const body = new window.DOMParser().parseFromString(res.value, 'text/html').body
   applyMarkers(body)
   const doc = htmlToDoc(body.innerHTML)

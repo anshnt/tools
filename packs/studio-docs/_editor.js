@@ -3,6 +3,7 @@ import { state as S, view as V, commands as C, history as H, keymap as K, inputr
 import { schema } from './_schema.js'
 import * as cmd from './_cmd.js'
 import { findPlugin } from './_find.js'
+import { paginationPlugin } from './_paginate.js'
 import { ImageView, TaskItemView } from './_nodeviews.js'
 
 const { EditorState, Plugin, TextSelection } = S
@@ -111,6 +112,7 @@ export function createEditor(host, { doc, onChange, getZoom, ctx = {} }) {
     T.columnResizing({ cellMinWidth: 48 }),
     T.tableEditing(),
     findPlugin(),
+    paginationPlugin(),
     placeholderPlugin('Start typing, or drop a Word file here'),
     new Plugin({
       props: {
