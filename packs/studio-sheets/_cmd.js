@@ -233,7 +233,6 @@ export const cmd = {
     const count = axis === 'row' ? g.r2 - g.r1 + 1 : g.c2 - g.c1 + 1
     const idx = axis === 'row' ? (after ? g.r2 + 1 : g.r1) : (after ? g.c2 + 1 : g.c1)
     this.guard(`Insert ${axis}${count > 1 ? 's' : ''}`, () => ops.structural(this.model, this.sh, axis, idx, count, false))
-    if (after) { const s = this.grid.sel; void s }
   },
   deleteRC(axis) {
     const g = this.grid.sel

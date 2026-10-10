@@ -248,6 +248,7 @@ class SheetsApp {
       if (e.shiftKey && code === 'Equal') { this.insertRC('row'); return true }
       return false
     }
+    if (e.altKey && e.key === 'ArrowDown') { const dd = this.grid.dropdownRect(); if (dd) { this.openDropdown(this.grid.act.r, this.grid.act.c, dd.cell); return true } }
     if (e.shiftKey && code === 'Space' && !ctrl) { const r = this.grid.act.r; this.grid.selectRect({ r1: r, c1: 0, r2: r, c2: MAXC - 1 }, { r, c: this.grid.act.c }); return true }
     if (e.altKey && code === 'Equal') { this.autoSum(); return true }
     return false

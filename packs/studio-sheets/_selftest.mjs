@@ -40,6 +40,16 @@ f('SUBSTITUTE("a-b-c","-","+")', 'a+b+c'); f('FIND("b","abc")', 2); f('SEARCH("B
 f('MOD(-3,5)', 2); f('POWER(2,10)', 1024); f('SQRT(16)', 4); f('INT(-1.5)', -2); f('CEILING(2.1,0.5)', 2.5); f('FLOOR(2.7,0.5)', 2.5); f('GCD(12,18)', 6); f('LCM(4,6)', 12); f('FACT(5)', 120)
 f('-2^2', 4); f('2^3^2', 64); f('50%*2', 1); f('"a"&1+1', 'a2'); f('1<2', true); f('"a"="A"', true); f('"b">"a"', true)
 f('SUM(A1:A3)*2', 12); f('SUM(Sheet1!A1:A3)', 6)
+// semantics worth pinning down
+f('TEXT(1234567.891,"#,##0.00")', '1,234,567.89'); f('TEXT(0.5,"0%")', '50%'); f('TEXT(45674,"mmm d, yyyy")', 'Jan 17, 2025'); f('TEXT(45674.5,"hh:mm AM/PM")', '12:00 PM'); f('TEXT(-5,"0;(0)")', '(5)')
+f('ROUND(1234.5678,-2)', 1200); f('ROUND(-1.5,0)', -2); f('MOD(-7,3)', 2); f('CEILING(-2.5,-2)', -4); f('CEILING(-2.5,2)', -2); f('CEILING(2.1,1)', 3); f('FLOOR(-2.5,2)', -4); f('TRUNC(-1.567,2)', -1.56); f('ROUNDUP(-1.01,1)', -1.1)
+f('SUMPRODUCT(--(A1:A5>2))', 3); f('COUNTIF(B1:B5,"<>")', 5); f('COUNTIF(B1:B10,"o*")', 5); f('SUMIF(A1:A10,">=8")', 27); f('MATCH("b",{"a","b","c"},0)', 2); f('VLOOKUP(2,{1,"a";2,"b"},2,FALSE)', 'b')
+f('"5"+1', 6); f('1&2', '12'); f('LEFT(12345,2)', '12'); f('AND(TRUE,"x")', '#VALUE!'); f('0.1+0.2=0.3', true); f('IF(1,"y")', 'y'); f('IF(0,"y")', false)
+f('DATE(2025,14,1)', 46054); f('EOMONTH(DATE(2024,1,31),1)', 45351); f('WEEKNUM(DATE(2025,1,1))', 1); f('ISOWEEKNUM(DATE(2025,12,29))', 1); f('NETWORKDAYS(DATE(2025,1,1),DATE(2025,1,31))', 23); f('DATEDIF(DATE(2020,2,29),DATE(2025,2,28),"Y")', 4)
+f('XLOOKUP(25,A1:A10,B1:B10,"-",-1)', 'even'); f('XLOOKUP(4,A1:A10,B1:B10,"-",1)', 'even'); f('XLOOKUP("o*",B1:B10,A1:A10,"-",2)', 1); f('IFERROR(VLOOKUP(99,A1:C10,2,FALSE),"none")', 'none'); f('IFNA(NA(),"x")', 'x')
+f('TEXTJOIN("-",TRUE,A1:A3,"")', '1-2-3'); f('SUBSTITUTE("aaa","a","b",2)', 'aba'); f('PROPER("hello wORLD")', 'Hello World'); f('TRIM(" a  b ")', 'a b'); f('REPLACE("abcdef",2,3,"X")', 'aXef'); f('CHAR(65)&CODE("a")', 'A97')
+f('PERCENTILE(A1:A10,0.5)', 5.5); f('QUARTILE(A1:A10,1)', 3.25); f('VAR(A1:A5)', 2.5); f('STDEVP(A1:A5)', 1.41421356); f('MEDIAN(A1:A4)', 2.5); f('MODE(A1:A3,1)', 1); f('LARGE(A1:A10,1)', 10)
+f('FV(0.05/12,24,-100,0,1)', 2529.0862); f('PV(0.08/12,60,-500)', 24659.2167); f('SLN(1000,100,9)', 100); f('NPV(0.1,-1000,300,400,500)', -19.12437675); f('CUMIPMT(0.1/12,24,10000,1,12,0)', -786.14969)
 // scalar arguments given as cell references
 put('Y1', '3'); put('Y2', '2')
 f('RANK(A3,A1:A10)', 8); f('LARGE(A1:A10,Y1)', 8); f('VLOOKUP(A5,A1:C10,Y1,FALSE)', 50); f('INDEX(A1:C10,Y2,Y1)', 20); f('MATCH(A4,A1:A10,Y1-3)', 4); f('ROUND(A1/3,Y2)', 0.33); f('SMALL(A1:A10,Y2)', 2)

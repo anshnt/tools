@@ -73,7 +73,7 @@ S('ROUND', 'Math', 'number, num_digits', 'Rounds to a number of digits (half awa
 S('ROUNDUP', 'Math', 'number, num_digits', 'Rounds away from zero.', (x, d) => rnd(toNum(x), toInt(d), Math.ceil))
 S('ROUNDDOWN', 'Math', 'number, num_digits', 'Rounds toward zero.', (x, d) => rnd(toNum(x), toInt(d), Math.floor))
 S('MROUND', 'Math', 'number, multiple', 'Rounds to the nearest multiple.', (x, m) => { x = toNum(x); m = toNum(m); if (m === 0) return 0; if (x * m < 0) throw E.NUM; return Math.round(x / m) * m })
-S('CEILING', 'Math', 'number, [significance]', 'Rounds up to a multiple.', (x, s) => { x = toNum(x); s = s === undefined ? (x < 0 ? -1 : 1) : toNum(s); if (s === 0) return 0; return s > 0 ? Math.ceil(x / s - 1e-12) * s : x > 0 ? E.NUM : Math.floor(x / s) * s })
+S('CEILING', 'Math', 'number, [significance]', 'Rounds up to a multiple.', (x, s) => { x = toNum(x); s = s === undefined ? (x < 0 ? -1 : 1) : toNum(s); if (s === 0) return 0; if (x > 0 && s < 0) throw E.NUM; return Math.ceil(x / s - 1e-12) * s })
 S('FLOOR', 'Math', 'number, [significance]', 'Rounds down to a multiple.', (x, s) => { x = toNum(x); s = s === undefined ? (x < 0 ? -1 : 1) : toNum(s); if (s === 0) throw E.DIV0; if (x > 0 && s < 0) throw E.NUM; return Math.floor(x / s + 1e-12) * s })
 S('INT', 'Math', 'number', 'Rounds down to the nearest integer.', (x) => Math.floor(toNum(x)))
 S('TRUNC', 'Math', 'number, [num_digits]', 'Truncates to a number of digits.', (x, d) => rnd(toNum(x), d === undefined ? 0 : toInt(d), Math.floor))

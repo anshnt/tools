@@ -77,6 +77,7 @@ export function compare(a, b) {
   if (ra !== rb) return ra < rb ? -1 : 1
   if (ra === 1) { const x = a.toLowerCase(), y = b.toLowerCase(); return x < y ? -1 : x > y ? 1 : 0 }
   if (ra === 2) return a === b ? 0 : a ? 1 : -1
+  if (a !== b && Number.isFinite(a) && Number.isFinite(b) && +a.toPrecision(15) === +b.toPrecision(15)) return 0 // 15 significant digits, like a spreadsheet
   return a < b ? -1 : a > b ? 1 : 0
 }
 

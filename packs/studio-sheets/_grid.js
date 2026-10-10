@@ -110,12 +110,11 @@ export class GridView {
     this.ct.style.height = hh + 'px'
   }
   growIfNeeded() {
-    const sc = this.sc, ax = this.axes(), Z = this.zoom
+    const sc = this.sc
     let grew = false
     if (sc.scrollTop + sc.clientHeight > sc.scrollHeight - 160 && this.rows < MAXR) { this.rows = Math.min(MAXR, this.rows + 100); grew = true }
     if (sc.scrollLeft + sc.clientWidth > sc.scrollWidth - 160 && this.cols < MAXC) { this.cols = Math.min(MAXC, this.cols + 10); grew = true }
     if (grew) this.sizeContent()
-    void ax; void Z
   }
   ensureExtent(r, c) {
     let grew = false

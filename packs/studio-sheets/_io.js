@@ -13,7 +13,7 @@ export const OPEN_ACCEPT = '.xlsx,.xlsm,.xls,.xltx,.ods,.csv,.tsv,.txt,.json,.sh
 const MAX_FILE = 80 * 1024 * 1024
 
 /** Estimate column widths (px) from the text in the first rows. */
-function fitWidths(cells, cols = 60, rows = 300) {
+function fitWidths(cells, rows = 300) {
   const w = {}
   for (const [r, c, v, f] of cells) {
     if (r > rows || f != null || v == null) continue
@@ -21,7 +21,6 @@ function fitWidths(cells, cols = 60, rows = 300) {
     const px = Math.min(320, Math.max(64, Math.round(len * 7.4 + 18)))
     if (!w[c] || px > w[c]) w[c] = px
   }
-  void cols
   return w
 }
 
