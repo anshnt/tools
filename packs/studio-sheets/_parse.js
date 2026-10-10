@@ -176,7 +176,8 @@ const needsQuote = (n) => !/^[A-Za-z_][A-Za-z0-9_.]*$/.test(n) || /^[A-Za-z]{1,3
 export const sheetPrefix = (n) => (n == null ? '' : (needsQuote(n) ? `'${n.replace(/'/g, "''")}'` : n) + '!')
 const cellText = (r, c, ra, ca) => (ca ? '$' : '') + colName(c) + (ra ? '$' : '') + (r + 1)
 
-export function print(n) {
+export function print(n, fnName) {
+  const p = (x) => print(x, fnName)
   switch (n.t) {
     case 'num': return n.raw ?? numToString(n.v)
     case 'str': return '"' + n.v.replace(/"/g, '""') + '"'
@@ -191,13 +192,13 @@ export function print(n) {
       if (n.k === 'row') return `${sp}${n.a[0] ? '$' : ''}${n.r1 + 1}:${n.a[2] ? '$' : ''}${n.r2 + 1}`
       return `${sp}${cellText(n.r1, n.c1, n.a[0], n.a[1])}:${cellText(n.r2, n.c2, n.a[2], n.a[3])}`
     }
-    case 'fn': return `${n.name}(${n.args.map(print).join(',')})`
-    case 'un': return n.op + print(n.e)
-    case 'pct': return print(n.e) + '%'
-    case 'par': return `(${print(n.e)})`
-    case 'bin': return `${print(n.l)}${n.op}${print(n.r)}`
-    case 'rng': return `${print(n.a)}:${print(n.b)}`
-    case 'arr': return `{${n.rows.map((r) => r.map(print).join(',')).join(';')}}`
+    case 'fn': return `${fnName ? fnName(n.name) : n.name}(${n.args.map(p).join(',')})`
+    case 'un': return n.op + p(n.e)
+    case 'pct': return p(n.e) + '%'
+    case 'par': return `(${p(n.e)})`
+    case 'bin': return `${p(n.l)}${n.op}${p(n.r)}`
+    case 'rng': return `${p(n.a)}:${p(n.b)}`
+    case 'arr': return `{${n.rows.map((r) => r.map(p).join(',')).join(';')}}`
     default: return ''
   }
 }

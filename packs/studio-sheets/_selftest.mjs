@@ -62,6 +62,34 @@ put('Q1', '=TRANSPOSE(A1:C1)'); eq('Q2', 17); eq('Q3', 100)
 put('S1', '=A1:A3*2'); eq('S1', 2); eq('S3', 6)
 put('T1', '12/05/2025'); eq('T1', 45789)
 put('T2', '50%'); eq('T2', 0.5)
+// ---- operations ----
+const ops = await import('./_ops.js')
+const m3 = new Model(); const w = m3.sheets[0]
+const set3 = (a, t) => { const p = parseCell(a); m3.tx('s', () => m3.setInput(w, p.r, p.c, t)) }
+const v3 = (a) => { const p = parseCell(a); return show(m3.valueAt(w.id, p.r, p.c)) }
+const chk = (a, want, msg) => { const got = v3(a); if (got !== want) { fails++; console.log(`FAIL ops ${msg || ''} ${a}: got ${JSON.stringify(got)} want ${JSON.stringify(want)}`) } }
+;['5', '3', '9', '1'].forEach((x, i) => { set3('A' + (i + 1), x); set3('B' + (i + 1), `=A${i + 1}*2`) })
+set3('C1', '=SUM(A1:A4)')
+m3.tx('insert', () => ops.structural(m3, w, 'row', 1, 2, false))
+chk('A4', 3, 'insert moved'); chk('B4', 6, 'insert shifted formula'); chk('C1', 18, 'range expanded'); 
+if (m3.getCellText(w, 0, 2) !== '=SUM(A1:A6)') { fails++; console.log('FAIL insert text', m3.getCellText(w, 0, 2)) }
+m3.undo(); chk('A3', 9, 'undo insert'); if (m3.getCellText(w, 0, 2) !== '=SUM(A1:A4)') { fails++; console.log('FAIL undo insert text') }
+m3.tx('del', () => ops.structural(m3, w, 'row', 1, 1, true)); chk('A2', 9, 'delete'); chk('C1', 15, 'delete range'); chk('B2', 18, 'delete formula')
+m3.tx('delcol', () => ops.structural(m3, w, 'col', 0, 1, true)); chk('A1', '#REF!', 'del col formula moved')
+m3.undo(); m3.undo()
+m3.tx('sort', () => ops.sortRect(m3, w, { r1: 0, c1: 0, r2: 3, c2: 1 }, [{ col: 0, desc: false }], false))
+chk('A1', '1'.length && 1, 'sort'); chk('B1', 2, 'sort formula follows'); chk('A4', 9)
+m3.undo()
+set3('E1', '1'); set3('E2', '3')
+m3.tx('fill', () => ops.fillExtend(m3, w, { r1: 0, c1: 4, r2: 1, c2: 4 }, { r1: 0, c1: 4, r2: 4, c2: 4 }))
+chk('E3', 5, 'fill series'); chk('E5', 9)
+set3('F1', 'Jan'); m3.tx('fill', () => ops.fillExtend(m3, w, { r1: 0, c1: 5, r2: 0, c2: 5 }, { r1: 0, c1: 5, r2: 3, c2: 5 })); chk('F2', 'Feb'); chk('F4', 'Apr')
+set3('G1', 'Item 1'); m3.tx('fill', () => ops.fillExtend(m3, w, { r1: 0, c1: 6, r2: 0, c2: 6 }, { r1: 0, c1: 6, r2: 2, c2: 6 })); chk('G3', 'Item 3')
+m3.tx('fillf', () => ops.fillExtend(m3, w, { r1: 0, c1: 1, r2: 0, c2: 1 }, { r1: 0, c1: 1, r2: 3, c2: 1 })); chk('B4', 2)
+const pay = ops.copyPayload(m3, w, { r1: 0, c1: 0, r2: 3, c2: 1 })
+m3.tx('paste', () => ops.pasteCells(m3, w, 0, 8, pay, 'all')); chk('J2', 6, 'paste shifted formula'); if (m3.getCellText(w, 1, 9) !== '=I2*2') { fails++; console.log('FAIL paste text', m3.getCellText(w, 1, 9)) }
+w.filter = { r1: 0, c1: 0, r2: 3, c2: 0, cols: { 0: { hide: ['3'] } } }; m3.tx('filter', () => ops.applyFilter(m3, w)); if (!w.fHide[1]) { fails++; console.log('FAIL filter hide', JSON.stringify(w.fHide)) }
+const hits = ops.findAll(m3, { text: 'item', sheet: w }); if (hits.length < 1) { fails++; console.log('FAIL find') }
 const j = JSON.parse(JSON.stringify(m.toJSON()))
 const m2 = Model.fromJSON(j)
 const v2 = (a) => { const p = parseCell(a); return show(m2.valueAt(m2.sheets[0].id, p.r, p.c)) }

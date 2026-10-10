@@ -2,5 +2,9 @@
 // https://github.com/storytold/gridcraft). Default category: studio.
 export const cat = 'studio'
 export default [
-  { id: 'sheets-studio', name: 'Sheets', desc: 'Spreadsheets with formulas, formatting, multiple sheets, sort, filter and charts; open and save Excel.', icon: 'sheet', layout: 'app', tags: 'excel alternative spreadsheet formulas xlsx' },
+  { id: 'sheets-studio', name: 'Sheets', desc: 'Spreadsheets with formulas, formatting, multiple sheets, sort, filter and charts; open and save Excel.', icon: 'sheet', layout: 'app', tags: 'excel alternative spreadsheet formulas xlsx csv ods charts pivot google sheets', ready: true },
+  { id: 'budget-spreadsheet', name: 'Budget spreadsheet', module: 'sheets-studio', params: { template: 'budget', key: 'budget' }, layout: 'app', desc: 'A monthly budget workbook with income, expenses, totals, savings rate and a chart, ready to edit.', icon: 'piggy-bank', also: ['personal'], tags: 'budget spreadsheet template excel household expenses savings', ready: true },
+  { id: 'emi-spreadsheet', name: 'Loan EMI spreadsheet', module: 'sheets-studio', params: { template: 'loan', key: 'loan' }, layout: 'app', desc: 'A loan workbook with live EMI, total interest and a full amortization schedule in rupees.', icon: 'landmark', also: ['india'], tags: 'emi loan spreadsheet amortization schedule excel home car personal pmt', ready: true },
+  { id: 'gst-invoice-spreadsheet', name: 'GST invoice spreadsheet', module: 'sheets-studio', params: { template: 'invoice', key: 'invoice' }, layout: 'app', desc: 'An editable GST invoice workbook with CGST, SGST totals and PDF or Excel export.', icon: 'receipt-indian-rupee', also: ['india'], tags: 'gst invoice spreadsheet template excel bill cgst sgst', ready: true },
+  { id: 'grade-book-spreadsheet', name: 'Grade book spreadsheet', module: 'sheets-studio', params: { template: 'grades', key: 'grades' }, layout: 'app', desc: 'A class grade book with totals, averages, letter grades, ranks and highlights, ready to edit.', icon: 'graduation-cap', also: ['student'], tags: 'grade book marks spreadsheet template teacher students rank average', ready: true },
 ]
