@@ -615,5 +615,6 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || new URLSe
     .catch((e) => console.warn('Offline mode unavailable:', e))
 }
 
+addEventListener('tools:open-with', (e) => { pending = { id: e.detail.id, files: e.detail.files }; location.hash = `#/${e.detail.id}` })
 window.addEventListener('hashchange', route)
 route()
