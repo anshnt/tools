@@ -1,7 +1,7 @@
 // Editing commands for the app. Mixed into SheetsApp.prototype, so `this` is the app.
 import { MAXR, MAXC, ckR, ckC, rangeText, colName } from './_a1.js'
 import { adjustDecimals } from './_fmt.js'
-import { shift, print } from './_parse.js'
+import { shift, print, ParseError } from './_parse.js'
 import * as ops from './_ops.js'
 import { colorPicker } from './_menu.js'
 import { fontPx } from './_axis.js'
@@ -17,7 +17,11 @@ export const cmd = {
     m.commit({ sel: this.selSnap() })
   },
   guard(label, fn) {
-    try { this.run(label, fn); return true } catch (e) { console.error(e); this.toast(e?.message || 'Something went wrong', 'error'); return false }
+    try { this.run(label, fn); return true } catch (e) {
+      if (!(e instanceof ParseError)) console.error(e)
+      this.toast(e instanceof ParseError ? `That formula has a problem: ${e.message}. Check brackets, commas and quotes.` : e?.message || 'Something went wrong', 'error')
+      return false
+    }
   },
   restoreSel(snap) {
     if (!snap) return

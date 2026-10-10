@@ -1,16 +1,17 @@
 // Workbook model: sheets, cells, styles, dependency graph, recalculation (with spilled arrays), and an undo journal.
 // Every mutation goes through begin()/commit() so it can be undone. No DOM.
 import { MAXR, MAXC, gk, ck, ckR, ckC, parseRange } from './_a1.js'
-import { parse, ParseError, refsOf, hasVolatile } from './_parse.js'
+import { parse, print, ParseError, refsOf, hasVolatile } from './_parse.js'
 import { XErr, E, Ref, errFor } from './_val.js'
 import { VOLATILE } from './_funcs.js'
 import { evaluate, settle } from './_eval.js'
-import { parseInput, isPercentFormat } from './_fmt.js'
+import { parseInput, isPercentFormat, FMT } from './_fmt.js'
 
 const SPAN = 34359738368
 export const DEFAULT_COL_W = 88
 export const DEFAULT_ROW_H = 24
 const MAX_PASTE = 600000
+const DATE_FN = { TODAY: FMT.dmy, DATE: FMT.dmy, EDATE: FMT.dmy, EOMONTH: FMT.dmy, WORKDAY: FMT.dmy, DATEVALUE: FMT.dmy, NOW: FMT.dmyhm, TIME: FMT.hm, TIMEVALUE: FMT.hm }
 
 export const newSheet = (id, name) => ({
   id, name, cells: new Map(), spill: new Map(), spillOwner: new Map(), spillBlocked: new Set(),
@@ -70,7 +71,7 @@ export class Model {
   // ---------- styles ----------
   styleId(obj) {
     const clean = {}
-    for (const k of Object.keys(obj).sort()) { const v = obj[k]; if (v !== undefined && v !== null && v !== false && v !== '' && !(k === 'nf' && v === 'General')) clean[k] = v }
+    for (const k of Object.keys(obj).sort()) { const v = obj[k]; if (v !== undefined && v !== null && v !== false && v !== '' && !(k === 'nf' && v === 'General') && !(k === 'fs' && v === 11)) clean[k] = v }
     const key = JSON.stringify(clean)
     let id = this._sk.get(key)
     if (id === undefined) { id = this.styles.length; this.styles.push(clean); this._sk.set(key, id) }
@@ -516,8 +517,14 @@ export class Model {
     const p = parseInput(text, this.wb.opts)
     if (p.kind === 'empty') return this.putCell(sh, k, s ? { v: null, s } : undefined)
     if (p.kind === 'formula') {
-      const cell = makeCell(p.f)
-      if (!cell.ast) { parse(p.f) }
+      let f = p.f
+      const cell0 = makeCell(f)
+      if (!cell0.ast) parse(f) // throws a readable ParseError
+      // tidy lower-case function and cell names (outside of text) the way a spreadsheet does
+      if (/[a-z]/.test(f.replace(/"(?:[^"]|"")*"/g, '').replace(/'[^']*'!/g, ''))) f = print(cell0.ast)
+      const cell = f === p.f ? cell0 : makeCell(f)
+      const top = cell.ast && cell.ast.t === 'fn' ? cell.ast.name : null
+      if (top && DATE_FN[top] && (!nfNow || nfNow === 'General')) s = this.mergeStyle(s, { nf: DATE_FN[top] })
       keep(cell)
       return this.putCell(sh, k, cell)
     }
@@ -532,7 +539,17 @@ export class Model {
     const cell = sh.cells.get(ck(r, c))
     if (!cell) return ''
     if (cell.f != null) return '=' + cell.f
-    return cell.v === null ? '' : typeof cell.v === 'object' ? cell.v.code : typeof cell.v === 'boolean' ? (cell.v ? 'TRUE' : 'FALSE') : String(cell.v)
+    const v = cell.v
+    if (v === null) return ''
+    if (typeof v === 'object') return v.code
+    if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'
+    if (typeof v === 'string') {
+      // text that would be read as a number, date or formula keeps a leading apostrophe so editing does not change its type
+      if (v !== '' && (v[0] === '=' || v[0] === "'")) return "'" + v
+      const p = parseInput(v, this.wb.opts)
+      return p.kind === 'value' && typeof p.v === 'string' ? v : "'" + v
+    }
+    return String(v)
   }
   usedRange(sh) {
     if (sh.extDirty) this._recomputeExtent(sh)

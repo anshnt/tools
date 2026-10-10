@@ -286,6 +286,8 @@ export class GridView {
     const hr = this.handleRect()
     if (x >= hr.x && x <= hr.x + hr.w && y >= hr.y && y <= hr.y + hr.h && !touch) { this.drag = { type: 'fill', src: { ...this.sel } }; return }
     const { r, c } = this.hit(x, y)
+    const url = (e.ctrlKey || e.metaKey) && this.model.valueAt(this.sh.id, r, c)
+    if (typeof url === 'string' && /^https?:\/\/\S+$/i.test(url)) { window.open(url, '_blank', 'noopener'); return }
     this.selectCell(r, c, e.shiftKey)
     this.drag = { type: 'cells' }
     this.startAutoScroll()
@@ -659,7 +661,8 @@ export class GridView {
     const va = st.va || 'middle'
     const fs = fontPx(st) * Z
     g.font = `${st.i ? 'italic ' : ''}${st.b ? '600 ' : ''}${fs}px ${this.fontFamily}`
-    g.fillStyle = f.color || st.fc || (isErr ? col.dark ? '#ff9b8f' : '#c4301f' : col.text)
+    const link = typeof v === 'string' && !st.fc && /^https?:\/\/\S+$/i.test(v)
+    g.fillStyle = f.color || st.fc || (link ? col.accent : isErr ? col.dark ? '#ff9b8f' : '#c4301f' : col.text)
     g.textBaseline = 'alphabetic'
     const pad = PAD * Z + (st.ind ? st.ind * 10 * Z : 0)
     const innerW = n.w - PAD * 2 * Z
@@ -688,10 +691,10 @@ export class GridView {
       const tw = g.measureText(line).width
       const x = ha === 'right' ? n.x + n.w - pad - tw : ha === 'center' ? n.x + (n.w - tw) / 2 : n.x + pad
       g.fillText(line, x, y)
-      if (st.u || st.st) {
+      if (st.u || st.st || link) {
         g.strokeStyle = g.fillStyle; g.lineWidth = Math.max(1, fs / 14)
         g.beginPath()
-        if (st.u) { g.moveTo(x, y + fs * 0.12); g.lineTo(x + tw, y + fs * 0.12) }
+        if (st.u || link) { g.moveTo(x, y + fs * 0.12); g.lineTo(x + tw, y + fs * 0.12) }
         if (st.st) { g.moveTo(x, y - fs * 0.3); g.lineTo(x + tw, y - fs * 0.3) }
         g.stroke()
       }

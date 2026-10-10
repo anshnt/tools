@@ -11,6 +11,7 @@ import { cmd } from './_cmd.js'
 import { files } from './_files.js'
 import { injectStyle } from './_style.js'
 import { menu } from './_menu.js'
+import * as ops from './_ops.js'
 import { CHART_TYPES } from './_charts.js'
 import { rangeText, MAXR, MAXC, colName } from './_a1.js'
 import { FMT, nfLabel, generalText } from './_fmt.js'
@@ -334,6 +335,12 @@ class SheetsApp {
     this.updateStatus()
     if (this.panelName) this.panels[this.panelName].update()
     this.grid.invalidate()
+    clearTimeout(this.timers.say)
+    this.timers.say = setTimeout(() => {
+      const { r, c } = this.grid.act
+      const t = ops.displayOf(this.model, this.sh, r, c).text
+      this.grid.announce(`${colName(c)}${r + 1}, ${t || 'empty'}`)
+    }, 250)
   }
   updateToolbar() {
     const T = this.tb
