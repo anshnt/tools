@@ -470,15 +470,17 @@ export class Timeline {
     return null
   }
 
+  /**
+   * Snap a time. Clip edges, the playhead and loop points are magnetic within 8 px; the grid (when on) always quantizes,
+   * using a coarser multiple when zoomed so far out that grid lines would be closer than 8 px.
+   */
   snap(t, ignore) {
     const S = this.S, p = S.project
     t = Math.max(0, t)
     if (!p.snap || this.noSnap) return t
     const tol = 8 / this.pps
-    let best = t, bd = tol
-    const cand = (c) => { const d = Math.abs(c - t); if (d < bd) { bd = d; best = c } }
-    const step = gridStep(p)
-    if (step) cand(Math.round(t / step) * step)
+    let edge = null, ed = tol
+    const cand = (c) => { const d = Math.abs(c - t); if (d < ed) { ed = d; edge = c } }
     for (const tr of p.tracks) for (const c of tr.clips) {
       if (ignore?.has(c.id)) continue
       cand(c.start)
@@ -486,7 +488,14 @@ export class Timeline {
     }
     cand(S.playheadNow())
     if (p.loop.on) { cand(p.loop.start); cand(p.loop.end) }
-    return Math.max(0, best)
+    let step = gridStep(p)
+    let grid = null
+    if (step) {
+      while (step * this.pps < 8) step *= 2
+      grid = Math.round(t / step) * step
+    }
+    if (edge != null && (grid == null || ed <= Math.abs(grid - t))) return Math.max(0, edge)
+    return Math.max(0, grid ?? t)
   }
 
   // ---------- Pointer: lanes ----------

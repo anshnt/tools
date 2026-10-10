@@ -69,6 +69,8 @@ export async function mount(root, { tool, params = {}, signal }) {
   tl.el.append(emptyHost)
   rootEl.append(toolbar.el, h('div', { class: 'as-main' }, rail.el, tl.el, insp.el), statusEl)
   if (matchMedia('(max-width: 760px)').matches) rootEl.classList.add('no-insp')
+  // After a mouse click on a button, hand the focus back to the app so Space and the other shortcuts keep driving the transport.
+  rootEl.addEventListener('click', (e) => { if (e.detail > 0 && !app.menu && e.target.closest?.('button') && !e.target.closest('.as-head')) rootEl.focus({ preventScroll: true }) })
   const credit = h('p', { class: 'as-credit' }, 'Prefer a native app? ', h('a', { href: 'https://github.com/storytold/soundcraft', target: '_blank', rel: 'noopener' }, 'SoundCraft by ArtCraft'), ' is free and open source.')
   root.append(rootEl, credit)
   tl.resize()
