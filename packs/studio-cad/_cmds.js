@@ -185,9 +185,11 @@ export function createCommands(app) {
     run.done = (async () => {
       try { await fn(ctx, args) } catch (e) {
         if (e === CANCEL) app.log('*Cancel*', 'muted')
-        else { console.error(e); app.log(e?.userMessage || e?.message || String(e), 'err') }
+        else if (e?.userMessage) app.log(e.userMessage, 'err')
+        else { console.error(e); app.log(e?.message || String(e), 'err') }
       } finally {
         if (active === run) active = null
+        if (name === 'TRIM' || name === 'EXTEND') app.clearSelection()
         app.prompt = null
         app.ghost([])
         app.commandChanged(null)

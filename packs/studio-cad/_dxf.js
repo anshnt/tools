@@ -95,6 +95,93 @@ function mapLtype(name) {
   return undefined
 }
 
+const ACI_RGB = { 1: 0xff0000, 2: 0xffff00, 3: 0x00ff00, 4: 0x00ffff, 5: 0x0000ff, 6: 0xff00ff, 7: 0xffffff, 8: 0x808080, 9: 0xc0c0c0 }
+const HATCH_NAMES = [[/^solid$/i, 'solid'], [/ansi3[78]|net|honey|cross|plus/i, 'ansi37'], [/ansi3|angle|line|steel|iso0|dash/i, 'ansi31']]
+
+/** The dxf-parser library has no HATCH support, so read hatches straight from the ENTITIES section (polyline and line/arc edge boundaries). */
+export function parseHatches(text) {
+  const lines = text.split(/\r?\n/)
+  const out = []
+  let inEntities = false
+  let i = 0
+  const pairs = []
+  for (; i + 1 < lines.length; i += 2) pairs.push([parseInt(lines[i], 10), lines[i + 1].trim()])
+  for (let k = 0; k < pairs.length; k++) {
+    const [c, v] = pairs[k]
+    if (c === 0 && v === 'SECTION') { inEntities = pairs[k + 1]?.[1] === 'ENTITIES'; continue }
+    if (c === 0 && v === 'ENDSEC') { inEntities = false; continue }
+    if (!inEntities || c !== 0 || v !== 'HATCH') continue
+    let end = k + 1
+    while (end < pairs.length && pairs[end][0] !== 0) end++
+    const g = pairs.slice(k + 1, end)
+    const h = { layer: '0', pattern: 'ansi31', scale: 1, angle: 0, solid: false, loops: [], color: undefined }
+    let j = 0
+    const num = (x) => parseFloat(x)
+    let loopsLeft = -1
+    while (j < g.length) {
+      const [code, val] = g[j]
+      if (code === 8) h.layer = val
+      else if (code === 62 && ACI_RGB[+val] && h.color === undefined && loopsLeft < 0) h.color = '#' + ACI_RGB[+val].toString(16).padStart(6, '0')
+      else if (code === 420 && loopsLeft < 0) h.color = '#' + (parseInt(val, 10) & 0xffffff).toString(16).padStart(6, '0')
+      else if (code === 2 && loopsLeft < 0) h.name = val
+      else if (code === 70 && loopsLeft < 0) h.solid = val === '1'
+      else if (code === 91) loopsLeft = parseInt(val, 10)
+      else if (code === 92 && loopsLeft > 0) {
+        const flag = parseInt(val, 10)
+        loopsLeft--
+        const pts = []
+        j++
+        if (flag & 2) {
+          let hasBulge = 0
+          while (j < g.length && g[j][0] !== 93) { if (g[j][0] === 72) hasBulge = +g[j][1]; j++ }
+          const n = parseInt(g[j]?.[1], 10) || 0
+          j++
+          for (let q = 0; q < n && j < g.length; q++) {
+            const p = { x: num(g[j][1]), y: num(g[j + 1][1]), b: 0 }
+            j += 2
+            if (hasBulge && g[j]?.[0] === 42) { p.b = num(g[j][1]); j++ }
+            pts.push(p)
+          }
+        } else {
+          while (j < g.length && g[j][0] !== 93) j++
+          const n = parseInt(g[j]?.[1], 10) || 0
+          j++
+          const seg = []
+          let ok = true
+          for (let q = 0; q < n && j < g.length; q++) {
+            const type = parseInt(g[j][1], 10)
+            j++
+            const take = (codes) => { const r = {}; for (const cd of codes) { if (g[j]?.[0] !== cd) { ok = false; return r } r[cd] = num(g[j][1]); j++ } return r }
+            if (type === 1) { const e = take([10, 20, 11, 21]); seg.push({ t: 1, a: { x: e[10], y: e[20] }, b: { x: e[11], y: e[21] } }) }
+            else if (type === 2) { const e = take([10, 20, 40, 50, 51, 73]); seg.push({ t: 2, c: { x: e[10], y: e[20] }, r: e[40], a0: e[50] * D2R, a1: e[51] * D2R, ccw: e[73] !== 0 }) }
+            else { ok = false; while (j < g.length && g[j][0] !== 72 && g[j][0] !== 97) j++ }
+          }
+          if (ok && seg.length) {
+            for (const e of seg) {
+              if (e.t === 1) pts.push({ x: e.a.x, y: e.a.y, b: 0 })
+              else {
+                const sa = e.ccw ? e.a0 : e.a1, ea = e.ccw ? e.a1 : e.a0
+                const start = { x: e.c.x + Math.cos(e.ccw ? e.a0 : e.a1) * e.r, y: e.c.y + Math.sin(e.ccw ? e.a0 : e.a1) * e.r }
+                const sweep = ((ea - sa) % TAU + TAU) % TAU || TAU
+                pts.push({ x: start.x, y: start.y, b: Math.tan(sweep / 4) * (e.ccw ? 1 : -1) })
+              }
+            }
+          }
+        }
+        while (j < g.length && g[j][0] !== 97) j++
+        if (pts.length >= 3 || (pts.length === 2 && pts.some((p) => p.b))) h.loops.push(pts)
+        continue
+      } else if (code === 52 && loopsLeft === 0) h.angle = num(val)
+      else if (code === 41 && loopsLeft === 0) h.scale = num(val) || 1
+      j++
+    }
+    if (!h.loops.length) continue
+    h.pattern = h.solid ? 'solid' : (HATCH_NAMES.find(([re]) => re.test(h.name || ''))?.[1] || 'ansi31')
+    out.push(h)
+  }
+  return out
+}
+
 /**
  * Parse DXF bytes/text into { layers, ents (no ids), units, skipped, count, ltscale }.
  * Blocks are expanded in place; dimensions use their drawn block geometry.
@@ -110,7 +197,7 @@ export async function importDxf(data) {
   const types = scanTypes(text)
   const skipped = {}
   const bump = (t) => { skipped[t] = (skipped[t] || 0) + 1 }
-  for (const [t, n] of Object.entries(types)) if (!SUPPORTED.has(t) && t !== 'ATTRIB' && t !== 'ATTDEF') skipped[t] = n
+  for (const [t, n] of Object.entries(types)) if (!SUPPORTED.has(t) && t !== 'ATTRIB' && t !== 'ATTDEF' && t !== 'HATCH') skipped[t] = n
 
   const header = dxf.header || {}
   const units = INS_UNITS[header.$INSUNITS] || 'mm'
@@ -235,6 +322,13 @@ export async function importDxf(data) {
   }
 
   for (const en of dxf.entities || []) convert(en, {}, ents, 0)
+  let badHatch = types.HATCH || 0
+  for (const hh of parseHatches(text)) {
+    if (!known.has(hh.layer)) { layers.push(newLayer(hh.layer)); known.add(hh.layer) }
+    ents.push({ type: 'hatch', layer: hh.layer, ...(hh.color ? { color: hh.color } : {}), pattern: hh.pattern, scale: hh.scale, angle: hh.angle, loops: hh.loops })
+    badHatch--
+  }
+  if (badHatch > 0) skipped.HATCH = badHatch
   // blocks that only exist as DIMENSION bodies are already used; nothing else to do
   return { layers, ents, units, skipped, count: ents.length, ltscale: header.$LTSCALE > 0 ? header.$LTSCALE : undefined, dimTh: dimTxt }
 }

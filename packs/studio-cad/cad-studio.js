@@ -77,7 +77,7 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
     pop: null, clip: null,
   }
   let ghostEnts = [], hoverId = null, hotGrip = null, measureInfo = null, windowSel = null, dark = false, canvasBg = '#ffffff', raf = 0, firstFit = true, spaceDown = false, spaceUsed = false
-  let touchMode = false, oneShot = null, prevViews = [], textEd = null, dirty = false
+  let touchMode = false, oneShot = null, prevViews = [], textEd = null, dirty = false, panMode = false
 
   // ---------- DOM ----------
   const canvas = h('canvas', { tabindex: 0, role: 'application', 'aria-label': 'Drawing canvas. Use the tools, or type a command such as L, C or REC.' })
@@ -159,8 +159,10 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
     tbtn('scan-search', 'Zoom to fit the drawing (ZE)', () => zoomExtents()),
     h('span', { class: 'cad-grow' }), layerSel, panelToggle, tbtn('circle-help', 'Shortcuts and commands', () => helpDialog()))
 
+  const panBtn = tbtn('hand', 'Pan (or hold Space and drag)', () => { panMode = !panMode; panBtn.setAttribute('aria-pressed', String(panMode)) })
+  panBtn.setAttribute('aria-pressed', 'false')
   const zoomCtl = h('div', { class: 'cad-zoomctl' },
-    tbtn('plus', 'Zoom in', () => zoomBy(1.6)), tbtn('minus', 'Zoom out', () => zoomBy(1 / 1.6)), tbtn('maximize', 'Zoom to fit', () => zoomExtents()))
+    tbtn('plus', 'Zoom in', () => zoomBy(1.6)), tbtn('minus', 'Zoom out', () => zoomBy(1 / 1.6)), tbtn('maximize', 'Zoom to fit', () => zoomExtents()), panBtn)
   stage.append(zoomCtl)
   const rootEl = h('div', { class: 't-cad' }, top, h('div', { class: 'cad-main' }, rail, stage, panel), cmdBar, status)
   app.root = rootEl
@@ -396,7 +398,7 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
     canvas.classList.toggle('touch', touchMode)
     canvas.focus({ preventScroll: true })
     if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), c: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } }; drag = null; windowSel = null; return }
-    if (e.button === 1 || (e.button === 0 && spaceDown)) { drag = { kind: 'pan', last: sp }; spaceUsed = true; canvas.classList.add('pan'); e.preventDefault(); return }
+    if (e.button === 1 || (e.button === 0 && (spaceDown || panMode))) { drag = { kind: 'pan', last: sp, start: sp, moved: false, viaMode: e.button === 0 && panMode && !spaceDown, shift: e.shiftKey }; spaceUsed = true; canvas.classList.add('pan'); e.preventDefault(); return }
     if (e.button === 2) { drag = { kind: 'right' }; return }
     if (e.button !== 0) return
     updateCursor(sp.x, sp.y, touchMode)
@@ -415,10 +417,10 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
       pinch = { d, c }
       return
     }
-    if (drag?.kind === 'pan') { view.cx -= (sp.x - drag.last.x) / view.scale; view.cy += (sp.y - drag.last.y) / view.scale; drag.last = sp; onView(); return }
+    if (drag?.kind === 'pan') { if (Math.hypot(sp.x - drag.start.x, sp.y - drag.start.y) > 4) drag.moved = true; view.cx -= (sp.x - drag.last.x) / view.scale; view.cy += (sp.y - drag.last.y) / view.scale; drag.last = sp; onView(); return }
     if (drag?.kind === 'click' && !drag.moved && Math.hypot(sp.x - drag.start.x, sp.y - drag.start.y) > (touchMode ? 8 : 5)) {
       drag.moved = true
-      if (touchMode) { drag = { kind: 'pan', last: drag.start }; canvas.classList.add('pan') } else if (wantsWindow()) windowSel = { a: drag.start, b: sp }
+      if (touchMode) { drag = { kind: 'pan', last: drag.start, start: drag.start, moved: true }; canvas.classList.add('pan') } else if (wantsWindow()) windowSel = { a: drag.start, b: sp }
     }
     if (drag?.kind === 'pan') { view.cx -= (sp.x - drag.last.x) / view.scale; view.cy += (sp.y - drag.last.y) / view.scale; drag.last = sp; onView(); return }
     if (windowSel) windowSel.b = sp
@@ -434,6 +436,7 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
     drag = null
     if (!d || e.type === 'pointercancel') { windowSel = null; render(); return }
     if (d.kind === 'right') { if (app.prompt) cmds.enter(); return }
+    if (d.kind === 'pan') { if (d.viaMode && !d.moved) clickAt(sp, e); return }
     if (d.kind === 'grip') { if (Math.hypot(sp.x - d.start.x, sp.y - d.start.y) > 4) clickAt(sp, e); return }
     if (d.kind !== 'click') return
     if (windowSel) { const w = windowSel; windowSel = null; selectRect(w.a, w.b, e.shiftKey); return }
@@ -591,13 +594,16 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
     const ext = (file.name.match(/\.([^.]+)$/)?.[1] || '').toLowerCase()
     try {
       if (ext === 'json') {
-        const st = stateFromJSON(JSON.parse(await file.text()))
-        const j = () => { applyState(st, baseName(file.name).replace(/\.cad$/, '')); toast(`Opened ${file.name}`, 'success') }
+        const data = JSON.parse(await file.text())
+        const st = stateFromJSON(data)
+        const j = () => { applyState(st, data.name || baseName(file.name).replace(/\.cad$/, '')); toast(`Opened ${file.name}`, 'success') }
         return doc.ents.length && mode !== 'replace' ? confirmDialog({ title: 'Replace the current drawing?', body: `Opening ${file.name} replaces what is on the canvas.`, actions: [{ label: 'Cancel' }, { label: 'Replace', variant: 'primary', run: j }] }) : j()
       }
       if (ext !== 'dxf') return toast('Open a .dxf file, or a .cad.json project saved from CAD Studio.', 'error')
-      const t = toast(`Reading ${file.name}...`, 'info', 8000)
-      const res = await importDxf(await file.arrayBuffer())
+      const chip = h('div', { class: 'cad-chip' }, `Reading ${file.name}...`)
+      hud.append(chip)
+      let res
+      try { res = await importDxf(await file.arrayBuffer()) } finally { chip.remove() }
       if (!res.count) throw Object.assign(new Error('No drawable objects were found in that DXF.'), { userMessage: 'No drawable objects were found in that DXF. It may only contain 3D solids, images or unsupported entities.' })
       const go = (m) => applyImport(res, m, file.name)
       if (!doc.ents.length || mode) return go(mode || 'replace')

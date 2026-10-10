@@ -8,6 +8,7 @@ const CSS = `
 .t-cad button { font: inherit; color: inherit; }
 .t-cad .cad-top { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 92%, var(--bg-2)); overflow-x: auto; scrollbar-width: none; }
 .t-cad .cad-top::-webkit-scrollbar { display: none; }
+.t-cad .cad-top .cad-sel { flex: none; }
 .t-cad .cad-sep { width: 1px; align-self: stretch; margin: 4px 4px; background: var(--border); flex: none; }
 .t-cad .cad-grow { flex: 1 1 auto; min-width: 8px; }
 .t-cad .cad-name { width: 150px; flex: none; height: 32px; padding: 0 10px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--text); font-weight: 600; font-size: 13px; }
@@ -142,7 +143,7 @@ const CSS = `
 .t-cad .cad-tog .icon { width: 12px; height: 12px; }
 .t-cad-credit { padding: 10px 4px 0; }
 
-@media (max-width: 900px) { .t-cad .cad-main { grid-template-columns: auto minmax(0, 1fr); } .t-cad .cad-panel { position: absolute; z-index: 12; right: 0; top: 0; bottom: 0; width: min(330px, 92%); transform: translateX(105%); transition: transform .25s var(--ease); box-shadow: var(--shadow-lg); } .t-cad.panel-open .cad-panel { transform: none; } }
+@media (max-width: 900px) { .t-cad .cad-saved span { display: none; } .t-cad .cad-main { grid-template-columns: auto minmax(0, 1fr); } .t-cad .cad-panel { position: absolute; z-index: 12; right: 0; top: 0; bottom: 0; width: min(330px, 92%); transform: translateX(105%); transition: transform .25s var(--ease); box-shadow: var(--shadow-lg); } .t-cad.panel-open .cad-panel { transform: none; } }
 @media (min-width: 901px) { .t-cad .cad-panel-toggle, .t-cad .cad-panel-close { display: none !important; } }
 .t-cad .cad-tabs { align-items: center; }
 .t-cad .cad-panel-close { flex: none; margin: 0 0 3px 4px; }
