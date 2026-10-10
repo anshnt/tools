@@ -999,9 +999,13 @@ export class Editor {
     const c = this.scr(r.x + it.x + it.w / 2, r.y + it.y + it.h / 2)
     const el = te.el
     el.style.display = ''
-    el.style.width = `${it.w}px`; el.style.height = `${it.h}px`
+    const cols = Math.max(1, it.cols || 1)
+    el.style.width = `${it.w}px`
+    // one column grows downwards past the frame (the overflow is visible while typing); several columns keep the frame height
+    el.style.height = cols > 1 ? `${it.h}px` : ''
+    el.style.minHeight = `${it.h}px`
     el.style.padding = `${it.inset || 0}px`
-    el.style.columnCount = String(Math.max(1, it.cols || 1))
+    el.style.columnCount = cols > 1 ? String(cols) : 'auto'
     el.style.columnGap = `${it.gap ?? 12}px`
     el.style.transform = `translate(${c.x - it.w / 2}px, ${c.y - it.h / 2}px) scale(${z}) rotate(${it.rot || 0}deg)`
     el.style.setProperty('--ls-z', String(z))
