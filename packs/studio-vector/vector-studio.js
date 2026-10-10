@@ -102,7 +102,7 @@ export async function mount(root, { tool, params = {}, signal }) {
   const side = h('aside', { class: 'vs-side', 'aria-label': 'Properties panels' }, sidePanel.el)
   const body = h('div', { class: 'vs-body' }, rail, main, side)
   const note = h('div', { class: 'vs-note' },
-    h('span', 'A clean-room browser editor. Your files never leave your device.'))
+    h('span', 'A browser vector editor. Your files never leave your device.'))
   const wrap = h('div', { class: 't-vs', 'aria-label': 'Vector Studio editor' }, bar, opts, body, note)
   wrap.__vs = { ed, cv }
   // lets the site's page-wide file drop hand files to the editor (drops outside the canvas, e.g. on the panels)
