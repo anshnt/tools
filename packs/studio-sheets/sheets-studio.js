@@ -139,6 +139,10 @@ class SheetsApp {
       this.railEl.append(b)
     }
     this.gv = h('div', { class: 'sx-gv' })
+    this.welcome = h('div', { class: 'sx-welcome' }, icon('table-2'), h('b', 'A blank sheet, ready for data'),
+      h('p', 'Click a cell and start typing, paste a table from another app, or drop an Excel, CSV or ODS file here.'),
+      h('div', { class: 'sx-row' }, h('button', { type: 'button', class: 'btn btn-secondary btn-sm', onclick: () => this.dz.open() }, icon('folder-open'), h('span', 'Open a file')),
+        h('button', { type: 'button', class: 'btn btn-secondary btn-sm', onclick: () => this.templatesDialog() }, icon('layout-template'), h('span', 'Templates'))))
     this.inspEl = h('aside', { class: 'sx-insp', 'aria-label': 'Panel' })
     this.main = h('div', { class: 'sx-main' }, this.railEl, this.gv, this.inspEl)
     this.tabsEl = h('div', { class: 'sx-tabs', role: 'tablist', 'aria-label': 'Sheets' })
@@ -154,6 +158,7 @@ class SheetsApp {
     this.creditEl = credit
     // grid
     this.grid = new GridView(this.gv, this.model, this.callbacks(), this.fbar)
+    this.gv.append(this.welcome)
     this.charts = new ChartLayer(this.grid, this)
     this.charts.app = this
     const ro = new ResizeObserver(() => { this.measureScrollbars(); this.charts.reposition() })
@@ -347,6 +352,7 @@ class SheetsApp {
     if (this.charts.selected && !this.grid.editing) { /* keep chart selection until another cell is picked */ }
     this.updateToolbar()
     this.updateStatus()
+    this.updateWelcome()
     if (this.panelName) this.panels[this.panelName].update()
     this.grid.invalidate()
     clearTimeout(this.timers.say)
@@ -356,6 +362,7 @@ class SheetsApp {
       this.grid.announce(`${colName(c)}${r + 1}, ${t || 'empty'}`)
     }, 250)
   }
+  updateWelcome() { this.welcome.hidden = this.isDirty() || this.model.sheets.length > 1 || this.grid.editing }
   updateToolbar() {
     const T = this.tb
     const st = this.activeStyle()
@@ -402,7 +409,7 @@ class SheetsApp {
       this._afterRaf = 0
       if (!this.grid.sh) return
       if (!this.grid.editing) this.fbar.value = this.rawText(this.grid.act.r, this.grid.act.c)
-      this.updateToolbar(); this.updateStatus()
+      this.updateToolbar(); this.updateStatus(); this.updateWelcome()
       this.charts.sync()
       if (this.panelName) this.panels[this.panelName].update()
       this.scheduleSave()

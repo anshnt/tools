@@ -77,6 +77,12 @@ const CSS = `
 .sx-chart-x { width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text-2); cursor: pointer; }
 .sx-chart-x:hover { background: var(--surface-3); color: var(--accent); }
 .sx-chart-x .icon { width: 14px; height: 14px; }
+.sx-welcome { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); z-index: 3; display: grid; justify-items: center; gap: 10px; width: min(420px, 86%); padding: 22px 20px; text-align: center; pointer-events: none; color: var(--muted); border-radius: 18px; background: color-mix(in srgb, var(--surface) 90%, transparent); backdrop-filter: blur(2px); }
+.sx-welcome > .icon { width: 34px; height: 34px; color: var(--accent); }
+.sx-welcome b { color: var(--text); font-size: 16px; letter-spacing: -.01em; }
+.sx-welcome p { margin: 0; font-size: 13px; line-height: 1.5; }
+.sx-welcome .sx-row { justify-content: center; pointer-events: auto; }
+.sx-welcome[hidden] { display: none; }
 .sx-insp { display: none; flex-direction: column; min-height: 0; background: var(--surface); border-left: 1px solid var(--border); }
 .sx-main.has-insp .sx-insp { display: flex; }
 .sx-ph { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); font-weight: 650; font-size: 13.5px; }
