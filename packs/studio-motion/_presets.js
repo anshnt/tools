@@ -110,7 +110,7 @@ function titleReveal() {
   add(doc, 'shape', { name: 'Underline', position: [W / 2, H / 2 + 95], data: { kind: 'line', w: 760, strokeWidth: 6, stroke: '#a855f7' } }, (L) => {
     keys(L.props.trimEnd, [[0.9, 0, IO], [1.9, 100]])
   })
-  add(doc, 'text', { name: 'Title', position: [W / 2, H / 2 - 30], data: { text: 'MOTION STUDIO', size: 200, weight: 800, tracking: 10 } }, (L) => {
+  add(doc, 'text', { name: 'Title', position: [W / 2, H / 2 - 30], data: { text: 'MOTION STUDIO', size: 180, weight: 800, tracking: 10 } }, (L) => {
     PRESETS.find((p) => p.id === 'rise-per-char').apply(L, 0.2)
     const glow = makeEffect('glow')
     glow.params.intensity.v = 55
@@ -121,14 +121,14 @@ function titleReveal() {
 }
 
 function lowerThird() {
-  const doc = makeDoc({ name: 'Lower third', bg: '#0f172a' })
+  const doc = makeDoc({ name: 'Lower third', bg: '#0f172a', transparent: true })
   const { width: W, height: H } = doc.comp
   const y = H * 0.8, x = W * 0.3
   const grp = makeLayer(doc, 'group', { name: 'Lower third' })
   const bar = makeLayer(doc, 'shape', { name: 'Bar', position: [x, y], data: { kind: 'rect', w: 820, h: 132, radius: 14, fill: '#6366f1' } })
   const accent = makeLayer(doc, 'shape', { name: 'Accent', position: [x - 410 + 10, y], data: { kind: 'rect', w: 20, h: 132, fill: '#f472b6' } })
-  const name = makeLayer(doc, 'text', { name: 'Name', position: [x, y - 20], data: { text: 'Alex Morgan', size: 58, weight: 700 } })
-  const role = makeLayer(doc, 'text', { name: 'Role', position: [x, y + 30], data: { text: 'Motion designer', size: 34, weight: 400, fill: '#e0e7ff', tracking: 2 } })
+  const name = makeLayer(doc, 'text', { name: 'Name', position: [x, y - 25], data: { text: 'Alex Morgan', size: 56, weight: 700 } })
+  const role = makeLayer(doc, 'text', { name: 'Role', position: [x, y + 35], data: { text: 'Motion designer', size: 32, weight: 400, fill: '#e0e7ff', tracking: 2 } })
   PRESETS.find((p) => p.id === 'typewriter').apply(name, 0.5)
   grp.children = [role, name, accent, bar]
   keys(grp.props.position, [[0, [-1100, 0], OUT], [0.7, [0, 0]], [3.2, [0, 0], IN], [3.9, [-1100, 0]]])

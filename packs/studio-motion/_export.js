@@ -54,12 +54,12 @@ export async function exportWebM(doc, assets, { scale = 1, fps = doc.comp.fps, b
   const stopped = new Promise((res) => { rec.onstop = res })
   const N = frameCount(doc, fps)
   try {
-    renderFrame(ctx, doc, 0, { assets, flatten: '#000000' })
+    renderFrame(ctx, doc, 0, { assets, flatten: doc.comp.bg })
     rec.start(250)
     const t0 = performance.now()
     for (let i = 0; i < N; i++) {
       check(signal)
-      renderFrame(ctx, doc, i / fps, { assets, flatten: '#000000' })
+      renderFrame(ctx, doc, i / fps, { assets, flatten: doc.comp.bg })
       if (manual) track.requestFrame()
       onProgress?.(i / N, `Recording frame ${i + 1} of ${N}`)
       const wait = t0 + ((i + 1) * 1000) / fps - performance.now()
@@ -104,7 +104,7 @@ export async function exportMP4(doc, assets, { scale = 1, fps = doc.comp.fps, bi
     for (let i = 0; i < N; i++) {
       check(signal)
       if (failure) throw new Error(`The video encoder stopped: ${failure.message}`)
-      renderFrame(ctx, doc, i / fps, { assets, flatten: '#000000' })
+      renderFrame(ctx, doc, i / fps, { assets, flatten: doc.comp.bg })
       const frame = new VideoFrame(cv, { timestamp: Math.round((i * 1e6) / fps), duration: Math.round(1e6 / fps) })
       enc.encode(frame, { keyFrame: i % Math.max(1, Math.round(fps * 2)) === 0 })
       frame.close()

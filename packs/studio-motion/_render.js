@@ -98,6 +98,14 @@ export function layoutText(d) {
   return res
 }
 
+/** Wait for the web fonts used by text layers so exports never fall back to a default font. */
+export async function preloadFonts(doc) {
+  const jobs = []
+  const walkL = (list) => { for (const L of list) { if (L.type === 'text') jobs.push(document.fonts.load(fontString(L.data), L.data.text || 'A').catch(() => {})); if (L.children) walkL(L.children) } }
+  walkL(doc.layers)
+  await Promise.all(jobs)
+}
+
 /** Selector amount (0..1) of a unit at x percent for a range [S, E]. */
 export function selAmount(shape, x, S, E) {
   if (shape === 'square') return x >= S && x <= E ? 1 : 0
