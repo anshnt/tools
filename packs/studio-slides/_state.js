@@ -254,7 +254,9 @@ export async function prepareImage(file) {
   if (!keep) {
     const k = type === 'image/svg+xml' ? Math.min(8, 1600 / Math.max(w, h)) : Math.min(1, MAX_IMG / Math.max(w, h))
     const c = toCanvas(img, Math.round(w * k), Math.round(h * k))
-    outType = type === 'image/jpeg' || !hasAlpha(c) ? 'image/jpeg' : 'image/png'
+    // graphics (PNG, SVG, GIF, BMP) stay lossless; photos (JPEG, WebP, AVIF, HEIC) become JPEG unless they have transparency
+    const graphic = ['image/svg+xml', 'image/gif', 'image/bmp', 'image/png'].includes(type)
+    outType = !graphic && (type === 'image/jpeg' || !hasAlpha(c)) ? 'image/jpeg' : 'image/png'
     blob = await toBlob(c, outType, 0.9)
     w = c.width
     h = c.height
