@@ -548,10 +548,10 @@ export function mount(root, { params }) {
     }
     const total = files.reduce((a, f) => a + f.blob.size, 0)
     const s = docStats(mdoc)
-    exportResult.replaceChildren(alert('success', h('strong', files.length > 1 ? `${files.length} files are ready` : 'Your file is ready'), ` (${formatBytes(total)}${fmt !== 'png' ? `, ${s.paths} paths` : ''}).`),
+    exportResult.replaceChildren(...[alert('success', h('strong', files.length > 1 ? `${files.length} files are ready` : 'Your file is ready'), ` (${formatBytes(total)}${fmt !== 'png' ? `, ${s.paths} paths` : ''}).`),
       ...files.map((f) => h('div', { class: 'row' }, h('span', { class: 'small', style: 'flex:1;min-width:0;overflow-wrap:anywhere' }, f.name), downloadButton(f.blob, f.name, 'Download', { size: 'sm' }))),
       files.length > 1 ? button('Download all as ZIP', { icon: 'download', variant: 'secondary', size: 'sm', onClick: async () => download(await zip(files.map((f) => ({ name: f.name, data: f.blob }))), `${name}-${fmt}.zip`) }) : null,
-      notes.size ? h('ul', { class: 'cd-list' }, [...notes].map((x) => h('li', x))) : null)
+      notes.size ? h('ul', { class: 'cd-list' }, [...notes].map((x) => h('li', x))) : null].filter(Boolean))
     prog.hide()
   }
 

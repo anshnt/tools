@@ -77,7 +77,7 @@ export function mount(root, { params, signal }) {
   const grid = h('div', { class: 'cv-grid', hidden: true })
   const resultBox = h('div', { class: 'stack' })
   const help = h('div', { class: 'panel' },
-    h('h2', icon('info'), 'Opening the file in CorelDRAW'),
+    h('h2', h('span', { class: 'row', style: 'gap:8px' }, icon('info'), 'Opening the file in CorelDRAW')),
     h('ol', { class: 'cv-steps' },
       h('li', 'In CorelDRAW choose ', h('strong', 'File > Open'), ' (or ', h('strong', 'File > Import'), ' to add it to a drawing) and pick the file you downloaded.'),
       h('li', 'For EPS, leave "Import PostScript text as curves" off to keep text editable, or on to keep the exact look.'),
@@ -110,9 +110,9 @@ export function mount(root, { params, signal }) {
   const textBox = h('div', { class: 'cv-opts' }, outlineT, outlineHint)
   const prog = progress('Converting')
   const goBtn = button('Convert', { icon: 'file-output', variant: 'primary', size: 'lg', onClick: () => busy(goBtn, convert, { label: 'Converting', errorTo: resultBox, progress: prog }) })
-  const optsPanel = h('section', { class: 'panel cv-opts' }, h('h2', icon('settings-2'), 'Settings'), field('Output format', fmtSeg), fmtDesc, rasterBox, pdfBox, svgBox, textBox, h('div', { class: 'stack' }, goBtn, prog.el))
+  const optsPanel = h('section', { class: 'panel cv-opts' }, h('h2', h('span', { class: 'row', style: 'gap:8px' }, icon('settings-2'), 'Settings')), field('Output format', fmtSeg), fmtDesc, rasterBox, pdfBox, svgBox, textBox, h('div', { class: 'stack' }, goBtn, prog.el))
   const prevHost = h('div', { class: 'stack' })
-  const prevPanel = h('section', { class: 'panel' }, h('h2', icon('eye'), 'Preview'), prevHost)
+  const prevPanel = h('section', { class: 'panel' }, h('h2', h('span', { class: 'row', style: 'gap:8px' }, icon('eye'), 'Preview')), prevHost)
   grid.append(optsPanel, prevPanel)
 
   function refreshFmt() {
