@@ -50,6 +50,8 @@ f('XLOOKUP(25,A1:A10,B1:B10,"-",-1)', 'even'); f('XLOOKUP(4,A1:A10,B1:B10,"-",1)
 f('TEXTJOIN("-",TRUE,A1:A3,"")', '1-2-3'); f('SUBSTITUTE("aaa","a","b",2)', 'aba'); f('PROPER("hello wORLD")', 'Hello World'); f('TRIM(" a  b ")', 'a b'); f('REPLACE("abcdef",2,3,"X")', 'aXef'); f('CHAR(65)&CODE("a")', 'A97')
 f('PERCENTILE(A1:A10,0.5)', 5.5); f('QUARTILE(A1:A10,1)', 3.25); f('VAR(A1:A5)', 2.5); f('STDEVP(A1:A5)', 1.41421356); f('MEDIAN(A1:A4)', 2.5); f('MODE(A1:A3,1)', 1); f('LARGE(A1:A10,1)', 10)
 f('FV(0.05/12,24,-100,0,1)', 2529.0862); f('PV(0.08/12,60,-500)', 24659.2167); f('SLN(1000,100,9)', 100); f('NPV(0.1,-1000,300,400,500)', -19.12437675); f('CUMIPMT(0.1/12,24,10000,1,12,0)', -786.14969)
+f('LET(x,5,y,x*2,y+1)', 11); f('SUM(TAKE(A1:A10,3))', 6); f('SUM(DROP(A1:A10,8))', 19); f('SUM(TOCOL(A1:C2))', 33); f('ROWS(TOROW(A1:A5))', 1); f('INDEX(CHOOSECOLS(A1:C2,3),2)', 20)
+f('FORMULATEXT(B4)', '#N/A'); f('CEILING.MATH(-2.5)', -2); f('FLOOR.MATH(-2.5)', -3); f('EFFECT(0.12,12)', 0.12682503); f('RRI(10,1000,2000)', 0.07177346); f('SYD(10000,1000,5,1)', 3000); f('YEARFRAC(DATE(2025,1,1),DATE(2025,7,1))', 0.5); f('DAYS360(DATE(2025,1,31),DATE(2025,3,31))', 60)
 // scalar arguments given as cell references
 put('Y1', '3'); put('Y2', '2')
 f('RANK(A3,A1:A10)', 8); f('LARGE(A1:A10,Y1)', 8); f('VLOOKUP(A5,A1:C10,Y1,FALSE)', 50); f('INDEX(A1:C10,Y2,Y1)', 20); f('MATCH(A4,A1:A10,Y1-3)', 4); f('ROUND(A1/3,Y2)', 0.33); f('SMALL(A1:A10,Y2)', 2)

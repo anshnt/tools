@@ -573,5 +573,89 @@ A('XIRR', 'Financial', 'values, dates, [guess]', 'Internal rate of return for da
   throw E.NUM
 })
 
+// ================= MORE: modern array helpers, extra math, finance and dates =================
+L('LET', 'Logical', 'name1, value1, ..., calculation', 'Names intermediate results so a formula can reuse them.', (env, args, ev) => {
+  if (args.length < 3 || args.length % 2 === 0) return E.VALUE
+  const e = { ...env, vars: { ...(env.vars || {}) } }
+  for (let i = 0; i < args.length - 1; i += 2) {
+    if (args[i].t !== 'name') return E.VALUE
+    e.vars[args[i].name.toUpperCase()] = ev(args[i + 1], e)
+  }
+  return ev(args[args.length - 1], e)
+})
+A('TOCOL', 'Lookup', 'array', 'Turns a range into a single column.', (env, [a]) => flat(env, a).map((v) => [v]))
+A('TOROW', 'Lookup', 'array', 'Turns a range into a single row.', (env, [a]) => [flat(env, a)])
+A('TAKE', 'Lookup', 'array, rows, [columns]', 'First (or last, when negative) rows and columns of a range.', (env, [a, r, c]) => {
+  let m = cmat(env, a); r = toInt(r)
+  m = r >= 0 ? m.slice(0, r) : m.slice(r)
+  if (c !== undefined) { c = toInt(c); m = m.map((row) => (c >= 0 ? row.slice(0, c) : row.slice(c))) }
+  return m.length && m[0].length ? m : E.VALUE
+})
+A('DROP', 'Lookup', 'array, rows, [columns]', 'Removes rows and columns from the start (or end, when negative).', (env, [a, r, c]) => {
+  let m = cmat(env, a); r = toInt(r)
+  m = r >= 0 ? m.slice(r) : m.slice(0, r)
+  if (c !== undefined) { c = toInt(c); m = m.map((row) => (c >= 0 ? row.slice(c) : row.slice(0, c))) }
+  return m.length && m[0].length ? m : E.VALUE
+})
+A('CHOOSECOLS', 'Lookup', 'array, col_num1, [col_num2], ...', 'Picks columns from a range.', (env, [a, ...cs]) => { const m = cmat(env, a); const ix = cs.map((c) => toInt(scalar1(env, c))); if (ix.some((i) => i === 0 || Math.abs(i) > m[0].length)) throw E.VALUE; return m.map((row) => ix.map((i) => row[i > 0 ? i - 1 : row.length + i])) })
+A('CHOOSEROWS', 'Lookup', 'array, row_num1, [row_num2], ...', 'Picks rows from a range.', (env, [a, ...rs]) => { const m = cmat(env, a); const ix = rs.map((r) => toInt(scalar1(env, r))); if (ix.some((i) => i === 0 || Math.abs(i) > m.length)) throw E.VALUE; return ix.map((i) => m[i > 0 ? i - 1 : m.length + i]) })
+S('RANDARRAY', 'Math', '[rows], [columns], [min], [max], [whole_number]', 'A grid of random numbers.', (r, c, lo, hi, w) => {
+  r = r === undefined ? 1 : toInt(r); c = c === undefined ? 1 : toInt(c); lo = lo === undefined ? 0 : toNum(lo); hi = hi === undefined ? 1 : toNum(hi)
+  if (r < 1 || c < 1 || r * c > 1e6) throw E.VALUE
+  const whole = w !== undefined && toBool(w)
+  return Array.from({ length: r }, () => Array.from({ length: c }, () => (whole ? lo + Math.floor(Math.random() * (hi - lo + 1)) : lo + Math.random() * (hi - lo))))
+})
+A('FORMULATEXT', 'Information', 'reference', 'The formula in a cell, as text.', (env, [r]) => { if (!(r instanceof Ref)) throw E.NA; const t = env.host.formulaText(r.sid, r.r1, r.c1); if (t == null) throw E.NA; return t })
+A('ISFORMULA', 'Information', 'reference', 'TRUE if the cell holds a formula.', (env, [r]) => { if (!(r instanceof Ref)) throw E.VALUE; return env.host.formulaText(r.sid, r.r1, r.c1) != null })
+S('HYPERLINK', 'Lookup', 'link_location, [friendly_name]', 'Shows a link as text (Ctrl+click a URL cell to open it).', (l, n) => (n === undefined ? toStr(l) : n))
+S('CEILING.MATH', 'Math', 'number, [significance], [mode]', 'Rounds up to a multiple (negative numbers go toward zero unless mode is set).', (x, s, m) => { x = toNum(x); s = s === undefined ? 1 : Math.abs(toNum(s)); if (s === 0) return 0; return x < 0 && m !== undefined && toNum(m) !== 0 ? -Math.ceil(-x / s - 1e-12) * s : Math.ceil(x / s - 1e-12) * s })
+S('FLOOR.MATH', 'Math', 'number, [significance], [mode]', 'Rounds down to a multiple (negative numbers go away from zero unless mode is set).', (x, s, m) => { x = toNum(x); s = s === undefined ? 1 : Math.abs(toNum(s)); if (s === 0) return 0; return x < 0 && m !== undefined && toNum(m) !== 0 ? -Math.floor(-x / s + 1e-12) * s : Math.floor(x / s + 1e-12) * s })
+S('SINH', 'Math', 'number', 'Hyperbolic sine.', (x) => fin(Math.sinh(toNum(x))))
+S('COSH', 'Math', 'number', 'Hyperbolic cosine.', (x) => fin(Math.cosh(toNum(x))))
+S('TANH', 'Math', 'number', 'Hyperbolic tangent.', (x) => Math.tanh(toNum(x)))
+S('DOLLAR', 'Text', 'number, [decimals]', 'Formats a number as currency text with a $ sign.', (n, d) => { d = d === undefined ? 2 : toInt(d); const f = `#,##0${d > 0 ? '.' + '0'.repeat(d) : ''}`; return formatValue(rnd(toNum(n), d, Math.round), `"$"${f};-"$"${f}`).text })
+S('EFFECT', 'Financial', 'nominal_rate, npery', 'Effective annual interest rate.', (r, n) => { r = toNum(r); n = Math.trunc(toNum(n)); if (r <= 0 || n < 1) throw E.NUM; return fin(Math.pow(1 + r / n, n) - 1) })
+S('NOMINAL', 'Financial', 'effect_rate, npery', 'Nominal annual interest rate.', (r, n) => { r = toNum(r); n = Math.trunc(toNum(n)); if (r <= 0 || n < 1) throw E.NUM; return fin(n * (Math.pow(1 + r, 1 / n) - 1)) })
+S('RRI', 'Financial', 'nper, pv, fv', 'Interest rate for the growth of an investment.', (n, pv, fv) => { n = toNum(n); pv = toNum(pv); fv = toNum(fv); if (n <= 0 || pv === 0) throw E.NUM; return fin(Math.pow(fv / pv, 1 / n) - 1) })
+S('PDURATION', 'Financial', 'rate, pv, fv', 'Periods needed for an investment to reach a value.', (r, pv, fv) => { r = toNum(r); pv = toNum(pv); fv = toNum(fv); if (r <= 0 || pv <= 0 || fv <= 0) throw E.NUM; return fin(Math.log(fv / pv) / Math.log(1 + r)) })
+S('SYD', 'Financial', 'cost, salvage, life, per', 'Sum-of-years-digits depreciation.', (c, s, l, p) => { c = toNum(c); s = toNum(s); l = toNum(l); p = toNum(p); if (l <= 0 || p < 1 || p > l) throw E.NUM; return ((c - s) * (l - p + 1) * 2) / (l * (l + 1)) })
+S('DDB', 'Financial', 'cost, salvage, life, period, [factor]', 'Declining-balance depreciation.', (c, s, l, p, f) => { c = toNum(c); s = toNum(s); l = toNum(l); p = toNum(p); f = f === undefined ? 2 : toNum(f); if (l <= 0 || p < 1 || p > l) throw E.NUM; let book = c, dep = 0; for (let i = 1; i <= p; i++) { dep = Math.min((book * f) / l, Math.max(0, book - s)); book -= dep } return dep })
+A('MIRR', 'Financial', 'values, finance_rate, reinvest_rate', 'Modified internal rate of return.', (env, [v, fr, rr]) => {
+  const cf = numsStrict(env, v), f = toNum(scalar1(env, fr)), r = toNum(scalar1(env, rr)), n = cf.length
+  let pos = 0, neg = 0
+  cf.forEach((x, i) => { if (x > 0) pos += x * Math.pow(1 + r, n - 1 - i); else neg += x / Math.pow(1 + f, i) })
+  if (!pos || !neg) throw E.DIV0
+  return fin(Math.pow(pos / -neg, 1 / (n - 1)) - 1)
+})
+S('DAYS360', 'Date', 'start_date, end_date, [method]', 'Days between dates on a 360-day year.', (a, b, m) => {
+  const p = serialParts(serialDate(a)), q = serialParts(serialDate(b))
+  let d1 = p.d, d2 = q.d
+  if (m !== undefined && toBool(m)) { if (d1 === 31) d1 = 30; if (d2 === 31) d2 = 30 } else {
+    const eom = (s) => new Date(Date.UTC(s.y, s.m, 0)).getUTCDate()
+    if (d1 === eom(p) && p.m === 2) d1 = 30
+    if (d2 === 31 && d1 >= 30) d2 = 30
+    if (d1 === 31) d1 = 30
+  }
+  return (q.y - p.y) * 360 + (q.m - p.m) * 30 + (d2 - d1)
+})
+S('YEARFRAC', 'Date', 'start_date, end_date, [basis]', 'Fraction of a year between two dates.', (a, b, bs) => {
+  let s = serialDate(a), e = serialDate(b); if (s > e) [s, e] = [e, s]
+  const basis = bs === undefined ? 0 : toInt(bs)
+  const p = serialParts(s), q = serialParts(e)
+  if (basis === 0 || basis === 4) {
+    let d1 = p.d, d2 = q.d
+    if (basis === 0) { const eom = (x) => new Date(Date.UTC(x.y, x.m, 0)).getUTCDate(); if (p.m === 2 && d1 === eom(p)) d1 = 30; if (d2 === 31 && d1 >= 30) d2 = 30; if (d1 === 31) d1 = 30 } else { if (d1 === 31) d1 = 30; if (d2 === 31) d2 = 30 }
+    return ((q.y - p.y) * 360 + (q.m - p.m) * 30 + (d2 - d1)) / 360
+  }
+  if (basis === 2) return (e - s) / 360
+  if (basis === 3) return (e - s) / 365
+  if (basis !== 1) throw E.NUM
+  const leap = (y) => (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0
+  if (p.y === q.y) return (e - s) / (leap(p.y) ? 366 : 365)
+  let days = 0
+  for (let y = p.y; y <= q.y; y++) days += leap(y) ? 366 : 365
+  return (e - s) / (days / (q.y - p.y + 1))
+})
+
 // ---------- helpers for the editor ----------
 export const functionNames = () => Object.keys(FUNCS).sort()

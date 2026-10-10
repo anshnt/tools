@@ -158,6 +158,7 @@ export class Model {
       extent: (sid) => this.extent(sid),
       rowHidden: (sid, r, manual) => { const sh = this.byId.get(sid); return !!(sh && (sh.fHide[r] || (manual && sh.hideR[r]))) },
       parseRef: (text, sid) => this.parseRefText(text, sid),
+      formulaText: (sid, r, c) => { const cell = this.byId.get(sid)?.cells.get(ck(r, c)); return cell && cell.f != null ? '=' + cell.f : null },
       name: (n) => { const d = this.wb.names[n.toUpperCase()]; return d ? this.parseRefText(d.ref, null) : null },
     }
   }

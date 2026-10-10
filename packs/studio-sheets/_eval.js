@@ -111,7 +111,7 @@ function ev(n, env) {
       if (!(a instanceof Ref) || !(b instanceof Ref) || a.sid !== b.sid) return E.VALUE
       return a.sub(Math.min(a.r1, b.r1), Math.min(a.c1, b.c1), Math.max(a.r2, b.r2), Math.max(a.c2, b.c2))
     }
-    case 'name': return env.host.name(n.name) || E.NAME
+    case 'name': { const key = n.name.toUpperCase(); if (env.vars && key in env.vars) return env.vars[key]; return env.host.name(n.name) || E.NAME }
     case 'arr': return n.rows.map((row) => row.map((x) => { const v = deref(env, ev(x, env)); return v === undefined ? null : v }))
     case 'un': {
       const v = deref(env, ev(n.e, env))
@@ -131,7 +131,7 @@ function ev(n, env) {
       if (!def) return E.NAME
       const argc = n.args.length
       if (argc < def.min || argc > def.max) return E.VALUE
-      if (def.kind === 'l') return def.f(env, n.args, (x) => ev(x, env))
+      if (def.kind === 'l') return def.f(env, n.args, (x, e2) => ev(x, e2 || env))
       const args = n.args.map((x) => ev(x, env))
       if (def.kind === 'a') { try { return def.f(env, args) } catch (e) { if (e instanceof XErr) return e; throw e } }
       try { return callScalar(def, env, args) } catch (e) { if (e instanceof XErr) return e; throw e }

@@ -89,7 +89,7 @@ export class Editor {
     const hgt = Math.max(rect.h, lines.length * 19 * g.zoom + 6)
     Object.assign(this.ta.style, {
       opacity: '1', pointerEvents: 'auto', left: rect.x - 1 + 'px', top: rect.y - 1 + 'px', width: Math.max(rect.w, Math.min(w, maxW)) + 2 + 'px', height: hgt + 2 + 'px',
-      font: `${st.i ? 'italic ' : ''}${st.b ? '600 ' : ''}${fontPx(st) * g.zoom}px ${g.fontFamily}`, textAlign: st.ha || (typeof g.model.valueAt(sh.id, this.r, this.c) === 'number' ? 'right' : 'left'),
+      font: `${st.i ? 'italic ' : ''}${st.b ? '600 ' : ''}${fontPx(st) * g.zoom}px ${g.fontFamily}`, textAlign: st.ha || 'left',
     })
     this.placePopups(rect)
   }
