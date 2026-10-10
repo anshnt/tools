@@ -1,5 +1,4 @@
 // Photo Studio: a layered photo editor in the browser. Entry module: mount(root, ctx) builds the app shell and returns a cleanup function.
-// A clean-room take on the same category as the open-source PhotoCraft by ArtCraft (https://github.com/storytold/photocraft); no code is shared.
 import { h, icon, dropzone, toast, modal, button, errorMessage, download, onCleanup } from '../../lib/ui.js'
 import { pickFiles } from '../../lib/files.js'
 import { persisted } from '../../lib/store.js'
@@ -151,12 +150,12 @@ export async function mount(root, ctx) {
   const status = { zoom: h('b', '100%'), size: h('b', '-'), cursor: h('b', ''), sel: h('b', ''), saved: h('span', '') }
   const statusBar = h('div', { class: 'ps-status', 'aria-live': 'off' }, h('span', 'Zoom ', status.zoom), h('span', 'Size ', status.size), h('span', status.cursor), h('span', status.sel), h('span', { class: 'ps-sp' }), status.saved)
   const root_ps = h('div', { class: 'ps', 'data-dock': 'closed' }, top, bar.el, h('div', { class: 'ps-main' }, rail, center, dock), statusBar)
-  const credit = h('p', { class: 'small muted', style: 'margin:10px 4px 0' }, 'Prefer a native app? ', h('a', { class: 'link', href: 'https://github.com/storytold/photocraft', target: '_blank', rel: 'noopener' }, 'PhotoCraft by ArtCraft'), ' is free and open source. Photo Studio runs fully on your device; nothing is uploaded.')
+  const note = h('p', { class: 'small muted', style: 'margin:10px 4px 0' }, 'Photo Studio runs fully on your device; nothing is uploaded.')
   // hidden drop target so files dropped anywhere on the page reach the editor
   const sink = h('div', { class: 'dropzone', hidden: true, 'aria-hidden': 'true' })
   sink._accept = ACCEPT
   sink._take = (files) => app.openFiles(files)
-  root.append(root_ps, credit, sink)
+  root.append(root_ps, note, sink)
   const hideTip = tooltips(root_ps)
 
   // ---------- menus ----------

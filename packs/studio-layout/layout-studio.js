@@ -15,8 +15,6 @@ import * as cmd from './_commands.js'
 import { ibtn } from './_ui.js'
 import { injectCss } from './_css.js'
 
-const REPO = 'https://github.com/storytold/designcraft'
-
 export async function mount(root, { tool, params = {}, signal } = {}) {
   injectCss()
   const urlParams = new URLSearchParams(location.hash.split('?')[1] || '')
@@ -117,7 +115,7 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
   const statSel = status.querySelector('.ls-stat-sel')
 
   const wrap = h('div', { class: 't-ls' }, top, bar, main, status, fileInput, dz)
-  root.append(wrap, h('p', { class: 'ls-credit' }, 'Prefer a native app? ', h('a', { href: REPO, target: '_blank', rel: 'noopener' }, 'DesignCraft by ArtCraft'), ' is free and open source.'))
+  root.append(wrap)
   ed.mounted()
   ed.el.append(fileInput)
   ed.el.append(welcome)

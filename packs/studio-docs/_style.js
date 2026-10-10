@@ -183,14 +183,12 @@ const CSS = `
 .dc-help-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .dc-help-row kbd { margin-left: 3px; }
 
-/* status bar + credit */
+/* status bar */
 .dc-bar { display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-top: 1px solid var(--dc-line); background: var(--surface); font-size: 12.5px; color: var(--muted); flex: none; flex-wrap: wrap; }
 .dc-stat { padding: 0 8px; white-space: nowrap; }
 .dc-grow { flex: 1; }
 .dc-zoomval { min-width: 46px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .dc-bar .dc-btn { height: 28px; min-width: 28px; }
-.dc-credit { padding: 7px 12px; border-top: 1px solid var(--dc-line); background: var(--surface-2); font-size: 12.5px; color: var(--muted); flex: none; text-align: center; }
-.dc-credit a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .dc-drop { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 10%, rgba(10, 10, 16, .4)); backdrop-filter: blur(2px); pointer-events: none; }
 .dc-drop[hidden] { display: none; }
 .dc-drop div { padding: 22px 30px; border: 2px dashed var(--accent); border-radius: 20px; background: var(--surface); font-weight: 600; box-shadow: var(--shadow-lg); }
@@ -219,7 +217,7 @@ const CSS = `
 }
 @media (prefers-reduced-motion: reduce) { .dc-ctx, .dc-pop, .dc-find-bar { animation: none; } .dc-btn, .dc-sw { transition: none; } }
 @media print {
-  .site-header, .site-footer, .page-hero, .crumbs, #scroll-progress, .dc-top, .dc-tools, .dc-ctx, .dc-rail, .dc-side, .dc-bar, .dc-credit, .dc-find-bar, .dc-guides, .related, .toasts { display: none !important; }
+  .site-header, .site-footer, .page-hero, .crumbs, #scroll-progress, .dc-top, .dc-tools, .dc-ctx, .dc-rail, .dc-side, .dc-bar, .dc-find-bar, .dc-guides, .related, .toasts { display: none !important; }
   body { background: #fff !important; } body::before { display: none !important; }
   .t-docs { height: auto !important; border: 0; box-shadow: none; overflow: visible; }
   .dc-main, .dc-work, .dc-canvas { display: block !important; overflow: visible !important; padding: 0 !important; background: #fff !important; }

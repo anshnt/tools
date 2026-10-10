@@ -1,5 +1,4 @@
 // CAD Studio: a 2D drafting app in the browser. Entry module (mount) wires the document, canvas, commands and panels.
-// Clean-room take on the category also covered by the open-source CADCraft (https://github.com/storytold/cadcraft); no code copied.
 import { h, icon, clear, button, toast, modal, debounce, dropzone } from '../../lib/ui.js'
 import { pickFiles, baseName, safeName, download } from '../../lib/files.js'
 import * as idb from '../../lib/idb.js'
@@ -167,7 +166,7 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
   const rootEl = h('div', { class: 't-cad' }, top, h('div', { class: 'cad-main' }, rail, stage, panel), cmdBar, status)
   app.root = rootEl
   rootEl.__cad = app // handle for tests and debugging
-  root.append(rootEl, h('p', { class: 'small muted t-cad-credit' }, 'Prefer a native app? ', h('a', { class: 'link', href: 'https://github.com/storytold/cadcraft', target: '_blank', rel: 'noopener' }, 'CADCraft by ArtCraft'), ' is free and open source.'))
+  root.append(rootEl)
 
   // ---------- Commands ----------
   const cmds = createCommands(app)

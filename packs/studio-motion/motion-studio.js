@@ -1,5 +1,4 @@
 // Motion Studio: a browser motion-graphics editor (keyframes, easing, text and shape layers, effects) with video, GIF and PNG export.
-// A clean-room take on the same category as the open-source EffectCraft by ArtCraft (https://github.com/storytold/effectcraft).
 import { h, icon, button, select, toggle, segmented, modal, toast, alert, progress, busy, download, formatBytes, clear, dropzone } from '../../lib/ui.js'
 import { pickFiles, safeName, baseName } from '../../lib/files.js'
 import * as persist from '../../lib/store.js'
@@ -183,7 +182,6 @@ export async function mount(root, { params = {}, signal }) {
   const tabs = h('div', { class: 'ms-tabs', role: 'tablist' },
     ['timeline', 'inspector'].map((id) => h('button', { type: 'button', role: 'tab', class: 'ms-tab', dataset: { tab: id }, onclick: () => setTab(id) }, id === 'timeline' ? icon('gantt-chart') : icon('sliders-horizontal'), id === 'timeline' ? 'Timeline' : 'Inspector')))
   const foot = h('div', { class: 'ms-foot' },
-    h('span', 'Prefer a native app? ', h('a', { href: 'https://github.com/storytold/effectcraft', target: '_blank', rel: 'noopener' }, 'EffectCraft by ArtCraft'), ' is free and open source.'),
     h('span', { class: 'ms-foot-r' }, 'Everything stays on this device.'))
   const hiddenZone = h('div', { hidden: true })
   const app = h('div', { class: 'ms-app', dataset: { size: 'l', tab: 'timeline' }, style: { '--tl-h': `${tlh}px` } },

@@ -19,7 +19,6 @@ import { DEFAULTS } from './_annots.js'
 import { timeAgo } from './_geom.js'
 
 const SESSION = 'pdf-studio:session'
-const CREDIT = 'https://github.com/storytold/pdfcraft'
 const START = {
   sign: { tool: 'signature', title: 'Sign a PDF', text: 'Open a PDF, then draw, type or upload your signature and place it on the page.' },
   redact: { tool: 'redact', title: 'Redact a PDF', text: 'Mark text or areas to remove for good. Saved files have the covered content really gone.' },
@@ -128,8 +127,7 @@ export async function mount(root, { params = {}, signal } = {}) {
   // ---------- status ----------
   const statusEl = h('span', 'Ready')
   const savedEl = h('span', { class: 'hide-sm' })
-  const foot = h('div', { class: 'pdfs-foot' }, h('div', { class: 'row tight' }, statusEl, savedEl),
-    h('span', { class: 'credit' }, 'Prefer a native app? ', h('a', { href: CREDIT, target: '_blank', rel: 'noopener' }, 'PDFCraft by ArtCraft'), ' is free and open source.'))
+  const foot = h('div', { class: 'pdfs-foot' }, h('div', { class: 'row tight' }, statusEl, savedEl))
   function updateStatus() {
     if (!app.doc) { statusEl.textContent = 'Ready'; return }
     const n = store.state.annots.length

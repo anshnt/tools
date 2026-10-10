@@ -1,5 +1,4 @@
-// Pack studio-audio: Audio Studio, a browser editor in the spirit of Avid Pro Tools (see the open-source SoundCraft by ArtCraft:
-// https://github.com/storytold/soundcraft). Default category: studio.
+// Pack studio-audio: Audio Studio, a browser multitrack audio editor. Default category: studio.
 // The extra entries open the same editor with a starting template; each one keeps its own autosaved project.
 export const cat = 'studio'
 export default [

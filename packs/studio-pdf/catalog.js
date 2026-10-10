@@ -1,5 +1,4 @@
-// Pack studio-pdf: PDF Studio, a browser editor in the spirit of Adobe Acrobat (see the open-source PDFCraft by ArtCraft:
-// https://github.com/storytold/pdfcraft). Default category: studio.
+// Pack studio-pdf: PDF Studio, a browser PDF editor. Default category: studio.
 // The focused entries below open the same editor module with a different starting tool.
 export const cat = 'studio'
 export default [

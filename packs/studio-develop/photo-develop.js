@@ -1,5 +1,4 @@
-// Photo Develop: a Lightroom-style photo editor in the browser. Library, non-destructive develop (WebGL), presets and batch export.
-// Clean-room take on the same category as the open-source LightCraft by ArtCraft (https://github.com/storytold/lightcraft).
+// Photo Develop: a photo develop editor in the browser. Library, non-destructive develop (WebGL), presets and batch export.
 import { h, icon, button, modal, toast, dropzone, onCleanup, errorMessage, download, formatBytes } from '../../lib/ui.js'
 import { pickFiles } from '../../lib/files.js'
 import * as lstore from '../../lib/store.js'
@@ -123,9 +122,7 @@ export async function mount(root, { tool, params = {} }) {
   const setTab = (k) => { develop.dataset.tab = k; tabs.querySelectorAll('button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === k))); if (k === 'presets') sidebar.refresh() }
   if (window.innerWidth <= 1180) leftBtn.setPressed(false)
 
-  const pd = h('div', { class: 'pd', role: 'region', 'aria-label': 'Photo Develop' }, toolbar, busyBox, busyText, h('div', { class: 'pd-main' }, libraryView, develop),
-    h('div', { class: 'small muted', style: 'padding:6px 12px;border-top:1px solid var(--border)' },
-      'Prefer a native app? ', h('a', { class: 'link', href: 'https://github.com/storytold/lightcraft', target: '_blank', rel: 'noopener' }, 'LightCraft by ArtCraft'), ' is free and open source.'))
+  const pd = h('div', { class: 'pd', role: 'region', 'aria-label': 'Photo Develop' }, toolbar, busyBox, busyText, h('div', { class: 'pd-main' }, libraryView, develop))
   root.append(pd)
 
   // ---------- actions ----------

@@ -136,8 +136,6 @@ const CSS = `
 .sx-zoom { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .sx-zoom input[type=range] { width: 110px; margin: 0; }
 .sx-zoom .sx-b { height: 24px; min-width: 24px; }
-.sx-credit { margin: 10px 2px 0; font-size: 12.5px; color: var(--muted); }
-.sx-credit a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .sx-pop { position: fixed; z-index: 400; min-width: 180px; max-width: min(420px, calc(100vw - 16px)); overflow-y: auto; padding: 5px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow-lg); animation: sx-pop .12s var(--ease); outline: none; color: var(--text); font-size: 13px; }
 @keyframes sx-pop { from { opacity: 0; transform: translateY(-3px) scale(.98); } }
 .sx-mi { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 32px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font-size: 13px; text-align: left; cursor: pointer; }

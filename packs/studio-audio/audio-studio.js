@@ -1,5 +1,5 @@
 // Audio Studio: a multitrack audio editor in the browser. Record or import audio, edit clips on a timeline, mix with per-track
-// effects, and export WAV or MP3. A clean-room take on the same category as the open-source SoundCraft by ArtCraft.
+// effects, and export WAV or MP3.
 // Modules: _model (document + edit ops), _engine (WebAudio playback and offline render), _timeline (canvas view + pointer editing),
 // _panels (toolbar, headers, inspector, dialogs), _io (decode + microphone), _export, _store (autosave + project files), _dsp (math).
 import { h, icon, button, toast, modal, dropzone } from '../../lib/ui.js'
@@ -71,8 +71,7 @@ export async function mount(root, { tool, params = {}, signal }) {
   if (matchMedia('(max-width: 760px)').matches) rootEl.classList.add('no-insp')
   // After a mouse click on a button, hand the focus back to the app so Space and the other shortcuts keep driving the transport.
   rootEl.addEventListener('click', (e) => { if (e.detail > 0 && !app.menu && e.target.closest?.('button') && !e.target.closest('.as-head')) rootEl.focus({ preventScroll: true }) })
-  const credit = h('p', { class: 'as-credit' }, 'Prefer a native app? ', h('a', { href: 'https://github.com/storytold/soundcraft', target: '_blank', rel: 'noopener' }, 'SoundCraft by ArtCraft'), ' is free and open source.')
-  root.append(rootEl, credit)
+  root.append(rootEl)
   tl.resize()
 
   // ---------- Change pipeline ----------
