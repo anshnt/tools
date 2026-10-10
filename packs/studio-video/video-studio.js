@@ -1,5 +1,4 @@
-// Video Studio: a multi-track video editor in the browser. Clean-room take on the category of the open-source native app
-// FilmCraft by ArtCraft (https://github.com/storytold/filmcraft). Modules: _model (document + history), _media (library),
+// Video Studio: a multi-track video editor in the browser. Modules: _model (document + history), _media (library),
 // _draw (compositor), _player (preview + audio), _timeline, _panels (media bin + inspector), _export, _style.
 import { h, icon, button, toast, modal, debounce } from '../../lib/ui.js'
 import { download, safeName, pickFiles, baseName } from '../../lib/files.js'
@@ -135,7 +134,6 @@ export async function mount(root, { tool, params = {}, signal }) {
   const mtabs = h('div', { class: 'vs-mtabs' }, mt)
 
   const foot = h('div', { class: 'vs-foot' },
-    h('span', 'Prefer a native app? ', h('a', { href: 'https://github.com/storytold/filmcraft', target: '_blank', rel: 'noopener' }, 'FilmCraft by ArtCraft'), ' is free and open source.'),
     h('span', 'Files stay on this device and the project autosaves in this browser. ', h('button', { type: 'button', onclick: () => actions.showShortcuts() }, 'Keyboard shortcuts')))
 
   const vs = h('div', { class: 'vs', dataset: { m: 'media', tool: 'select' } },

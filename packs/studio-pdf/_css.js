@@ -174,7 +174,6 @@ textarea.ff { padding: 3px; resize: none; line-height: 1.15; }
 .empty-feats .icon { width: 16px; height: 16px; color: var(--accent); }
 .resume { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft); }
 .pdfs-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px 14px; flex-wrap: wrap; padding: 6px 12px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); background: var(--surface); flex: none; }
-.pdfs-foot a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .save-note { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
 .save-note .icon { color: var(--accent); margin-top: 2px; }
 

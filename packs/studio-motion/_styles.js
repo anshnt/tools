@@ -132,7 +132,6 @@ const CSS = `
 .ms-tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
 .ms-tab .icon { width: 16px; height: 16px; }
 .ms-foot { grid-area: foot; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 7px 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); background: var(--surface); }
-.ms-foot a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 
 /* small screens: stack everything, switch between timeline and inspector */
 .ms-app[data-size="s"] { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto auto auto; grid-template-areas: "bar" "rail" "stage" "tabs" "panel" "foot"; }

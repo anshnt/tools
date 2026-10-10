@@ -135,7 +135,6 @@ select.vs-in { appearance:auto; }
 .vs-fade.out { background:linear-gradient(270deg, rgba(0,0,0,.45), transparent); }
 
 .vs-foot { display:flex; flex-wrap:wrap; gap:6px 14px; justify-content:space-between; align-items:center; font-size:12.5px; color:var(--muted); padding:0 4px; }
-.vs-foot a { color:var(--accent); text-decoration:underline; text-underline-offset:2px; }
 .vs-foot button { background:none; border:0; padding:0; color:var(--accent); cursor:pointer; text-decoration:underline; text-underline-offset:2px; font-size:inherit; }
 .vs-mtabs { display:none; }
 .vs-menu { position:fixed; z-index:200; min-width:190px; background:var(--surface); border:1px solid var(--border-strong); border-radius:12px; box-shadow:var(--shadow-lg); padding:5px; display:grid; gap:1px; }

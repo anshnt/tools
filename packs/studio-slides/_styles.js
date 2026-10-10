@@ -167,7 +167,7 @@ export const APP_CSS = `
 .ss-status .ss-hint{overflow:hidden;text-overflow:ellipsis;min-width:0}
 .ss-saved[data-state=saved]{color:var(--success)}
 .ss-saved[data-state=failed]{color:var(--danger)}
-.ss-credit{margin:10px 2px 0}
+.ss-note{margin:10px 2px 0}
 .ss-mtabs{display:none;border-top:1px solid var(--border);background:var(--surface);flex:none}
 .ss-mtab{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:44px;border:0;background:transparent;color:var(--muted);font-weight:600;font-size:13px;cursor:pointer}
 .ss-mtab[aria-selected=true]{color:var(--accent);box-shadow:inset 0 2px 0 var(--accent)}

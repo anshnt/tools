@@ -1,5 +1,4 @@
-// Pack studio-photo: Photo Studio, a browser editor in the spirit of Adobe Photoshop (see the open-source PhotoCraft by ArtCraft:
-// https://github.com/storytold/photocraft). Default category: studio.
+// Pack studio-photo: Photo Studio, a browser layered photo editor. Default category: studio.
 // The focused entries below open the same editor module with a different starting point (params), each with its own autosave slot.
 export const cat = 'studio'
 export default [

@@ -147,7 +147,6 @@ const CSS = `
 .t-cad .cad-tog:hover { background: var(--surface-3); color: var(--text); }
 .t-cad .cad-tog[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 28%, transparent); }
 .t-cad .cad-tog .icon { width: 12px; height: 12px; }
-.t-cad-credit { padding: 10px 4px 0; }
 
 @media (max-width: 1000px) { .t-cad .cad-saved span { display: none; } }
 @media (max-width: 900px) { .t-cad .cad-top .cad-hide-sm { display: none !important; } .t-cad .cad-main { grid-template-columns: auto minmax(0, 1fr); } .t-cad .cad-panel { position: absolute; z-index: 12; right: 0; top: 0; bottom: 0; width: min(330px, 92%); transform: translateX(105%); transition: transform .25s var(--ease); box-shadow: var(--shadow-lg); } .t-cad.panel-open .cad-panel { transform: none; } }

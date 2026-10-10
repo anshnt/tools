@@ -1,5 +1,4 @@
-// Pack studio-docs: Docs, a browser editor in the spirit of Microsoft Word (see the open-source WordCraft by ArtCraft:
-// https://github.com/storytold/wordcraft). Default category: studio.
+// Pack studio-docs: Docs, a browser word processor. Default category: studio.
 export const cat = 'studio'
 export default [
   { id: 'docs-studio', name: 'Docs', desc: 'Write documents with styles, tables and images on A4 or Letter pages. Open and save Word, PDF, Markdown and HTML.', icon: 'file-text', layout: 'app', tags: 'word alternative document editor docx writer processor', ready: true },

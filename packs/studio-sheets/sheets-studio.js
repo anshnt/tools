@@ -1,6 +1,5 @@
 // Sheets: a spreadsheet editor in your browser. Virtualized canvas grid, formulas (190+ functions, own engine), formatting,
 // multiple sheets, fill handle, sort, filter, find, conditional formats, charts, undo, autosave, and Excel/CSV/ODS/PDF in and out.
-// A clean-room take on the same category as the open-source GridCraft by ArtCraft.
 import { h, icon, toast, dropzone } from '../../lib/ui.js'
 import * as idb from '../../lib/idb.js'
 import { Model } from './_model.js'
@@ -153,9 +152,7 @@ class SheetsApp {
     const status = h('div', { class: 'sx-status' }, this.statsEl,
       h('div', { class: 'sx-zoom' }, this.btn('minus', 'Zoom out', () => this.setZoom(this.grid.zoom - 0.1)), this.zoomEl, this.btn('plus', 'Zoom in', () => this.setZoom(this.grid.zoom + 0.1)), this.zoomLabel))
     this.root = h('div', { class: 'sx', 'data-sx': '' }, top, bar, fx, this.main, this.tabsEl, status)
-    const credit = h('p', { class: 'sx-credit' }, 'Prefer a native app? ', h('a', { href: 'https://github.com/storytold/gridcraft', target: '_blank', rel: 'noopener' }, 'GridCraft by ArtCraft'), ' is free and open source.')
-    this.host.append(this.root, credit)
-    this.creditEl = credit
+    this.host.append(this.root)
     // grid
     this.grid = new GridView(this.gv, this.model, this.callbacks(), this.fbar)
     this.gv.append(this.welcome)

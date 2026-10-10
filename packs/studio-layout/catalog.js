@@ -1,5 +1,4 @@
-// Pack studio-layout: Layout Studio, a browser editor in the spirit of Adobe InDesign (see the open-source DesignCraft by ArtCraft:
-// https://github.com/storytold/designcraft). Default category: studio.
+// Pack studio-layout: Layout Studio, a browser page layout editor. Default category: studio.
 // The quick-start entries open the same editor module with a template, so each one is a focused tool of its own.
 export const cat = 'studio'
 export default [

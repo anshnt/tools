@@ -134,8 +134,6 @@ const CSS = `
 .as-mi .icon { width: 16px; height: 16px; color: var(--muted); }
 .as-mi kbd { margin-left: auto; font: 11px var(--mono); color: var(--muted); }
 .as-mi.sep { height: 1px; padding: 0; margin: 5px 4px; background: var(--border); cursor: default; }
-.as-credit { margin: 10px 4px 0; font-size: 12.5px; color: var(--muted); }
-.as-credit a { color: var(--accent); }
 .as-keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 13px; }
 .as-keys kbd { font: 12px var(--mono); padding: 1px 7px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 6px; background: var(--surface-2); justify-self: start; }
 .as-tpl { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }

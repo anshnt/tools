@@ -101,10 +101,9 @@ export async function mount(root, { tool, params = {}, signal }) {
   const sidePanel = buildSide(ed, api)
   const side = h('aside', { class: 'vs-side', 'aria-label': 'Properties panels' }, sidePanel.el)
   const body = h('div', { class: 'vs-body' }, rail, main, side)
-  const credit = h('div', { class: 'vs-credit' },
-    h('span', 'Prefer a native app? ', h('a', { href: 'https://github.com/storytold/vectorcraft', target: '_blank', rel: 'noopener' }, 'VectorCraft by ArtCraft'), ' is free and open source.'),
-    h('span', 'A clean-room browser editor. Your files never leave your device.'))
-  const wrap = h('div', { class: 't-vs', 'aria-label': 'Vector Studio editor' }, bar, opts, body, credit)
+  const note = h('div', { class: 'vs-note' },
+    h('span', 'A browser vector editor. Your files never leave your device.'))
+  const wrap = h('div', { class: 't-vs', 'aria-label': 'Vector Studio editor' }, bar, opts, body, note)
   wrap.__vs = { ed, cv }
   // lets the site's page-wide file drop hand files to the editor (drops outside the canvas, e.g. on the panels)
   const dz = h('div', { class: 'dropzone', hidden: true, 'aria-hidden': 'true' })

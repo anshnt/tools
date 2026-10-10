@@ -1,5 +1,5 @@
 // Slides Studio: a browser slide deck editor. This file wires the modules together and owns keyboard, clipboard,
-// file open/drop, export and the mobile pane switcher. Clean-room take on the category of the open-source DeckCraft.
+// file open/drop, export and the mobile pane switcher.
 import { h, icon, toast, download, progress, errorMessage, isAbort } from '../../lib/ui.js'
 import { safeName } from '../../lib/files.js'
 import { Store } from './_state.js'
@@ -161,9 +161,8 @@ export async function mount(root, { tool, params = {}, signal } = {}) {
     h('div', { class: 'ss-main' }, sorter.el, h('div', { class: 'ss-work' }, rail.el, app.stage.el, notes.el), insp.el),
     mtabs, status.el, drop, hiddenZone)
   const hideTip = mountTips(shell)
-  const credit = h('p', { class: 'small muted ss-credit' }, 'Prefer a native app? ',
-    h('a', { href: 'https://github.com/storytold/deckcraft', target: '_blank', rel: 'noopener' }, 'DeckCraft by ArtCraft'), ' is free and open source. Your slides stay in this browser; nothing is uploaded.')
-  root.append(shell, credit)
+  const note = h('p', { class: 'small muted ss-note' }, 'Your slides stay in this browser; nothing is uploaded.')
+  root.append(shell, note)
   app.stage.render()
   requestAnimationFrame(() => app.stage.setZoom('fit'))
 

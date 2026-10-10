@@ -157,7 +157,6 @@ export const CSS = `
 .ls-recentrow img, .ls-recentrow .ls-thumb-ph { width: 64px; height: 48px; object-fit: contain; background: var(--surface-2); border-radius: 6px; flex: none; }
 .ls-recentrow .meta { flex: 1; min-width: 0; display: grid; } .ls-recentrow small { color: var(--muted); }
 .ls-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.ls-credit { margin: 10px 2px 0; font-size: 13px; color: var(--muted); } .ls-credit a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .ls-rowbar { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* context menu */

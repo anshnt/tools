@@ -1,5 +1,4 @@
-// Pack studio-develop: Photo Develop, a browser editor in the spirit of Adobe Lightroom (see the open-source LightCraft by ArtCraft:
-// https://github.com/storytold/lightcraft). Default category: studio. Focused entries open the same editor with a different start.
+// Pack studio-develop: Photo Develop, a browser photo develop editor. Default category: studio. Focused entries open the same editor with a different start.
 export const cat = 'studio'
 export default [
   { id: 'photo-develop', name: 'Photo Develop', desc: 'Edit and batch-process photos with color, curves and presets.', icon: 'aperture', layout: 'app', tags: 'lightroom alternative develop presets color grading batch raw photo editor', ready: true },

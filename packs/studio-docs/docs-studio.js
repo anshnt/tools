@@ -20,8 +20,6 @@ import { createPaginator } from './_paginate.js'
 import * as store from './_store.js'
 
 const { TextSelection } = PS
-const credit = () => h('div', { class: 'dc-credit' }, 'Prefer a native app? ',
-  h('a', { href: 'https://github.com/storytold/wordcraft', target: '_blank', rel: 'noopener' }, 'WordCraft by ArtCraft'), ' is free and open source.')
 
 export async function mount(root, { params = {}, signal } = {}) {
   injectStyles()
@@ -125,7 +123,7 @@ export async function mount(root, { params = {}, signal } = {}) {
   const fitBtn = tbtn('scan-line', { tip: 'Fit page to width', tipPos: 'top', onClick: () => fitWidth() })
   const bar = h('div', { class: 'dc-bar' }, stat, h('span', { class: 'dc-grow' }), viewBtn, zoomOut, zoomVal, zoomIn, fitBtn)
 
-  t.append(top, toolsSlot, ctxSlot, h('div', { class: 'dc-main' }, rail, side, work), bar, credit())
+  t.append(top, toolsSlot, ctxSlot, h('div', { class: 'dc-main' }, rail, side, work), bar)
 
   // ---------- editor ----------
   const app = {

@@ -179,9 +179,7 @@ const CSS = `
 .t-vs .vs-lempty { color: var(--muted); font-size: 12.5px; padding: 14px 4px; line-height: 1.5; }
 .t-vs .vs-rename { height: 26px; flex: 1; }
 
-.t-vs .vs-credit { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 7px 14px; border-top: 1px solid var(--border); background: var(--surface-2); color: var(--muted); font-size: 12px; flex: none; }
-.t-vs .vs-credit a { color: var(--accent); font-weight: 550; text-decoration: none; }
-.t-vs .vs-credit a:hover { text-decoration: underline; }
+.t-vs .vs-note { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 7px 14px; border-top: 1px solid var(--border); background: var(--surface-2); color: var(--muted); font-size: 12px; flex: none; }
 
 .vs-tip { position: fixed; z-index: 9999; pointer-events: none; padding: 5px 9px; border-radius: 8px; font: 550 12px/1.2 var(--font, system-ui); background: #14141c; color: #fff; box-shadow: 0 8px 24px rgba(0, 0, 0, .3); opacity: 0; transform: translateY(2px); transition: opacity .12s, transform .12s; white-space: nowrap; }
 .vs-tip.on { opacity: 1; transform: none; }
@@ -215,7 +213,7 @@ const CSS = `
   .t-vs .vs-layer { min-height: 40px; }
   .t-vs .vs-lbtn { width: 32px; height: 32px; }
   .t-vs .vs-status .hide-m { display: none; }
-  .t-vs .vs-credit { padding: 6px 10px; font-size: 11.5px; }
+  .t-vs .vs-note { padding: 6px 10px; font-size: 11.5px; }
 }
 @media (prefers-reduced-motion: reduce) { .t-vs *, .vs-tip { transition: none !important; } }
 `
