@@ -14,7 +14,13 @@ import { createView } from './_ds-view.js'
 import { createTools } from './_ds-tools.js'
 import { createCommands } from './_ds-cmd.js'
 import { createMenus } from './_ds-ui-menu.js'
-import { createToolbox, createStandardBar, createPropBar, createPageTabs, createStatusBar } from './_ds-ui-bars.js'
+import { createToolbox, createStandardBar, createPageTabs, createStatusBar } from './_ds-ui-bars.js'
+import { createPropBar } from './_ds-ui-prop.js'
+import { createPalette, openColorDialog } from './_ds-ui-palette.js'
+import { createDocks } from './_ds-ui-docks.js'
+import { leavesOf } from './_ds-ops.js'
+import { selectionStyle } from './_ds-sel.js'
+import { rgbFromCmyk, rgbToHex } from './_ds-colors.js'
 import { shortcutRows } from './_ds-keys.js'
 import { ACCEPT, OpenError, assetIds, openBitmap, openFile } from './_ds-open.js'
 
@@ -45,7 +51,7 @@ export async function mount(root, ctx = {}) {
   const renderer = createRenderer({ store, svgRoot: art, assets, faces: fonts })
   const boxOf = renderer.nodeBox
   const view = createView({ store, host, ov, renderer, boxOf })
-  const tools = createTools({ store, view, boxOf, host })
+  const tools = createTools({ store, view, boxOf, host, renderer })
 
   const app = {
     openPicker: () => input.click(),
@@ -54,26 +60,35 @@ export async function mount(root, ctx = {}) {
     showShortcuts: () => showShortcuts(),
     fullscreen: () => { if (document.fullscreenElement) document.exitFullscreen?.(); else root.requestFullscreen?.().catch(() => {}) },
     gotoPage: (i) => gotoPage(i),
+    colorDialog: (kind) => colorDialog(kind),
+    toggleDock: () => docks.toggle(),
+    dockOpen: () => docks.isOpen(),
   }
-  const commands = createCommands({ store, view, tools, app })
+  const commands = createCommands({ store, view, tools, boxOf, app })
   app.run = commands.run
   app.enabled = commands.enabled
+  app.paint = commands.paint
   const menus = createMenus({ commands, focusBack: () => host.focus({ preventScroll: true }) })
   const toolbox = createToolbox({ store, tools })
-  const std = createStandardBar({ commands, store, app })
-  const prop = createPropBar({ store, boxOf })
+  const std = createStandardBar({ commands, store, app, focusBack: () => host.focus({ preventScroll: true }) })
+  const prop = createPropBar({ store, boxOf, commands })
+  const palette = createPalette({ store, app })
+  app.noteColor = palette.noteColor
+  const docks = createDocks({ store, app, commands, focusBack: () => host.focus({ preventScroll: true }) })
   const pageTabs = createPageTabs({ store, app })
   const status = createStatusBar({ store, view, app })
 
+  const panelsBtn = h('button', { type: 'button', class: 'ds-panelsbtn', 'aria-label': 'Panels', 'aria-haspopup': 'dialog', onclick: () => docks.toggle() }, icon('panel-bottom'), h('span', 'Panels'))
   const wrap = h('div', { class: 't-ds', 'aria-label': 'Draw Studio editor' },
-    h('div', { class: 'ds-top' }, h('div', { class: 'ds-toprow' }, menus.menuButton, menus.bar), std.el, prop.el),
-    h('div', { class: 'ds-mid' }, toolbox.el, stage),
+    h('div', { class: 'ds-top' }, h('div', { class: 'ds-toprow' }, menus.menuButton, menus.bar, panelsBtn), std.el, prop.el),
+    h('div', { class: 'ds-mid' }, toolbox.el, stage, docks.el, palette.el),
     pageTabs.el, status.el, menus.sheet, zone)
   if (quick) { wrap.dataset.quick = quick; wrap.classList.add('ds-dim') }
   root.append(wrap)
+  docks.attach(wrap)
 
   // ---------- refresh ----------
-  const refreshAll = () => { std.refresh(); prop.refresh(); pageTabs.refresh(); status.refresh(); toolbox.refresh() }
+  const refreshAll = () => { std.refresh(); prop.refresh(); pageTabs.refresh(); status.refresh(); toolbox.refresh(); palette.refresh() }
   let hasDoc = false
   const drawEmpty = () => {
     empty.hidden = hasDoc
@@ -129,6 +144,27 @@ export async function mount(root, ctx = {}) {
     if (ind) barBox.removeAttribute('aria-valuenow'); else barBox.setAttribute('aria-valuenow', String(Math.round(frac * 100)))
   }
   const hideBusy = () => { clearTimeout(busyTimer); busy.hidden = true }
+
+  // ---------- colour dialog ----------
+  /** The CMYK numbers the dialog should show again: the first selected shape whose stored hint still equals the colour. */
+  function cmykHint(kind, hex) {
+    const key = kind === 'fill' ? 'fillK' : 'strokeK'
+    for (const l of leavesOf(store.sel.ids.map((id) => store.find(id)?.node).filter(Boolean))) {
+      const k = l[key]
+      if (k && rgbToHex(...rgbFromCmyk(...k)) === hex) return k
+    }
+    return null
+  }
+  function colorDialog(kind) {
+    if (!store.sel.ids.length) { status.say('Select an object first.'); return }
+    const cur = selectionStyle(store)?.[kind]
+    const hex = cur?.kind === 'color' ? cur.hex : '#000000'
+    openColorDialog({
+      kind, hex, K: cmykHint(kind, hex),
+      onApply: (hx, k) => commands.paint(kind, hx, k),
+      onAddToPalette: (hx) => { if (store.tx('Add colour to palette', (r) => ((r.palette || []).includes(hx) ? r : { ...r, palette: [...(r.palette || []), hx].slice(-200) }))) status.say(`Added ${hx} to this document's palette`) },
+    })
+  }
 
   // ---------- dialogs ----------
   const dlg = (title, ic, body, actions) => modal({ title, icon: ic, body: h('div', { class: 't-ds-dlg' }, body), actions })
@@ -246,7 +282,7 @@ export async function mount(root, ctx = {}) {
   })
 
   // ---------- test hook (no globals): root.__ds drives the editor from the harness ----------
-  const api = { store, commands, assets, fonts, renderer, view, tools, openFile: (file, opts) => openFiles([file], opts), openFiles, whenReady: () => store.whenReady() }
+  const api = { store, commands, assets, fonts, renderer, view, tools, docks, palette, prop, openFile: (file, opts) => openFiles([file], opts), openFiles, whenReady: () => store.whenReady() }
   root.__ds = api
   wrap.__ds = api
   host.focus({ preventScroll: true })
@@ -255,7 +291,7 @@ export async function mount(root, ctx = {}) {
     openCtl?.abort()
     clearTimeout(busyTimer)
     cleanups.forEach((fn) => fn())
-    menus.dispose(); view.dispose(); renderer.dispose(); fonts.dispose(); assets.dispose()
+    menus.dispose(); docks.dispose(); view.dispose(); renderer.dispose(); fonts.dispose(); assets.dispose()
     delete root.__ds
     wrap.remove()
   }

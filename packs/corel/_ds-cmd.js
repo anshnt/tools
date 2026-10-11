@@ -2,13 +2,14 @@
 // Menus, the keyboard, buttons and tests all call commands.run(id, args). A command that is cut for time is removed from the table in
 // _ds-keys.js, from the menus and from the toolbox together (no dead controls).
 import { COMMANDS, buildKeymap, normalizeKey } from './_ds-keys.js'
+import { PASS, createEditImpl } from './_ds-cmd-edit.js'
 
 const TYPING = 'input, select, textarea, [contenteditable]:not([contenteditable="false"])'
 // While focus is in a field only these shortcuts still reach the app (the field keeps Ctrl+Z, Ctrl+A, letters, arrows and Esc).
 const ALWAYS = /^(F\d+|Ctrl\+O|Alt\+N)$/
 
-/** env: {store, view, tools, app: {openPicker, newDoc, showNotes, showShortcuts, fullscreen}} */
-export function createCommands({ store, view, tools, app }) {
+/** env: {store, view, tools, boxOf, app: {openPicker, newDoc, showNotes, showShortcuts, fullscreen, gotoPage, colorDialog, toggleDock, dockOpen, noteColor}} */
+export function createCommands({ store, view, tools, boxOf, app }) {
   const topLevelIds = () => {
     const out = []
     for (const l of store.page()?.layers || []) if (!l.hidden && !l.locked) for (const n of l.items) if (!n.hidden && !n.locked) out.push(n.id)
@@ -22,7 +23,7 @@ export function createCommands({ store, view, tools, app }) {
     'edit.undo': { run: () => store.undo(), enabled: () => store.canUndo(), label: () => (store.canUndo() ? `Undo ${store.undoLabel()}` : 'Undo') },
     'edit.redo': { run: () => store.redo(), enabled: () => store.canRedo(), label: () => (store.canRedo() ? `Redo ${store.redoLabel()}` : 'Redo') },
     'edit.selectAll': { run: () => store.setSel(store.ctx != null ? (store.find(store.ctx)?.node?.items || []).filter((n) => !n.hidden && !n.locked).map((n) => n.id) : topLevelIds(), 'marquee') },
-    'edit.selectNone': { run: () => { if (store.sel.ids.length) store.setSel([]); else if (store.ctx != null) { store.ctx = null; store.emit('status') } } },
+    'edit.selectNone': { run: () => { if (tools.cancelGesture()) return; if (store.sel.ids.length) store.setSel([]); else if (store.ctx != null) { store.ctx = null; store.emit('status') } } },
     'view.zoomIn': { run: () => view.zoomAt(1.25, view.size().w / 2, view.size().h / 2) },
     'view.zoomOut': { run: () => view.zoomAt(1 / 1.25, view.size().w / 2, view.size().h / 2) },
     'view.zoomSel': { run: () => view.zoomSel(), enabled: () => store.sel.ids.length > 0 },
@@ -37,12 +38,14 @@ export function createCommands({ store, view, tools, app }) {
     'tool.pan': { run: () => tools.set('pan'), checked: () => store.tool === 'pan' },
     'help.shortcuts': { run: () => app.showShortcuts() },
   }
+  const edit = createEditImpl({ store, boxOf, tools, app })
+  Object.assign(impl, edit.impl)
   const meta = new Map(COMMANDS.map((c) => [c.id, c]))
   for (const id of meta.keys()) if (!impl[id]) console.warn(`Draw Studio: command ${id} has no implementation`)
-  const { map: keymap } = buildKeymap()
+  const { map: keymap, args: keyArgs } = buildKeymap()
 
   const api = {
-    meta, impl,
+    meta, impl, paint: edit.paint,
     has: (id) => meta.has(id) && !!impl[id],
     /** Run a command (may return a promise). Disabled commands do nothing. */
     run(id, args) { const c = impl[id]; if (!c || (c.enabled && !c.enabled())) return undefined; return c.run(args) },
@@ -58,8 +61,11 @@ export function createCommands({ store, view, tools, app }) {
       if (typing && !ALWAYS.test(key)) return false
       const id = keymap.get(key)
       if (!id || !api.has(id)) return false
+      // Tab only belongs to the canvas itself, so keyboard users can still tab out of the app
+      if ((key === 'Tab' || key === 'Shift+Tab') && !e.target.classList?.contains('ds-view')) return false
+      const r = api.run(id, keyArgs.get(key))
+      if (r === PASS) return false
       e.preventDefault(); e.stopPropagation()
-      api.run(id)
       return true
     },
   }

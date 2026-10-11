@@ -1,6 +1,7 @@
 // Node tests for the DOM-free Draw Studio modules.   node packs/corel/tests/ds-unit.test.mjs [samples dir with manifest.json]
 // Covers: _tree, _ds-doc (validateDoc fuzz, immutable helpers), _ds-store (undo fuzz against a deep-clone oracle), _ds-units, _ds-colors,
-// _ds-keys (command table), _ds-text-model, _ds-path, _ds-hit, _ds-open (sniff, font merge, CDR to tree), import specifiers.
+// _ds-keys (command table), _ds-text-model, _ds-path, _ds-hit, _ds-open (sniff, font merge, CDR to tree), import specifiers,
+// and (E3 to E5) _ds-ops, _ds-gesture, _ds-sel and the new commands.
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -443,6 +444,225 @@ if (existsSync(join(samples, 'manifest.json'))) {
     }
   })
 } else console.log(`(skipping CDR sample test: no manifest.json in ${samples})`)
+
+
+// ---------- E3 to E5: operations, gesture maths, selection helpers, new commands ----------
+const Ops = await imp('_ds-ops.js')
+const G = await imp('_ds-gesture.js')
+const Sel = await imp('_ds-sel.js')
+const near = (a, b, e = 1e-6, msg = '') => assert.ok(Math.abs(a - b) <= e, `${msg} ${a} vs ${b}`)
+const boxNear = (b, x, y, w, h, e = 1e-6) => { near(b.x, x, e, 'x'); near(b.y, y, e, 'y'); near(b.w, w, e, 'w'); near(b.h, h, e, 'h') }
+const bbox = (n) => M.pathBBox(n.d)
+/** A frozen test root: Layer A [r1 (0,0,10,10), grp{g1 (20,0,10,10), g2 (40,0,10,10)}, r2 (60,0,10,10)], Layer B [top (5,5,10,10)]. */
+function opsRoot() {
+  const d = D.newDoc({ w: 200, h: 100 })
+  const [la] = d.pages[0].layers
+  const lb = D.newLayer(900, 'Layer B')
+  const A = { ...la, items: [path(10, 0, 0), { id: 13, t: 'group', name: 'Grp', items: [path(11, 20, 0), path(12, 40, 0)] }, path(14, 60, 0)] }
+  const B = { ...lb, items: [path(15, 5, 5)] }
+  return deepFreeze({ ...d, nextId: 1000, pages: [{ ...d.pages[0], layers: [A, B] }] })
+}
+const listIds = (items) => items.map((n) => (n.t === 'group' ? [n.id, listIds(n.items)] : n.id))
+let nid = 5000
+const newId = () => nid++
+
+await t('ops: transformItem for every item type (path, shape, gradient, clip memo, text, image mirror, group)', () => {
+  const grad = { g: 'linear', x1: 0, y1: 0, x2: 10, y2: 0, m: [1, 0, 0, 1, 0, 0], stops: [{ o: 0, c: '#000000', a: 1 }, { o: 1, c: '#ffffff', a: 1 }], spread: 'pad' }
+  const clip = { d: [['M', 0, 0], ['L', 10, 0], ['L', 10, 10], ['Z']], rule: 'nonzero' }
+  const a = deepFreeze({ ...path(1, 0, 0), fill: grad, clip: [clip], shape: { k: 'rect', w: 10, h: 10, rx: 0, ry: 0 }, sm: [1, 0, 0, 1, 0, 0], stroke: '#000000', strokeWidth: 2, dash: [2, 1], dashOffset: 1 })
+  const b = deepFreeze({ ...path(2, 20, 0), clip: [clip] })
+  const R = M.rotate(Math.PI / 6)
+  const memo = new Map()
+  const ta = Ops.transformItem(a, R, { memo }), tb = Ops.transformItem(b, R, { memo })
+  assert.deepEqual(ta.d, M.mapPath(a.d, R))
+  // gradient endpoints equal apply(M, p) of the originals
+  const p1 = M.apply(R, ...M.apply(grad.m, grad.x1, grad.y1)), q1 = M.apply(ta.fill.m, ta.fill.x1, ta.fill.y1)
+  near(p1[0], q1[0]); near(p1[1], q1[1])
+  const p2 = M.apply(R, ...M.apply(grad.m, grad.x2, grad.y2)), q2 = M.apply(ta.fill.m, ta.fill.x2, ta.fill.y2)
+  near(p2[0], q2[0]); near(p2[1], q2[1])
+  assert.deepEqual(ta.sm, M.mul(R, [1, 0, 0, 1, 0, 0]))
+  assert.equal(ta.clip[0], tb.clip[0], 'items that shared a clip keep sharing the mapped copy')
+  assert.deepEqual(ta.clip[0].d, M.mapPath(clip.d, R))
+  assert.equal(ta.strokeWidth, 2, 'outline width is not scaled by default')
+  const ts = Ops.transformItem(a, M.scale(3), { scaleStroke: true })
+  near(ts.strokeWidth, 6); assert.deepEqual(ts.dash, [6, 3]); near(ts.dashOffset, 3)
+  near(ta.rot, -30, 1e-6) // rotate(+30 degrees) turns clockwise on screen, so the counter-clockwise angle is -30
+  // image: a mirror is exact
+  const im = deepFreeze({ id: 3, t: 'image', asset: 'a1', w: 4, h: 4, m: [10, 0, 0, 10, 5, 5], opacity: 1 })
+  const fl = Ops.transformItem(im, [-1, 0, 0, 1, 100, 0])
+  assert.deepEqual(fl.m, [-10, 0, 0, 10, 95, 5])
+  // text: uniform scale folds into size and glyph x, rotation does not
+  const tx = deepFreeze({ id: 4, t: 'text', str: 'Hi', family: 'Arial', size: 12, bold: false, italic: false, fill: '#000000', opacity: 1, m: [1, 0, 0, 1, 5, 20], glyphs: [{ c: 'H', x: 0 }, { c: 'i', x: 8 }], font: 'f1' })
+  const sc = Ops.transformItem(tx, M.mul(M.translate(10, 0), M.scale(2)))
+  near(sc.size, 24); assert.deepEqual(sc.glyphs.map((g) => g.x), [0, 16]); assert.deepEqual(sc.m, [1, 0, 0, 1, 20, 40])
+  const rt = Ops.transformItem(tx, M.rotate(0.5))
+  assert.equal(rt.size, 12); assert.ok(Math.abs(rt.m[1]) > 0.1)
+  // group recurses and keeps ids and names
+  const g = deepFreeze({ id: 9, t: 'group', name: 'G', items: [a, b] })
+  const tg = Ops.transformItem(g, M.translate(5, 5))
+  assert.equal(tg.name, 'G'); assert.equal(tg.id, 9); assert.deepEqual(bbox(tg.items[1]), { x: 25, y: 5, w: 10, h: 10 })
+})
+await t('ops: transformIds moves a group once, keeps untouched nodes identical, ignores identity and bad matrices', () => {
+  const root = opsRoot()
+  const out = Ops.transformIds(root, [13, 11], M.translate(10, 5)) // 11 is inside 13: moved with the group, never twice
+  const grp = out.pages[0].layers[0].items[1]
+  boxNear(bbox(grp.items[0]), 30, 5, 10, 10)
+  assert.equal(out.pages[0].layers[0].items[0], root.pages[0].layers[0].items[0])
+  assert.equal(out.pages[0].layers[1], root.pages[0].layers[1])
+  assert.equal(Ops.transformIds(root, [10], [1, 0, 0, 1, 0, 0]), root)
+  assert.equal(Ops.transformIds(root, [10], [NaN, 0, 0, 1, 0, 0]), root)
+  const m = Ops.mirror(root, [10], 'h', { x: 0, y: 0, w: 10, h: 10 })
+  boxNear(bbox(m.pages[0].layers[0].items[0]), 0, 0, 10, 10)
+  const r90 = Ops.rotate90(root, [10], true, { x: 0, y: 0, w: 20, h: 10 })
+  boxNear(bbox(r90.pages[0].layers[0].items[0]), 5, -5, 10, 10, 1e-6)
+})
+await t('ops: duplicate, group, ungroup, delete, arrange', () => {
+  const root = opsRoot()
+  const out = {}
+  const dup = Ops.duplicate(root, [10, 13], newId, { dx: 5, dy: 5, out })
+  const items = dup.pages[0].layers[0].items
+  assert.equal(items.length, 5); assert.equal(out.ids.length, 2)
+  assert.equal(items[0], root.pages[0].layers[0].items[0]); assert.equal(items[1].t, 'path'); assert.notEqual(items[1].id, 10)
+  boxNear(bbox(items[1]), 5, 5, 10, 10)
+  assert.equal(items[3].t, 'group'); assert.notEqual(items[3].items[0].id, 11); boxNear(bbox(items[3].items[0]), 25, 5, 10, 10)
+  const ids = new Set(); D.walkNodes(dup, (n) => { assert.ok(!ids.has(n.id), 'ids stay unique'); ids.add(n.id) })
+  // group two nodes of one layer: placed where the top-most was, others removed
+  const go = {}
+  const g = Ops.group(root, [10, 14], newId, { out: go })
+  const gl = g.pages[0].layers[0].items
+  assert.equal(gl.length, 2); assert.equal(gl[1].t, 'group'); assert.deepEqual(gl[1].items.map((n) => n.id), [10, 14]); assert.equal(gl[1].id, go.id)
+  assert.equal(Ops.group(root, [10], newId), root, 'one object is not a group')
+  // group across layers goes where the top-most object (Layer B) is
+  const gx = Ops.group(root, [10, 15], newId, {})
+  assert.equal(gx.pages[0].layers[1].items[0].t, 'group'); assert.equal(gx.pages[0].layers[0].items.length, 2)
+  // ungroup restores the children in place; ungroup all goes through nested groups
+  const uo = {}
+  const u = Ops.ungroup(root, [13], { out: uo })
+  assert.deepEqual(u.pages[0].layers[0].items.map((n) => n.id), [10, 11, 12, 14]); assert.deepEqual(uo.ids, [11, 12])
+  const outerId = {}
+  const w = Ops.group(root, [13, 14], newId, { out: outerId })
+  assert.equal(Ops.ungroup(w, [outerId.id]).pages[0].layers[0].items.some((n) => n.t === 'group' && n.id !== 13), false)
+  const flat = Ops.ungroup(w, [outerId.id], { all: true })
+  assert.deepEqual(flat.pages[0].layers[0].items.map((n) => n.id), [10, 11, 12, 14])
+  // delete removes and prunes emptied groups
+  const del = Ops.deleteIds(root, [11, 12])
+  assert.deepEqual(del.pages[0].layers[0].items.map((n) => n.id), [10, 14])
+  // arrange
+  const order = (r) => r.pages[0].layers[0].items.map((n) => n.id)
+  assert.deepEqual(order(Ops.arrange(root, [10], 'front')), [13, 14, 10]); assert.deepEqual(order(Ops.arrange(root, [14], 'back')), [14, 10, 13])
+  assert.deepEqual(order(Ops.arrange(root, [10], 'forward')), [13, 10, 14]); assert.deepEqual(order(Ops.arrange(root, [14], 'backward')), [10, 14, 13])
+  assert.deepEqual(order(Ops.arrange(root, [10, 14], 'reverse')), [14, 13, 10])
+  assert.equal(Ops.arrange(root, [14], 'front'), root, 'already in front: same root, no history step')
+  assert.deepEqual(Ops.arrange(root, [11], 'front').pages[0].layers[0].items[1].items.map((n) => n.id), [12, 11])
+})
+await t('ops: moveNodes (layer, group, above, below), flags, names, layers', () => {
+  const root = opsRoot()
+  const inB = Ops.moveNodes(root, [10, 14], { into: 900 })
+  assert.deepEqual(inB.pages[0].layers[0].items.map((n) => n.id), [13]); assert.deepEqual(inB.pages[0].layers[1].items.map((n) => n.id), [15, 10, 14])
+  const inG = Ops.moveNodes(root, [10], { into: 13 })
+  assert.deepEqual(listIds(inG.pages[0].layers[0].items), [[13, [11, 12, 10]], 14])
+  const above = Ops.moveNodes(root, [10], { above: 14 }), below = Ops.moveNodes(root, [14], { below: 10 })
+  assert.deepEqual(above.pages[0].layers[0].items.map((n) => n.id), [13, 14, 10]); assert.deepEqual(below.pages[0].layers[0].items.map((n) => n.id), [14, 10, 13])
+  assert.equal(Ops.moveNodes(root, [13], { into: 13 }), root, 'a group cannot move into itself')
+  assert.equal(Ops.moveNodes(root, [13], { above: 11 }), root, 'nor next to its own child')
+  const emptied = Ops.moveNodes(root, [11, 12], { into: 900 })
+  assert.deepEqual(emptied.pages[0].layers[0].items.map((n) => n.id), [10, 14], 'a group left empty is removed')
+  const hid = Ops.setFlag(root, [10], 'hidden', true); assert.equal(hid.pages[0].layers[0].items[0].hidden, true)
+  assert.equal(Ops.setFlag(hid, [10], 'hidden', false).pages[0].layers[0].items[0].hidden, undefined); assert.equal(Ops.setFlag(root, [10], 'locked', false), root)
+  assert.equal(Ops.renameNode(root, 10, '  My box ').pages[0].layers[0].items[0].name, 'My box')
+  assert.equal(Ops.renameNode(Ops.renameNode(root, 10, 'x'), 10, '').pages[0].layers[0].items[0].name, undefined)
+  const nl = {}; const added = Ops.addLayer(root, root.pages[0].id, newId, { aboveId: 2, out: nl })
+  assert.deepEqual(added.pages[0].layers.map((l) => l.id), [2, nl.id, 900]); assert.match(added.pages[0].layers[1].name, /^Layer \d+$/)
+  assert.equal(Ops.deleteLayer(Ops.deleteLayer(root, 900), 2).pages[0].layers.length, 1, 'the last layer cannot be deleted')
+  assert.deepEqual(Ops.moveLayer(root, 2, 1).pages[0].layers.map((l) => l.id), [900, 2]); assert.equal(Ops.moveLayer(root, 900, 1), root)
+  assert.equal(Ops.setLayerFlag(root, 900, 'hidden', true).pages[0].layers[1].hidden, true)
+  assert.equal(Ops.renameLayer(root, 900, 'Top').pages[0].layers[1].name, 'Top'); assert.equal(Ops.renamePage(root, root.pages[0].id, 'Cover').pages[0].name, 'Cover')
+})
+await t('ops: setStyle colours every leaf of a group, text takes fill only, K hints, outline rules, styleSummary', () => {
+  const root = opsRoot()
+  const red = Ops.setStyle(root, [13], { fill: '#00ff00', fillK: [0, 0, 0, 0] })
+  const kids = red.pages[0].layers[0].items[1].items
+  assert.ok(kids.every((k) => k.fill === '#00ff00' && k.fillK))
+  const noK = Ops.setStyle(red, [13], { fill: '#112233' })
+  assert.ok(noK.pages[0].layers[0].items[1].items.every((k) => k.fill === '#112233' && !('fillK' in k)), 'a colour set without CMYK drops the old hint')
+  assert.equal(Ops.setStyle(root, [10], { fill: '#ff0000' }), root, 'same colour: same root')
+  const out = Ops.setStyle(root, [10], { stroke: '#000000' })
+  assert.equal(out.pages[0].layers[0].items[0].strokeWidth, Ops.DEFAULT_OUTLINE, 'an outline colour on a shape with no outline gives it a thin one')
+  const w = Ops.setStyle(root, [10], { strokeWidth: 3 }); assert.equal(w.pages[0].layers[0].items[0].stroke, '#000000')
+  const none = Ops.setStyle(root, [10], { fill: null }); assert.equal(none.pages[0].layers[0].items[0].fill, null)
+  const text = { id: 77, t: 'text', str: 'A', family: 'Arial', size: 10, bold: false, italic: false, fill: '#000000', opacity: 1, m: [1, 0, 0, 1, 0, 0] }
+  const withText = D.insertAt(root, 2, null, [text])
+  const tt = Ops.setStyle(withText, [77], { fill: '#ff00ff', stroke: '#00ff00', strokeWidth: 4 })
+  const tn = tt.pages[0].layers[0].items.at(-1); assert.equal(tn.fill, '#ff00ff'); assert.equal(tn.stroke, undefined)
+  assert.equal(Ops.setStyle(withText, [77], { fill: null }).pages[0].layers[0].items.at(-1).fill, '#000000', 'text cannot lose its fill')
+  const sum = Ops.styleSummary([root.pages[0].layers[0].items[0], root.pages[0].layers[0].items[2]])
+  assert.equal(sum.fill.kind, 'color'); assert.equal(sum.fill.hex, '#ff0000'); assert.equal(sum.stroke.kind, 'none'); assert.equal(sum.width, null)
+  const mixed = Ops.styleSummary([root.pages[0].layers[0].items[0], { ...path(99, 0, 0), fill: '#0000ff', stroke: '#000000', strokeWidth: 2 }])
+  assert.equal(mixed.fill.kind, 'mixed'); assert.equal(mixed.width, 2)
+})
+await t('ops: structural sharing on every operation (inputs are deep-frozen, so any mutation would throw)', () => {
+  const root = opsRoot()
+  const ops = [(r) => Ops.transformIds(r, [10], M.translate(1, 1)), (r) => Ops.deleteIds(r, [14]), (r) => Ops.group(r, [10, 14], newId, {}), (r) => Ops.arrange(r, [10], 'front'), (r) => Ops.setStyle(r, [10], { fill: '#00ff00' }), (r) => Ops.duplicate(r, [10], newId, { dx: 1 }), (r) => Ops.moveNodes(r, [10], { into: 900 })]
+  for (const op of ops) { const out = op(root); assert.notEqual(out, root); assert.equal(out.pages[0].layers[1] === root.pages[0].layers[1] || op === ops[6] || op === ops[2], true, 'a layer an operation does not touch keeps its identity') }
+})
+await t('gesture: handle points, scale (ratio, from centre, mirror, clamp), rotate (steps), skew, hit', () => {
+  const box = { x: 10, y: 20, w: 100, h: 50 }
+  assert.deepEqual(G.handlePoint(box, 'nw'), { x: 10, y: 20 }); assert.deepEqual(G.handlePoint(box, 'se'), { x: 110, y: 70 }); assert.deepEqual(G.handlePoint(box, 'n'), { x: 60, y: 20 })
+  const corner = (r) => M.apply(r.M, 110, 70)
+  // dragging the south-east handle scales about the north-west corner
+  let r = G.scaleFromHandle(box, 'se', { x: 100, y: 25 }); near(r.sx, 2); near(r.sy, 1.5); assert.deepEqual(M.apply(r.M, 10, 20), [10, 20]); near(corner(r)[0], 210); near(corner(r)[1], 95)
+  // shift keeps the ratio (the larger factor wins), alt scales about the centre
+  r = G.scaleFromHandle(box, 'se', { x: 100, y: 25 }, { shift: true }); near(r.sx, 2); near(r.sy, 2)
+  r = G.scaleFromHandle(box, 'se', { x: 50, y: 0 }, { alt: true }); assert.deepEqual(M.apply(r.M, 60, 45), [60, 45]); near(r.sx, (50 + 50) / 50)
+  // an edge handle scales one axis, with shift both
+  r = G.scaleFromHandle(box, 'e', { x: 50, y: 99 }); near(r.sx, 1.5); near(r.sy, 1)
+  r = G.scaleFromHandle(box, 's', { x: 0, y: 25 }, { shift: true }); near(r.sy, 1.5); near(r.sx, 1.5)
+  // past the opposite edge mirrors; never collapses to zero
+  r = G.scaleFromHandle(box, 'e', { x: -150, y: 0 }); assert.ok(r.sx < 0)
+  r = G.scaleFromHandle(box, 'e', { x: -100, y: 0 }); assert.ok(Math.abs(r.sx) >= 1e-3 && Number.isFinite(r.M[0]))
+  // rotate carries the pointer round the pivot; Ctrl steps are 15 degrees
+  const piv = { x: 0, y: 0 }
+  r = G.rotateFrom(piv, { x: 10, y: 0 }, { x: 0, y: 10 }); near(r.angle, Math.PI / 2); const q = M.apply(r.M, 10, 0); near(q[0], 0, 1e-9); near(q[1], 10, 1e-9)
+  r = G.rotateFrom(piv, { x: 10, y: 0 }, { x: 10, y: 1 }, { step: G.DEG15 }); near(r.angle, 0)
+  r = G.rotateFrom(piv, { x: 10, y: 0 }, { x: 10, y: 8 }, { step: G.DEG15 }); near(r.angle / G.DEG15, Math.round(r.angle / G.DEG15))
+  // skew: the dragged edge moves by exactly the pointer distance, the pivot line stays put
+  const c = { x: 60, y: 45 }
+  let s = G.skewFromHandle(box, 'n', c, { x: 25, y: 0 }); const top = M.apply(s.M, 60, 20); near(top[0], 85); near(top[1], 20); assert.deepEqual(M.apply(s.M, 60, 45).map((v) => +v.toFixed(9)), [60, 45])
+  s = G.skewFromHandle(box, 'e', c, { x: 0, y: -10 }); const right = M.apply(s.M, 110, 45); near(right[0], 110); near(right[1], 35)
+  assert.equal(G.skewFromHandle(box, 'n', { x: 60, y: 20 }, { x: 5, y: 0 }), null)
+  assert.deepEqual(G.constrainMove(10, 3), { dx: 10, dy: 0 }); assert.deepEqual(G.constrainMove(2, -9), { dx: 0, dy: -9 })
+  assert.equal(G.hitHandle({ x: 0, y: 0, w: 100, h: 100 }, G.HANDLE_IDS, { x: 3, y: 4 }, 8), 'nw'); assert.equal(G.hitHandle({ x: 0, y: 0, w: 100, h: 100 }, G.HANDLE_IDS, { x: 50, y: 50 }, 8), null)
+  const quad = Ops.boxQuad(box, M.translate(5, 5)); assert.deepEqual(quad[0], [15, 25]); assert.deepEqual(quad[2], [115, 75])
+})
+await t('sel: locked (node, layer, parent group), editable and top ids, selection box, tab order', () => {
+  const s0 = S.createStore(opsRoot())
+  const boxOf = H.createBoxer(() => null)
+  s0.setSel([10, 11, 13])
+  assert.deepEqual(Sel.topIds(s0, [10, 11, 13]), [10, 13])
+  boxNear(Sel.selectionBox(s0, boxOf, [10, 13]), 0, 0, 50, 10)
+  assert.deepEqual(Sel.tabOrder(s0), [10, 13, 14, 15])
+  s0.tx('lock', (r) => Ops.setFlag(r, [13], 'locked', true))
+  assert.equal(Sel.isLocked(s0, 11), true, 'a child of a locked group is locked'); assert.equal(Sel.isLocked(s0, 10), false)
+  assert.deepEqual(Sel.editableIds(s0, [10, 11, 13]), [10])
+  s0.tx('lock layer', (r) => Ops.setLayerFlag(r, 900, 'locked', true))
+  assert.equal(Sel.isLocked(s0, 15), true); assert.deepEqual(Sel.tabOrder(s0), [10, 14])
+  const st = Sel.selectionStyle(s0); assert.ok(st === Sel.selectionStyle(s0), 'the summary is cached per root and selection')
+})
+await t('keys: new commands are unique, keyArgs only name keys the command owns, arrows carry their step', () => {
+  const { dupes, map, args } = K.buildKeymap()
+  assert.deepEqual(dupes, [])
+  for (const c of K.COMMANDS) for (const k of Object.keys(c.keyArgs || {})) assert.ok(c.keys.includes(k), `${c.id}: keyArgs for ${k} but the key is not bound`)
+  assert.equal(map.get('Left'), 'object.nudgeLeft'); assert.deepEqual(args.get('Shift+Left'), { step: 10 }); assert.deepEqual(args.get('Ctrl+Up'), { step: 0.1 })
+  for (const k of ['Ctrl+G', 'Ctrl+U', 'Ctrl+Shift+U', 'Ctrl+D', 'Delete', 'Backspace', 'Tab', 'Shift+Tab', 'Ctrl+]', 'Ctrl+Shift+]', 'Shift+PageUp', 'Ctrl+PageUp', 'F11', 'Shift+F12', 'Ctrl+F3', 'Alt+Z']) assert.ok(map.has(k), `${k} is bound`)
+  assert.equal(K.normalizeKey({ key: ']', code: 'BracketRight', ctrlKey: true, shiftKey: true }), 'Ctrl+Shift+]'); assert.equal(K.normalizeKey({ key: 'ArrowLeft', shiftKey: true }), 'Shift+Left'); assert.equal(K.normalizeKey({ key: 'Tab', shiftKey: true }), 'Shift+Tab')
+})
+await t('palette data: default swatches, used colours counted, hex validation for style values', () => {
+  assert.ok(C.DEFAULT_PALETTE.length >= 90)
+  const root = opsRoot()
+  const used = C.usedColors(root, root.pages[0].id)
+  assert.equal(used.find((u) => u.hex === '#ff0000').count, 5)
+  assert.equal(C.normHex('red;background:url(x)'), null)
+})
 
 // ---------- every import specifier resolves (check.mjs only validates static imports) ----------
 const LATE = ['./_psin.js', './_cdrout.js']

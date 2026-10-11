@@ -162,16 +162,24 @@ export function createRenderer({ store, svgRoot, assets, faces }) {
   }
 
   function syncChildren(parent, nodes, locked) {
-    let cursor = parent.firstChild
+    // `prev` is the last element placed, so the insertion point survives building a group whose members were children of this very parent
+    let prev = null
     for (const n of nodes) {
       if (n.hidden) continue
       let el = els.get(n)
       const lockWanted = !!(locked || n.locked)
-      if (!el) { el = build(n, locked); els.set(n, el) } else if (el.hasAttribute('data-lock') !== lockWanted) el.toggleAttribute('data-lock', lockWanted)
-      if (el === cursor) cursor = cursor.nextSibling
-      else parent.insertBefore(el, cursor)
+      if (!el) { el = build(n, locked); els.set(n, el) }
+      else {
+        if (el.hasAttribute('data-lock') !== lockWanted) el.toggleAttribute('data-lock', lockWanted)
+        // a cached group element may have lost children to another parent (a member dragged out, then undo): put its members back
+        if (n.t === 'group') syncChildren(el, n.items, locked)
+      }
+      const at = prev ? prev.nextSibling : parent.firstChild
+      if (el !== at) parent.insertBefore(el, at)
+      prev = el
     }
-    while (cursor) { const next = cursor.nextSibling; parent.removeChild(cursor); cursor = next }
+    let rest = prev ? prev.nextSibling : parent.firstChild
+    while (rest) { const next = rest.nextSibling; parent.removeChild(rest); rest = next }
   }
 
   // ---------- page and layers ----------

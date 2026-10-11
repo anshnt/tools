@@ -1,17 +1,18 @@
 // Draw Studio bars: toolbox, standard bar, property bar, page tabs and status bar. All text goes through textContent (never innerHTML).
 import { h, icon } from '../../lib/ui.js'
 import { describeNode } from './_ds-doc.js'
-import { UNITS_LIST, fmt } from './_ds-units.js'
+import { fmt } from './_ds-units.js'
 import { zoomPercent } from './_ds-view.js'
-import { boxUnion } from './_ds-hit.js'
 import { commandById } from './_ds-keys.js'
+import { selectionStyle } from './_ds-sel.js'
+import { safeHex } from './_ds-ui-palette.js'
 
 const tip = (label, keys) => (keys?.length ? `${label} (${keys[0]})` : label)
 
 /** Icon button wired to a command: refreshes its disabled state through refresh(). */
-function cmdButton(commands, id, { label, text } = {}) {
+function cmdButton(commands, id, { label, text, focusBack } = {}) {
   const c = commandById(id)
-  const btn = h('button', { type: 'button', class: 'ds-btn', 'aria-label': label || c.label.replace('...', ''), title: tip(label || c.label.replace('...', ''), c.keys), onclick: () => commands.run(id) },
+  const btn = h('button', { type: 'button', class: 'ds-btn', 'aria-label': label || c.label.replace('...', ''), title: tip(label || c.label.replace('...', ''), c.keys), onclick: (e) => { commands.run(id); if (e.detail > 0) focusBack?.() } }, // a mouse click leaves the keyboard on the canvas (a disabled button would drop focus to the page)
     icon(c.icon), text ? h('span', { class: 'ds-btn-t' }, text) : null)
   btn.refresh = () => { const on = commands.enabled(id); btn.disabled = !on }
   return btn
@@ -36,44 +37,27 @@ export function createToolbox({ store, tools }) {
   return { el, refresh }
 }
 
-export function createStandardBar({ commands, store, app }) {
+export function createStandardBar({ commands, store, app, focusBack }) {
   const zoomBtn = h('button', { type: 'button', class: 'ds-btn ds-zoomval', 'aria-label': 'Zoom level, click to fit the page', title: 'Zoom (click to fit the page)', onclick: () => commands.run('view.zoomPage') }, '100%')
-  const bs = ['file.new', 'file.open'].map((id) => cmdButton(commands, id))
-  const undo = cmdButton(commands, 'edit.undo'), redo = cmdButton(commands, 'edit.redo')
-  const zo = cmdButton(commands, 'view.zoomOut', { label: 'Zoom out' }), zi = cmdButton(commands, 'view.zoomIn', { label: 'Zoom in' })
-  const fit = cmdButton(commands, 'view.zoomPage', { label: 'Zoom to page' })
-  const fs = cmdButton(commands, 'view.fullscreen', { label: 'Full screen' })
+  const bs = ['file.new', 'file.open'].map((id) => cmdButton(commands, id, { focusBack }))
+  const undo = cmdButton(commands, 'edit.undo', { focusBack }), redo = cmdButton(commands, 'edit.redo', { focusBack })
+  const zo = cmdButton(commands, 'view.zoomOut', { label: 'Zoom out', focusBack }), zi = cmdButton(commands, 'view.zoomIn', { label: 'Zoom in', focusBack })
+  const fit = cmdButton(commands, 'view.zoomPage', { label: 'Zoom to page', focusBack })
+  const fs = cmdButton(commands, 'view.fullscreen', { label: 'Full screen', focusBack })
+  const dockBtn = cmdButton(commands, 'win.objects', { label: 'Show or hide the Objects docker', focusBack })
+  dockBtn.classList.add('ds-dockbtn')
   const sep = () => h('span', { class: 'ds-sep', role: 'separator' })
-  const all = [...bs, undo, redo, zo, zi, fit, fs]
+  const all = [...bs, undo, redo, zo, zi, fit, fs, dockBtn]
   const name = h('span', { class: 'ds-docname', title: '' }, 'Untitled')
-  const el = h('div', { class: 'ds-std', role: 'toolbar', 'aria-label': 'Standard' }, ...bs, sep(), undo, redo, sep(), zo, zoomBtn, zi, fit, h('span', { class: 'ds-grow' }), name, fs)
+  const el = h('div', { class: 'ds-std', role: 'toolbar', 'aria-label': 'Standard' }, ...bs, sep(), undo, redo, sep(), zo, zoomBtn, zi, fit, h('span', { class: 'ds-grow' }), name, dockBtn, fs)
   const refresh = () => {
     all.forEach((b) => b.refresh())
     undo.title = tip(commands.label('edit.undo'), commandById('edit.undo').keys)
     redo.title = tip(commands.label('edit.redo'), commandById('edit.redo').keys)
     zoomBtn.textContent = `${zoomPercent(store.view.z)}%`
+    dockBtn.setAttribute('aria-pressed', String(commands.checked('win.objects')))
     name.textContent = store.root.title + (store.dirty ? ' *' : '')
     name.title = store.root.meta?.name || ''
-  }
-  return { el, refresh }
-}
-
-/** Property bar: for now page and selection facts plus the units choice; later milestones add the editing fields (X, Y, W, H, fonts, ...). */
-export function createPropBar({ store, boxOf }) {
-  const text = h('span', { class: 'ds-prop-t', 'aria-live': 'polite' })
-  const units = h('select', { class: 'select ds-units', 'aria-label': 'Units', onchange: (e) => { const u = e.target.value; store.tx('Change units', (r) => (r.units === u ? r : { ...r, units: u })) } },
-    UNITS_LIST.map((u) => h('option', { value: u }, u)))
-  const el = h('div', { class: 'ds-prop', role: 'toolbar', 'aria-label': 'Properties' }, text, h('span', { class: 'ds-grow' }), h('label', { class: 'ds-unitlbl' }, h('span', 'Units'), units))
-  const refresh = () => {
-    const u = store.root.units
-    units.value = u
-    const page = store.page()
-    const nodes = store.sel.ids.map((id) => store.find(id)?.node).filter(Boolean)
-    if (!nodes.length) text.textContent = page ? `Page size ${fmt(page.w, u)} x ${fmt(page.h, u)} ${u}` : ''
-    else {
-      const b = boxUnion(nodes.map((n) => boxOf(n)))
-      text.textContent = b ? `Size ${fmt(b.w, u)} x ${fmt(b.h, u)} ${u}` : ''
-    }
   }
   return { el, refresh }
 }
@@ -120,7 +104,22 @@ export function createStatusBar({ store, view, app }) {
   const notes = h('button', { type: 'button', class: 'ds-st-notes', hidden: true, onclick: () => app.run('file.notes') })
   const pos = h('span', { class: 'ds-st-pos' })
   const zoom = h('span', { class: 'ds-st-zoom' })
-  const el = h('div', { class: 'ds-status' }, msg, live, h('span', { class: 'ds-grow' }), notes, pos, zoom)
+  // fill and outline swatches of the selection: double-click (or Enter, or a tap) opens the colour dialog
+  const mkSw = (kind, word) => h('button', { type: 'button', class: 'ds-st-sw', 'data-kind': kind, 'aria-label': `${word} colour of the selection. Double-click to change`, title: `${word} (double-click to change)`,
+    ondblclick: () => app.run(kind === 'fill' ? 'effects.fillColor' : 'effects.outlineColor'),
+    onclick: (e) => { if (e.detail === 0 || e.pointerType === 'touch') app.run(kind === 'fill' ? 'effects.fillColor' : 'effects.outlineColor') } })
+  const fillSw = mkSw('fill', 'Fill'), strokeSw = mkSw('stroke', 'Outline')
+  const width = h('span', { class: 'ds-st-w' })
+  const paintSw = h('span', { class: 'ds-st-paint' }, fillSw, strokeSw, width)
+  const el = h('div', { class: 'ds-status' }, msg, live, h('span', { class: 'ds-grow' }), notes, paintSw, pos, zoom)
+  const showPaint = (b, p) => {
+    b.className = 'ds-st-sw'; b.style.background = ''
+    if (!p || p.kind === 'empty') { b.classList.add('empty'); return }
+    if (p.kind === 'none') b.classList.add('none')
+    else if (p.kind === 'mixed') b.classList.add('mixed')
+    else if (p.kind === 'gradient') { const c = p.stops.map(safeHex).filter(Boolean); if (c.length > 1) b.style.background = `linear-gradient(90deg, ${c.join(', ')})`; else b.classList.add('mixed') }
+    else if (safeHex(p.hex)) b.style.background = p.hex
+  }
   let transient = ''
   const selText = () => {
     const ids = store.sel.ids
@@ -135,6 +134,9 @@ export function createStatusBar({ store, view, app }) {
     const t = transient || selText()
     if (msg.textContent !== t) { msg.textContent = t; live.textContent = t }
     zoom.textContent = `${zoomPercent(store.view.z)}%`
+    const st = selectionStyle(store)
+    paintSw.hidden = !st
+    if (st) { showPaint(fillSw, st.fill); showPaint(strokeSw, st.stroke); width.textContent = st.width != null ? `${fmt(st.width, store.root.units)} ${store.root.units}` : '' }
     const n = store.root.warnings.length
     notes.hidden = !n
     notes.textContent = `${n} note${n === 1 ? '' : 's'}`
