@@ -124,8 +124,8 @@ code, kbd, pre, .mono { font-family: var(--mono); font-size: .92em; }
 }
 .brand-mark::after { content: ""; position: absolute; inset: 0; background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, .45) 50%, transparent 70%); transform: translateX(-120%); transition: transform .7s var(--ease); }
 .brand:hover .brand-mark::after { transform: translateX(120%); }
-.brand-mark .icon { width: 18px; height: 18px; transition: transform .5s var(--spring); }
-.brand:hover .brand-mark .icon { transform: rotate(-35deg) scale(1.05); }
+.brand-mark .icon { width: 24px; height: 24px; transition: transform .5s var(--spring); }
+.brand:hover .brand-mark .icon { transform: rotate(-20deg) scale(1.08); }
 @keyframes brandShift { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 .search-trigger {
   display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 8px 0 12px; min-width: 280px; flex-shrink: 0;
