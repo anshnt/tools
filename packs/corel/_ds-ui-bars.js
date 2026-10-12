@@ -5,6 +5,7 @@ import { fmt } from './_ds-units.js'
 import { zoomPercent } from './_ds-view.js'
 import { commandById } from './_ds-keys.js'
 import { selectionStyle } from './_ds-sel.js'
+import { movePage, renamePage } from './_ds-ops.js'
 import { safeHex } from './_ds-ui-palette.js'
 
 const tip = (label, keys) => (keys?.length ? `${label} (${keys[0]})` : label)
@@ -39,7 +40,7 @@ export function createToolbox({ store, tools }) {
 
 export function createStandardBar({ commands, store, app, focusBack }) {
   const zoomBtn = h('button', { type: 'button', class: 'ds-btn ds-zoomval', 'aria-label': 'Zoom level, click to fit the page', title: 'Zoom (click to fit the page)', onclick: () => commands.run('view.zoomPage') }, '100%')
-  const bs = ['file.new', 'file.open'].map((id) => cmdButton(commands, id, { focusBack }))
+  const bs = ['file.new', 'file.open', 'file.save'].map((id) => cmdButton(commands, id, { focusBack }))
   const undo = cmdButton(commands, 'edit.undo', { focusBack }), redo = cmdButton(commands, 'edit.redo', { focusBack })
   const zo = cmdButton(commands, 'view.zoomOut', { label: 'Zoom out', focusBack }), zi = cmdButton(commands, 'view.zoomIn', { label: 'Zoom in', focusBack })
   const fit = cmdButton(commands, 'view.zoomPage', { label: 'Zoom to page', focusBack })
@@ -62,40 +63,97 @@ export function createStandardBar({ commands, store, app, focusBack }) {
   return { el, refresh }
 }
 
+/**
+ * Page tabs: click to switch, double-click to rename, drag a tab to reorder, plus buttons to add, delete and move the current page.
+ * env: {store, app (run, enabled, gotoPage)}. -> {el, refresh, rename(index)}
+ */
 export function createPageTabs({ store, app }) {
   const strip = h('div', { class: 'ds-tabstrip', role: 'tablist', 'aria-label': 'Pages' })
-  const mk = (id, ic, label, enabled) => { const b = h('button', { type: 'button', class: 'ds-btn', 'aria-label': label, title: label, onclick: () => app.run(id) }, icon(ic)); b.refresh = () => { b.disabled = !app.enabled(id) }; return b }
+  const mk = (id, ic, label) => { const b = h('button', { type: 'button', class: 'ds-btn', 'aria-label': label, title: label, onclick: () => app.run(id) }, icon(ic)); b.refresh = () => { b.disabled = !app.enabled(id) }; return b }
   const prev = mk('page.prev', 'chevron-left', 'Previous page'), next = mk('page.next', 'chevron-right', 'Next page')
-  const el = h('div', { class: 'ds-pages' }, prev, strip, next)
-  let key = ''
+  const add = mk('page.insertAfter', 'plus', 'Add a page after this one'), del = mk('page.delete', 'trash-2', 'Delete this page')
+  const left = mk('page.moveLeft', 'arrow-left-to-line', 'Move this page left'), right = mk('page.moveRight', 'arrow-right-to-line', 'Move this page right')
+  const el = h('div', { class: 'ds-pages' }, prev, strip, next, h('span', { class: 'ds-sep', role: 'separator' }), add, left, right, del)
+  let key = '', renaming = false, dragId = null
+  const tabFor = (p, i) => {
+    const b = h('button', { type: 'button', role: 'tab', class: 'ds-tab', 'data-page': String(p.id), draggable: p.pending ? 'false' : 'true', onclick: () => app.gotoPage(i), ondblclick: () => rename(i) },
+      p.pending ? h('span', { class: 'spinner', 'aria-hidden': 'true' }) : null, h('span', { class: 'ds-tab-name' }, p.name))
+    if (p.pending) b.title = 'Still being read'
+    b.addEventListener('dragstart', (e) => { dragId = p.id; e.dataTransfer?.setData('text/plain', `ds-page:${p.id}`); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move' })
+    b.addEventListener('dragend', () => { dragId = null; for (const t of strip.children) t.classList.remove('ds-drop-before', 'ds-drop-after') })
+    b.addEventListener('dragover', (e) => {
+      if (dragId == null || dragId === p.id) return
+      e.preventDefault()
+      const r = b.getBoundingClientRect(), after = e.clientX > r.left + r.width / 2
+      b.classList.toggle('ds-drop-before', !after); b.classList.toggle('ds-drop-after', after)
+    })
+    b.addEventListener('dragleave', () => b.classList.remove('ds-drop-before', 'ds-drop-after'))
+    b.addEventListener('drop', (e) => {
+      if (dragId == null || dragId === p.id) return
+      e.preventDefault()
+      const r = b.getBoundingClientRect(), after = e.clientX > r.left + r.width / 2
+      const from = store.root.pages.findIndex((x) => x.id === dragId)
+      let to = i + (after ? 1 : 0)
+      if (from < to) to--
+      const id = dragId
+      dragId = null
+      for (const t of strip.children) t.classList.remove('ds-drop-before', 'ds-drop-after')
+      if (from >= 0 && to !== from) store.tx('Move page', (r2) => movePage(r2, id, to))
+    })
+    return b
+  }
+  /** Swap the tab label for a text field; Enter or leaving the field keeps the name, Esc keeps the old one. */
+  function rename(i) {
+    const p = store.root.pages[i]
+    const tab = strip.children[i]
+    if (!p || !tab || renaming) return
+    if (p.pending) { store.setStatus('This page is still being read. Try again in a moment.'); return }
+    renaming = true
+    const label = tab.querySelector('.ds-tab-name')
+    const input = h('input', { type: 'text', class: 'input ds-tab-input', 'aria-label': 'Page name', maxlength: 200, value: p.name })
+    label.replaceWith(input)
+    let done = false
+    const finish = (ok) => {
+      if (done) return
+      done = true
+      renaming = false
+      const v = input.value
+      if (ok && v.trim()) store.tx('Rename page', (r) => renamePage(r, p.id, v))
+      key = ''
+      refresh()
+      strip.children[store.root.pages.findIndex((x) => x.id === p.id)]?.focus()
+    }
+    input.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); finish(true) } else if (e.key === 'Escape') { e.preventDefault(); finish(false) } })
+    input.addEventListener('blur', () => finish(true))
+    input.addEventListener('click', (e) => e.stopPropagation())
+    input.addEventListener('dblclick', (e) => e.stopPropagation())
+    input.focus(); input.select()
+  }
   const refresh = () => {
     const pages = store.root.pages
     const k = pages.map((p) => `${p.id}:${p.name}:${p.pending ? 1 : 0}`).join('|')
-    if (k !== key) { // the page list changed: rebuild, and keep focus on the tab strip when it was there
+    if (k !== key && !renaming) { // the page list changed: rebuild, and keep focus on the tab strip when it was there
       const had = strip.contains(document.activeElement)
       key = k
-      strip.replaceChildren(...pages.map((p, i) => {
-        const b = h('button', { type: 'button', role: 'tab', class: 'ds-tab', onclick: () => app.gotoPage(i) },
-          p.pending ? h('span', { class: 'spinner', 'aria-hidden': 'true' }) : null, h('span', p.name))
-        if (p.pending) b.title = 'Still being read'
-        return b
-      }))
+      strip.replaceChildren(...pages.map(tabFor))
       if (had) strip.children[store.pageIndex]?.focus()
     }
     [...strip.children].forEach((b, i) => { const on = i === store.pageIndex; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1 })
     strip.children[store.pageIndex]?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
-    prev.refresh(); next.refresh()
+    for (const b of [prev, next, add, del, left, right]) b.refresh()
   }
   strip.addEventListener('keydown', (e) => {
     const tabs = [...strip.children]
     const i = tabs.indexOf(document.activeElement)
+    if (i < 0) return
+    if (e.key === 'F2') { e.preventDefault(); e.stopPropagation(); rename(i); return }
     const d = { ArrowRight: 1, ArrowLeft: -1 }[e.key]
-    if (i < 0 || !d) return
+    if (!d) return
     e.preventDefault(); e.stopPropagation()
     const j = Math.max(0, Math.min(tabs.length - 1, i + d))
     tabs[j].focus()
   })
-  return { el, refresh }
+  return { el, refresh, rename }
 }
 
 export function createStatusBar({ store, view, app }) {

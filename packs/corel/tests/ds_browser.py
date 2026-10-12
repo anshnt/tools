@@ -1,9 +1,13 @@
-"""Browser checks for Draw Studio (Playwright, the installed Edge). Covers milestones E1 to E5; later milestones append their checks.
+"""Browser checks for Draw Studio (Playwright, the installed Edge). Covers milestones E1 to E8; later milestones append their checks.
+
+Groups: mount inject fixture cdr pixels other handoff leaks keys quick dark phone truth pick pickperf palette objects domfuzz objectsmany objectsfiles editphone
+        pages autosave text textpdf save savetext e2e e678phone
 
     uv run --with playwright --with pillow python ds_browser.py [--only name,name] [--samples DIR] [--fixtures DIR]
 
 Needs the generated fixtures (gen_designpdf.py, gen_cdr.py output). Nothing is downloaded. The user's own file is only read
-when DS_USER_FILE points at it (it is never copied, uploaded or committed).
+locally (DS_USER_FILE, else the .ai or .pdf in Downloads); it is never copied, uploaded or committed. Each run uses a fresh browser profile,
+so autosaved drawings from earlier runs never show up. Saved test files go to DS_OUT (outside the repo).
 """
 import argparse, base64, io, json, os, sys, time
 from pathlib import Path
@@ -21,6 +25,10 @@ SHOTS = Path(os.environ.get("DS_SHOTS", r"C:/Projects/tools-packs/draw-studio-sc
 _UF = [Path(r"C:/Users/Rajvi/Downloads/Ansh Wedding Virtual Invitation.ai"), Path(r"C:/Users/Rajvi/Downloads/Ansh Wedding Virtual Invitation.pdf")]
 USER_FILE = Path(os.environ["DS_USER_FILE"]) if os.environ.get("DS_USER_FILE") else next((p for p in _UF if p.exists()), _UF[0])
 FAILS = []
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # messages may carry Devanagari text
+except Exception:
+    pass
 
 
 def check(cond, msg):
@@ -435,7 +443,7 @@ def t_keys_menus(ctx, base):
     page.keyboard.press("End")
     page.keyboard.press("ArrowUp")
     page.keyboard.press("ArrowRight")
-    check(page.evaluate("() => document.activeElement.dataset.cmd") in ("page.prev", "page.next"), "ArrowRight moves to the next menu (Layout)")
+    check(page.evaluate("() => document.activeElement.dataset.cmd") == "page.insertAfter", "ArrowRight moves to the next menu (Layout)")
     z0 = page.evaluate("() => document.querySelector('.tool-body').__ds.store.view.z")
     page.keyboard.press("Escape")
     check(page.evaluate("() => document.activeElement.textContent") == "Layout", "Esc closes the menu and focuses its title")
@@ -447,21 +455,25 @@ def t_keys_menus(ctx, base):
     page.locator(".ds-units").focus()
     page.keyboard.press("h")
     check(page.evaluate("() => document.querySelector('.tool-body').__ds.store.tool") == "pick", "plain-letter shortcuts are ignored while a field has focus")
-    # New: no prompt for an unchanged drawing, a prompt (Cancel keeps it) when there are changes
+    # New: the New dialog (the details are in the pages check); it warns about unsaved changes, Cancel keeps the drawing
     page.locator(".ds-view").focus()
     page.keyboard.press("Alt+n")
+    page.wait_for_selector("dialog[open]", timeout=3000)
+    check("New drawing" in page.inner_text("dialog[open]") and "not saved" not in page.inner_text("dialog[open]"), "Alt+N opens the New dialog without a warning for an unchanged drawing")
+    page.get_by_role("button", name="Create").click()
     page.wait_for_timeout(300)
     st = page.evaluate(STATE_JS)
-    check(st["title"] == "Untitled" and st["source"] == "new" and st["sizes"] == [[595.28, 841.89]], f"Alt+N starts a blank A4 drawing {st['sizes']}")
+    check(st["title"] == "Untitled" and st["source"] == "new" and st["sizes"] == [[595.28, 841.89]], f"Create starts a blank A4 drawing {st['sizes']}")
     page.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; ds.store.tx('Rename', (r) => ({ ...r, title: 'Changed' })) }")
     page.keyboard.press("Alt+n")
     page.wait_for_selector("dialog[open]", timeout=3000)
+    check("not saved" in page.inner_text("dialog[open]"), "New warns when there are unsaved changes")
     page.get_by_role("button", name="Cancel").click()
     page.wait_for_timeout(200)
-    check(page.evaluate(STATE_JS)["title"] == "Changed", "New asks first when there are unsaved changes (Cancel keeps the drawing)")
+    check(page.evaluate(STATE_JS)["title"] == "Changed", "Cancel keeps the drawing")
     page.keyboard.press("Alt+n")
     page.wait_for_selector("dialog[open]", timeout=3000)
-    page.get_by_role("button", name="New drawing").click()
+    page.get_by_role("button", name="Create").click()
     page.wait_for_timeout(300)
     check(page.evaluate(STATE_JS)["title"] == "Untitled", "confirming starts the new drawing")
     check(not [e for e in errors if "pageerror" in e], f"no uncaught errors {errors[:2]}")
@@ -558,6 +570,18 @@ def t_quick(ctx, base):
             check("Open a drawing" in txt, f"{route}: plain editor")
         open_file(page, SAMPLES / "scene-v1000.cdr")
         check(page.locator(".t-ds.ds-dim").count() == 0 and page.evaluate(STATE_JS)["pages"] >= 1, f"{route}: opens a CDR and un-dims")
+        if label:
+            fmt = route.split("-")[-1]
+            d = dialog(page, timeout=15000)
+            check(f"Save as {label}" in d.inner_text() and d.get_by_label("Format").input_value() == fmt, f"{route}: the Export dialog opens preset to {label} ({d.inner_text()[:30]!r})")
+            check(d.get_by_role("button", name="Edit in Draw Studio").count() == 1, f"{route}: offers Edit in Draw Studio")
+            with page.expect_download(timeout=60000) as dl:
+                d.locator(".btn-primary").click()
+            check(dl.value.suggested_filename.split(".")[-1] in (fmt, "zip"), f"{route}: Save as {label} downloads {dl.value.suggested_filename}")
+            page.wait_for_selector("dialog[open] .alert.success", timeout=10000)
+            d.get_by_role("button", name="Edit in Draw Studio").click()
+            page.wait_for_timeout(300)
+            check(page.locator("dialog[open]").count() == 0, f"{route}: Edit in Draw Studio closes the dialog and leaves the editor")
         check(not errors, f"{route}: no console errors {errors[:2]}")
         page.close()
 
@@ -1479,13 +1503,843 @@ def t_edit_phone(ctx, base):
     page.close()
 
 
+# ---------------------------------------------------------------- E6: pages, New, autosave
+def ds_state(page):
+    return page.evaluate(STATE_JS)
+
+
+def units_of(page):
+    return page.evaluate("() => document.querySelector('.tool-body').__ds.store.root.units")
+
+
+def dialog(page, timeout=5000):
+    page.wait_for_selector("dialog[open]", timeout=timeout)
+    page.wait_for_timeout(250)
+    return page.locator("dialog[open]")
+
+
+def t_pages(ctx, base):
+    """E6: New dialog, page tabs (add, rename, delete, reorder), Layout commands, Page setup, the property bar's page mode. Every operation undoes and redoes exactly."""
+    page, errors = mount(ctx, base)
+    page.get_by_role("button", name="New drawing").click()
+    d = dialog(page)
+    d.get_by_label("Name").fill("Poster")
+    d.get_by_label("Paper size").select_option("A3")
+    d.get_by_role("button", name="Landscape").click()
+    d.get_by_label("Units").select_option("in")
+    check(d.get_by_label("Width").input_value() == "16.535" and d.get_by_label("Height").input_value() == "11.693", f"the size fields show the preset in the chosen units ({d.get_by_label('Width').input_value()} x {d.get_by_label('Height').input_value()})")
+    d.get_by_label("Width").fill("10")
+    check(d.get_by_label("Paper size").input_value() == "Custom", "typing a size switches the preset to Custom")
+    d.get_by_label("Paper size").select_option("A3")
+    d.get_by_role("button", name="Landscape").click()
+    page.get_by_role("button", name="Create").click()
+    page.wait_for_timeout(400)
+    st = ds_state(page)
+    check(st["title"] == "Poster" and units_of(page) == "in" and st["sizes"] == [[1190.55, 841.89]] and st["source"] == "new", f"New creates a blank A3 landscape drawing in inches: {st['title']} {st['sizes']} {units_of(page)}")
+    check(page.locator(".ds-empty").is_hidden(), "the empty state is gone after New")
+    # a drawing with changes warns before it is replaced; Cancel keeps it
+    page.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; ds.store.tx('Rename', (r) => ({ ...r, title: 'Changed' })) }")
+    page.locator(".ds-view").focus()
+    page.keyboard.press("Alt+n")
+    d = dialog(page)
+    check("not saved" in d.inner_text(), "New warns about unsaved changes")
+    page.get_by_role("button", name="Cancel").click()
+    page.wait_for_timeout(200)
+    check(ds_state(page)["title"] == "Changed", "Cancel keeps the drawing")
+    page.keyboard.press("Alt+n")
+    d = dialog(page)
+    d.get_by_label("Name").fill("Second")
+    d.get_by_label("Name").press("Enter")
+    page.wait_for_timeout(400)
+    st = ds_state(page)
+    check(st["title"] == "Second" and st["sizes"] == [[595.28, 841.89]], f"Enter in the name field creates the drawing (default A4): {st['sizes']}")
+
+    # page tabs
+    info = load_scene(page, pages=2)
+    names = lambda: ds_state(page)["names"]
+    cur = lambda: page.evaluate("() => document.querySelector('.tool-body').__ds.store.pageIndex")
+    undo_redo(page, "Add a page", lambda: page.get_by_role("button", name="Add a page after this one").click())
+    check(names() == ["Page 1", "Page 3", "Second"] and cur() == 1, f"the new page goes after the current one and is shown {names()} {cur()}")
+    check(ds_state(page)["sizes"][1] == [400, 300], f"a new page takes the size of the page it follows {ds_state(page)['sizes']}")
+    def rename():
+        page.locator(".ds-tab").nth(1).dblclick()
+        page.wait_for_selector(".ds-tab-input")
+        page.keyboard.press("Control+a")
+        page.keyboard.type("Cover")
+        page.keyboard.press("Enter")
+    undo_redo(page, "Rename a page (double-click)", rename)
+    check(names()[1] == "Cover", f"double-click renames {names()}")
+    page.locator(".ds-tab").nth(1).dblclick()
+    page.keyboard.type("Nope")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(150)
+    check(names()[1] == "Cover", "Esc keeps the old name")
+    page.locator(".ds-tab").nth(1).focus()
+    page.keyboard.press("F2")
+    check(page.locator(".ds-tab-input").count() == 1, "F2 on a focused tab starts renaming")
+    page.keyboard.press("Escape")
+    # reorder: buttons and drag
+    undo_redo(page, "Move page left", lambda: page.get_by_role("button", name="Move this page left").click())
+    check(names()[0] == "Cover" and cur() == 0, f"Move left puts the page first and keeps showing it {names()} {cur()}")
+    check(page.get_by_role("button", name="Move this page left").is_disabled(), "Move left is disabled on the first page")
+    def drag_last_first():
+        page.evaluate("""() => { const tabs = [...document.querySelectorAll('.ds-tab')]; const dt = new DataTransfer(); const a = tabs[tabs.length - 1], b = tabs[0]
+          const r = b.getBoundingClientRect(); const fire = (el, type, x) => el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt, clientX: x, clientY: r.top + 5 }))
+          fire(a, 'dragstart', 0); fire(b, 'dragover', r.left + 2); fire(b, 'drop', r.left + 2); fire(a, 'dragend', 0) }""")
+    undo_redo(page, "Drag a page tab to the front", drag_last_first)
+    check(names()[0] == "Second" and names()[1] == "Cover", f"dragging a tab before another reorders the pages {names()}")
+    undo_redo(page, "Move page right", lambda: page.get_by_role("button", name="Move this page right").click())
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.setPage(2)")
+    n0 = len(names())
+    undo_redo(page, "Delete a page", lambda: page.get_by_role("button", name="Delete this page").click())
+    check(len(names()) == n0 - 1, f"Delete removes the current page {names()}")
+    # Layout menu commands and content survive
+    page.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; ds.store.setPage(ds.store.root.pages.findIndex((p) => p.layers.some((l) => l.items.length > 3))) }")
+    st0 = ds_state(page)
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('page.duplicate')")
+    page.wait_for_timeout(200)
+    names2 = names()
+    check(len(names2) == len(st0["names"]) + 1 and names2[cur()].endswith("copy"), f"Duplicate page adds '<name> copy' and shows it {names2} {cur()}")
+    ids = page.evaluate("""() => { const ds = document.querySelector('.tool-body').__ds; const ids = (p) => { const s = []; const rec = (items) => items.forEach((n) => { s.push(n.id); if (n.t === 'group') rec(n.items) }); p.layers.forEach((l) => rec(l.items)); return s }
+      const r = ds.store.root; const i = ds.store.pageIndex; return [ids(r.pages[i - 1]), ids(r.pages[i])] }""")
+    check(len(ids[0]) == len(ids[1]) > 5 and not set(ids[0]) & set(ids[1]), f"the copy has the same objects with new ids ({len(ids[1])})")
+    check(page.evaluate("() => document.querySelectorAll('.ds-world .ds-layer > [data-id]').length") >= 4, "the copied page is drawn")
+    undo_redo(page, "Insert page before", lambda: page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('page.insertBefore')"))
+    page.get_by_role("menuitem", name="Layout").click()
+    for label in ("Insert page after", "Insert page before", "Duplicate page", "Delete page", "Rename page", "Move page left", "Move page right", "Previous page", "Next page", "Page setup...", "Switch orientation"):
+        check(page.get_by_role("menuitem", name=label).count() == 1, f"Layout menu has {label}")
+    page.keyboard.press("Escape")
+
+    # Page setup: preset, orientation, units, apply to all pages; objects keep their distance from the bottom edge
+    load_scene(page, pages=2)
+    red = page.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; const n = ds.store.root.pages[0].layers[0].items[0]; return [n.id, ds.renderer.nodeBox(n)] }")
+    page.get_by_role("button", name="Page setup").click()
+    d = dialog(page)
+    d.get_by_label("Paper size").select_option("Letter")
+    d.get_by_role("button", name="All pages").click()
+    d.get_by_label("Units").select_option("pt")
+    undo_redo(page, "Page setup (Letter, all pages)", lambda: page.get_by_role("button", name="Apply").click())
+    st = ds_state(page)
+    check(st["sizes"] == [[792, 612], [792, 612]] and units_of(page) == "pt", f"Letter (landscape, as the pages were) on every page, points {st['sizes']} {units_of(page)}")
+    box = nbox(page, red[0])
+    check(abs((612 - (box["y"] + box["h"])) - (300 - (red[1]["y"] + red[1]["h"]))) < 1e-6, "objects keep their distance from the bottom edge when the page grows")
+    # property bar page mode
+    page.keyboard.press("Escape")
+    page.locator(".ds-view").click(position={"x": 5, "y": 5})
+    check(page.locator(".ds-pagebar").is_visible() and page.locator(".ds-pagebar .ds-preset").input_value() == "Letter", "nothing selected: the property bar shows the page (preset Letter)")
+    undo_redo(page, "Property bar paper size", lambda: page.locator(".ds-pagebar .ds-preset").select_option("A5"))
+    check(ds_state(page)["sizes"][0] == [595.28, 419.53], f"A5 keeps the orientation (landscape) {ds_state(page)['sizes'][0]}")
+    undo_redo(page, "Property bar portrait", lambda: page.get_by_role("button", name="Portrait").click())
+    check(ds_state(page)["sizes"][0] == [419.53, 595.28] and page.get_by_role("button", name="Portrait").get_attribute("aria-pressed") == "true", "Portrait swaps width and height")
+    undo_redo(page, "Switch orientation command", lambda: page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('page.orientation')"))
+    def typed_w():
+        w = page.locator(".ds-pagebar input[aria-label='Page width']")
+        w.fill("500"); w.press("Enter")
+    undo_redo(page, "Typed page width", typed_w)
+    check(page.locator(".ds-pagebar .ds-preset").input_value() == "Custom" and abs(ds_state(page)["sizes"][0][0] - 500) < 0.01, "a typed width gives a Custom size (in the document units)")
+    # page operations while nothing is selected leave a clean tree
+    check(not dom_matches_tree(page), f"DOM equals the document: {dom_matches_tree(page)}")
+    check(not [e for e in errors if "pageerror" in e or "console" in e], f"no console errors {errors[:3]}")
+    shot(page, "pages")
+    page.close()
+
+
+def evil_record():
+    """A hostile autosave record as a JSON string (parsed in the page so a __proto__ key stays an own key)."""
+    items = [{"t": "path", "d": "<svg onload=alert(1)>", "fill": "red;background:url(x)"},
+             {"t": "path", "d": [["M", 0, 0], ["L", 5, 5], ["L", 9, 0], ["Z"]], "fill": "red;background:url(x)", "stroke": "javascript:alert(1)"},
+             {"t": "text", "str": "ok", "family": "<b>x</b>", "fill": "url(javascript:alert(1))", "font": "__proto__", "glyphs": [{"c": "ab", "x": 1}]},
+             {"t": "image", "asset": "../../etc", "w": 1, "h": 1, "m": [1, 0, 0, 1, 0, 0]}, {"t": "script", "src": "x"}]
+    root = {"title": "<b>x</b>", "units": "furlongs", "uid": "A B", "fonts": {"bad key!": {}, "__proto__": {"data": None}, "f1": {"family": 'A"};x', "name": 5}},
+            "pages": [{"id": 1, "name": "<img src=x onerror=alert(1)>", "w": "wide", "h": 1e99, "layers": [{"id": 2, "name": "L", "items": items}]}]}
+    return json.dumps({"v": 1, "savedAt": 1, "title": "<img src=x onerror=alert(1)>", "pages": 1, "assetIds": ["../x", 5, "__proto__"], "root": root})
+
+
+def idb_js(expr):
+    return "async () => { const idb = await import('/lib/idb.js'); " + expr + " }"
+
+
+def t_autosave(ctx, base):
+    """E6: edit, reload, Restore gives an identical document; Discard; a poisoned record is cleaned with a note; a damaged one is discarded; saving to a file clears it; quick mode never autosaves."""
+    page, errors = mount(ctx, base)
+    dialogs = []
+    page.on("dialog", lambda dlg: (dialogs.append(dlg.message), dlg.dismiss()))
+    page.evaluate(idb_js("for (const k of await idb.keys('ds:autosave:')) await idb.del(k)"))
+    info = load_scene(page, pages=2)
+    page.evaluate("() => document.querySelector('.tool-body').__ds.persist.flush()")
+    check(page.evaluate(idb_js("return (await idb.keys('ds:autosave:')).length")) == 0, "a drawing with no changes is not autosaved")
+    # edit with real input: nudge Red, rename page 2, add a page
+    select_ids(page, info["ids"]["Red"])
+    page.locator(".ds-view").focus()
+    page.keyboard.press("Shift+ArrowRight")
+    page.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; ds.store.tx('Rename page', (r) => ({ ...r, pages: r.pages.map((p, i) => (i === 1 ? { ...p, name: 'Back' } : p)) })) }")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('page.insertAfter')")
+    page.wait_for_timeout(200)
+    check(page.evaluate("() => document.querySelector('.tool-body').__ds.store.dirty"), "edits mark the drawing as having changes")
+    t0 = time.time()
+    for _ in range(40):
+        if page.evaluate(idb_js("return (await idb.keys('ds:autosave:doc')).length")):
+            break
+        page.wait_for_timeout(250)
+    waited = time.time() - t0
+    keys = page.evaluate(idb_js("return (await idb.keys('ds:autosave:')).sort()"))
+    check("ds:autosave:doc" in keys and any(k.startswith("ds:autosave:a:") for k in keys), f"autosave wrote the document and its picture by itself after {waited:.1f}s {keys}")
+    check(2.0 <= waited <= 8.0, f"autosave is throttled to about 3 s ({waited:.1f}s)")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.persist.flush()")
+    before = page.evaluate("() => JSON.stringify(document.querySelector('.tool-body').__ds.store.root.pages)")
+    page.reload()
+    wait_ds(page)
+    page.wait_for_selector(".ds-restore", timeout=8000)
+    txt = page.inner_text(".ds-restore")
+    check("scene" in txt and "3 pages" in txt, f"the restore banner names the drawing and its pages: {txt[:90]!r}")
+    page.get_by_role("button", name="Restore").click()
+    page.wait_for_function("() => document.querySelector('.tool-body').__ds.store.root.meta.source !== 'new' || document.querySelector('.tool-body').__ds.store.root.pages.length > 1", timeout=15000)
+    page.wait_for_timeout(400)
+    after = page.evaluate("() => JSON.stringify(document.querySelector('.tool-body').__ds.store.root.pages)")
+    same = json.loads(before) == json.loads(after)  # key order is not part of the document
+    check(same, f"Restore gives an identical document ({len(before)} bytes)")
+    st = ds_state(page)
+    check(st["pages"] == 3 and st["assets"] == 1 and st["title"] == "scene", f"pages, picture and title are back {st['pages']} {st['assets']} {st['title']}")
+    check(page.evaluate("() => document.querySelector('.tool-body').__ds.store.dirty"), "a restored drawing counts as unsaved")
+    check(page.evaluate("() => [...document.querySelectorAll('.ds-world image')].every((i) => i.getAttribute('href').startsWith('blob:'))") and page.locator(".ds-world image").count() == 1, "the restored picture is drawn from a blob")
+    check(dom_matches_tree(page) == "", f"DOM equals the restored document {dom_matches_tree(page)}")
+    # Discard
+    page.evaluate("() => document.querySelector('.tool-body').__ds.persist.flush()")
+    page.reload(); wait_ds(page)
+    page.wait_for_selector(".ds-restore", timeout=8000)
+    page.get_by_role("button", name="Discard").click()
+    page.wait_for_timeout(300)
+    check(page.evaluate(idb_js("return (await idb.keys('ds:autosave:')).length")) == 0 and page.locator(".ds-restore").count() == 0, "Discard removes the autosaved drawing")
+    # poisoned record: whitelisted on restore, with a note
+    page.evaluate("async (s) => { const idb = await import('/lib/idb.js'); await idb.set('ds:autosave:doc', JSON.parse(s)) }", evil_record())
+    page.reload(); wait_ds(page)
+    page.wait_for_selector(".ds-restore", timeout=8000)
+    check("<img" in page.inner_text(".ds-restore") and page.locator(".ds-restore img").count() == 0, "a hostile title is shown as text, never as markup")
+    page.get_by_role("button", name="Restore").click()
+    page.wait_for_function("() => document.querySelector('.tool-body').__ds.store.root.warnings.length > 0", timeout=15000)
+    r = page.evaluate("""() => { const ds = document.querySelector('.tool-body').__ds; const r = ds.store.root; const items = r.pages[0].layers[0].items
+      return { warnings: r.warnings, types: items.map((n) => n.t), fill: items[0] && items[0].fill, stroke: items[0] && items[0].stroke, fam: items[1] && items[1].family, tfill: items[1] && items[1].fill, font: items[1] && items[1].font, units: r.units, w: r.pages[0].w, h: r.pages[0].h, imgs: document.querySelectorAll('img[src=x]').length } }""")
+    check(any("skipped" in w for w in r["warnings"]), f"the restore says items were skipped: {r['warnings']}")
+    check(r["types"] == ["path", "text"] and r["fill"] is None and r["stroke"] is None, f"unknown and broken items are dropped, hostile colours become none {r['types']} {r['fill']} {r['stroke']}")
+    check("<" not in r["fam"] and r["tfill"] == "#000000" and r["font"] is None and r["units"] == "mm" and r["w"] <= 20000 and r["h"] <= 20000 and r["imgs"] == 0, f"text, units and page size are validated {r}")
+    check(not dialogs, f"no script ran (no alert) {dialogs}")
+    # a damaged record is discarded with a message, no banner
+    page.evaluate(idb_js("await idb.set('ds:autosave:doc', 'hello')"))
+    page.reload(); wait_ds(page)
+    page.wait_for_timeout(800)
+    check(page.locator(".ds-restore").count() == 0, "a damaged autosave offers no restore")
+    check(page.evaluate(idb_js("return (await idb.keys('ds:autosave:')).length")) == 0, "a damaged autosave is deleted")
+    # saving to a CDR file removes the autosaved copy
+    load_scene(page)
+    page.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; ds.store.tx('Edit', (r) => ({ ...r, title: 'Edited' })) }")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.persist.flush()")
+    check(page.evaluate(idb_js("return (await idb.keys('ds:autosave:doc')).length")) == 1, "the edit was autosaved")
+    page.locator(".ds-view").focus()
+    with page.expect_download(timeout=60000) as dl:
+        page.keyboard.press("Control+s")
+    dl.value.path()
+    page.wait_for_timeout(500)
+    check(page.evaluate(idb_js("return (await idb.keys('ds:autosave:')).length")) == 0 and not page.evaluate("() => document.querySelector('.tool-body').__ds.store.dirty"), "Save as CDR marks the drawing saved and removes the autosaved copy")
+    # quick export mode never autosaves and offers no restore
+    q = ctx.new_page(); q.set_viewport_size({"width": 1280, "height": 800}); open_tool(q, base, "cdr-to-svg")
+    open_file(q, SAMPLES / "scene-v1000.cdr")
+    q.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; ds.store.tx('Edit', (r) => ({ ...r, title: 'Quick edit' })) }")
+    q.wait_for_timeout(4500)
+    check(q.evaluate(idb_js("return (await idb.keys('ds:autosave:')).length")) == 0, "quick export mode never autosaves")
+    q.close()
+    check(not [e for e in errors if "pageerror" in e], f"no uncaught errors {errors[:3]}")
+    page.close()
+
+
+# ---------------------------------------------------------------- E7: text
+TEXTS_JS = """() => { const ds = document.querySelector('.tool-body').__ds; const out = []
+  const rec = (items) => items.forEach((n) => { if (n.t === 'group') rec(n.items); else if (n.t === 'text') out.push({ id: n.id, str: n.str, m: n.m, size: n.size, family: n.family, bold: n.bold, italic: n.italic, align: n.align, lh: n.lh, glyphs: !!n.glyphs, font: n.font || null, fill: n.fill }) })
+  ds.store.root.pages[ds.store.pageIndex].layers.forEach((l) => rec(l.items)); return out }"""
+
+
+def texts(page):
+    return page.evaluate(TEXTS_JS)
+
+
+def new_blank(page, name="Text test"):
+    page.locator(".ds-view").focus()
+    page.keyboard.press("Alt+n")
+    d = dialog(page)
+    d.get_by_label("Name").fill(name)
+    page.get_by_role("button", name="Create").click()
+    page.wait_for_timeout(400)
+
+
+def t_text(ctx, base):
+    """E7: Text tool, in-place editing (ASCII, Devanagari, several lines), font controls, Add font file, Convert to curves, PDF glyph text."""
+    page, errors = mount(ctx, base)
+    new_blank(page)
+    page.keyboard.press("F8")
+    check(page.evaluate("() => document.querySelector('.tool-body').__ds.store.tool") == "text", "F8 selects the Text tool")
+    check(page.locator(".ds-textbar").is_visible(), "the Text tool shows the font controls in the property bar")
+    # a click creates text, typing is ONE undo step
+    def create_ascii():
+        click_pt(page, 100, 200)
+        page.wait_for_selector(".ds-textedit")
+        page.keyboard.type("Hello 123")
+        page.keyboard.press("Escape")
+    undo_redo(page, "Create text 'Hello 123'", create_ascii)
+    t = texts(page)
+    check(len(t) == 1 and t[0]["str"] == "Hello 123" and abs(t[0]["m"][4] - 100) < 1.5 and abs(t[0]["m"][5] - 200) < 1.5 and t[0]["size"] == 24, f"the text sits where it was clicked ({t[0]['m'][4:]})")
+    check(page.locator(".ds-textedit").count() == 0, "Esc ends the editing session")
+    check(sel_of(page) == [t[0]["id"]], "the new text is selected")
+    check("Artistic text" in page.inner_text(".ds-status"), f"status names it: {page.inner_text('.ds-status')[:40]!r}")
+    # empty text creates nothing
+    h0 = hist(page)
+    click_pt(page, 100, 400)
+    page.wait_for_selector(".ds-textedit")
+    page.keyboard.press("Escape")
+    check(len(texts(page)) == 1 and hist(page) == h0, "clicking and leaving without typing creates nothing")
+    # Devanagari, typed through the browser's own text input
+    def create_hindi():
+        click_pt(page, 100, 300)
+        page.wait_for_selector(".ds-textedit")
+        page.keyboard.insert_text("नमस्ते दुनिया")
+        page.keyboard.press("Escape")
+    undo_redo(page, "Create Devanagari text", create_hindi)
+    hi = [x for x in texts(page) if x["str"].startswith("नमस्ते")][0]
+    check(hi["str"] == "नमस्ते दुनिया", f"Devanagari is stored as typed ({hi['str']!r})")
+    check(nbox(page, hi["id"])["w"] > 40, f"and drawn with a width ({nbox(page, hi['id'])['w']:.1f} pt)")
+    check("Nirmala UI" in page.evaluate("(id) => document.querySelector('.tool-body').__ds.renderer.elOf(id).querySelector('text').getAttribute('font-family')", hi["id"]), "the font stack carries the complex-script fallbacks")
+    # several lines
+    h1 = hist(page)
+    click_pt(page, 300, 200)
+    page.wait_for_selector(".ds-textedit")
+    page.keyboard.type("Line one")
+    page.keyboard.press("Enter")
+    page.keyboard.type("Line two is longer")
+    page.keyboard.press("Escape")
+    ml = [x for x in texts(page) if x["str"].startswith("Line one")][0]
+    check(ml["str"] == "Line one\nLine two is longer" and hist(page)[1] == h1[1] + 1, "Enter adds a line, the whole session is one undo step")
+    dom = page.evaluate("(id) => [...document.querySelector('.tool-body').__ds.renderer.elOf(id).querySelectorAll('tspan')].map((t) => [t.getAttribute('dy'), t.textContent])", ml["id"])
+    check(len(dom) == 2 and abs(float(dom[1][0]) - ml["lh"] * ml["size"]) < 1e-3, f"lines are laid out with the line height (dy {dom[1][0]} = {ml['lh']} x {ml['size']})")
+    b = nbox(page, ml["id"])
+    check(b["h"] > 1.8 * ml["size"] * 0.9, f"the box covers both lines ({b['h']:.1f} pt)")
+    # Pick: Enter and double-click edit it again
+    page.keyboard.press("v")
+    select_ids(page, ml["id"])
+    page.locator(".ds-view").focus()
+    page.keyboard.press("Enter")
+    page.wait_for_selector(".ds-textedit", timeout=3000)
+    check(page.evaluate("() => document.querySelector('.tool-body').__ds.store.tool") == "text", "Enter on selected text edits it in place")
+    page.keyboard.press("Control+a")
+    page.keyboard.type("Replaced")
+    page.keyboard.press("Escape")
+    check([x for x in texts(page) if x["id"] == ml["id"]][0]["str"] == "Replaced", "typing replaces the selected text")
+    page.keyboard.press("Control+z")
+    check([x for x in texts(page) if x["id"] == ml["id"]][0]["str"] == "Line one\nLine two is longer", "Ctrl+Z after the session restores the text")
+    page.keyboard.press("v")
+    page.keyboard.press("Escape")
+    b = nbox(page, ml["id"])
+    sx, sy = scr(page, b["x"] + 10, b["y"] + b["h"] / 2)
+    page.mouse.dblclick(sx, sy)
+    page.wait_for_selector(".ds-textedit", timeout=3000)
+    check(True, "double-click with the Pick tool edits text in place")
+    page.keyboard.press("Escape")
+
+    # font controls: each is one undo step on the selected text
+    select_ids(page, t[0]["id"])
+    tid = t[0]["id"]
+    node = lambda: [x for x in texts(page) if x["id"] == tid][0]
+    box0 = nbox(page, tid)
+    undo_redo(page, "Font family", lambda: page.locator(".ds-textbar select[aria-label='Font']").select_option("Noto Serif"))
+    check(node()["family"] == "Noto Serif", f"family applies ({node()['family']})")
+    def set_size():
+        f = page.locator(".ds-textbar input[aria-label='Font size in points']"); f.fill("40"); f.press("Enter")
+    undo_redo(page, "Font size", set_size)
+    check(node()["size"] == 40, "size applies (in points)")
+    undo_redo(page, "Bold", lambda: page.get_by_role("button", name="Bold").click())
+    check(node()["bold"] is True and page.get_by_role("button", name="Bold").get_attribute("aria-pressed") == "true", "bold applies and the button shows it")
+    undo_redo(page, "Italic", lambda: page.get_by_role("button", name="Italic").click())
+    check(node()["italic"] is True, "italic applies")
+    page.wait_for_function("() => document.fonts.status === 'loaded'", timeout=15000)
+    page.wait_for_timeout(1200)  # the bundled serif faces arrive from the CDN: measure the text only once they are in
+    b0 = nbox(page, tid)
+    undo_redo(page, "Align centre", lambda: page.get_by_role("button", name="Align centre").click())
+    b1 = nbox(page, tid)
+    check(node()["align"] == "center" and abs(b1["x"] - b0["x"]) < 0.6 and abs(b1["y"] - b0["y"]) < 0.6, f"alignment changes without moving the text ({b0['x']:.2f} -> {b1['x']:.2f})")
+    check(page.evaluate("(id) => document.querySelector('.tool-body').__ds.renderer.elOf(id).querySelector('text').getAttribute('text-anchor')", tid) == "middle", "centre alignment is drawn with a middle anchor")
+    def set_lh():
+        f = page.locator(".ds-textbar input[aria-label^='Line spacing']"); f.fill("2"); f.press("Enter")
+    undo_redo(page, "Line spacing", set_lh)
+    check(node()["lh"] == 2, "line spacing applies")
+    page.locator(".ds-textbar input[aria-label='Font size in points']").fill("12")
+    page.locator(".ds-textbar input[aria-label='Font size in points']").press("Enter")
+    h2 = hist(page)
+    page.locator(".ds-textbar input[aria-label='Font size in points']").fill("13")
+    page.locator(".ds-textbar input[aria-label='Font size in points']").press("Enter")
+    check(hist(page)[1] == h2[1], "typing in the same field within a moment merges into one undo step")
+    # the text size of the next new text follows the bar
+    page.keyboard.press("Escape")
+    page.keyboard.press("F8")
+    page.locator(".ds-textbar input[aria-label='Font size in points']").fill("18")
+    page.locator(".ds-textbar input[aria-label='Font size in points']").press("Enter")
+    click_pt(page, 300, 500)
+    page.wait_for_selector(".ds-textedit")
+    page.keyboard.type("Default")
+    page.keyboard.press("Escape")
+    d2 = [x for x in texts(page) if x["str"] == "Default"][0]
+    check(d2["size"] == 18, f"new text uses the size chosen in the bar ({d2['size']}, {d2['family']})")
+
+    # the Text menu commands do the same through the command table
+    run = lambda c: page.evaluate("(c) => document.querySelector('.tool-body').__ds.commands.run(c)", c)
+    select_ids(page, tid)
+    s0 = node()["size"]
+    run("text.larger"); check(node()["size"] == 20 and s0 == 18, f"Text > Increase size steps to the next size ({s0} -> {node()['size']})")
+    run("text.smaller"); check(node()["size"] == 18, f"Text > Decrease size steps down ({node()['size']})")
+    run("text.bold"); check(node()["bold"] is False, "Text > Bold toggles")
+    run("text.italic"); check(node()["italic"] is False, "Text > Italic toggles")
+    run("text.alignRight"); check(node()["align"] == "right", "Text > Align right")
+    run("text.alignLeft"); check(node()["align"] == "left", "Text > Align left")
+    page.get_by_role("menuitem", name="Text").click()
+    for label in ("Edit text", "Bold", "Italic", "Align left", "Align centre", "Align right", "Increase size", "Decrease size", "Convert to curves", "Add font file..."):
+        check(page.get_by_role("menuitem", name=label).count() == 1, f"Text menu has {label}")
+    page.keyboard.press("Escape")
+    # Add font file: registers a FontFace under a generated family and applies it
+    fontfile = next((p for p in (r"C:/Windows/Fonts/segoeui.ttf", r"C:/Windows/Fonts/arial.ttf") if Path(p).exists()), None)
+    check(fontfile is not None, "a system font file is available for the test")
+    page.keyboard.press("v")
+    select_ids(page, tid)
+    with page.expect_file_chooser() as fc:
+        page.get_by_role("button", name="Add font file").click()
+    fc.value.set_files(fontfile)
+    page.wait_for_function("() => document.querySelector('.tool-body').__ds.fonts.size > 0", timeout=15000)
+    page.wait_for_timeout(500)
+    info = page.evaluate("""(id) => { const ds = document.querySelector('.tool-body').__ds; const r = ds.store.root; const n = ds.store.find(id).node; const k = Object.keys(r.fonts)
+      return { keys: k, rec: k.map((x) => ({ family: r.fonts[x].family, len: r.fonts[x].data.length })), faces: [...document.fonts].filter((f) => f.family.startsWith('ds' + r.uid + '-')).map((f) => f.family), node: { font: n.font, family: n.family },
+        options: [...document.querySelectorAll('.ds-textbar select[aria-label=Font] option')].map((o) => o.textContent), stack: ds.renderer.elOf(id).querySelector('text').getAttribute('font-family') } }""", tid)
+    check(len(info["keys"]) == 1 and info["rec"][0]["len"] > 10000 and len(info["faces"]) == 1, f"the font is registered as a FontFace under a generated family {info['rec']} {info['faces']}")
+    check(info["node"]["font"] == info["keys"][0] and info["node"]["family"] in info["options"], f"it is listed and applied to the selected text {info['node']}")
+    check(info["stack"].startswith('"ds'), f"the text is drawn with the embedded face first ({info['stack'][:50]})")
+    check(page.evaluate("() => document.querySelector('.tool-body').__ds.store.root.fonts[Object.keys(document.querySelector('.tool-body').__ds.store.root.fonts)[0]].data instanceof Uint8Array"), "the bytes stay in the document fonts object")
+    # a wrong file is refused with a message
+    bad = FIX / "evil.svg"
+    with page.expect_file_chooser() as fc:
+        page.get_by_role("button", name="Add font file").click()
+    fc.value.set_files(str(bad))
+    page.wait_for_timeout(800)
+    check(page.evaluate("() => Object.keys(document.querySelector('.tool-body').__ds.store.root.fonts).length") == 1 and "could not be used" in page.inner_text(".toasts"), "a file that is not a font is refused with a message")
+
+    # Convert to curves
+    click_pt(page, 20, 20)
+    cid = [x for x in texts(page) if x["str"] == "Hello 123"][0]["id"]
+    select_ids(page, cid)
+    tb = nbox(page, cid)
+    node0 = node_of(page, cid)
+    page.locator(".ds-view").focus()
+    def to_curves():
+        page.keyboard.press("Control+q")
+        page.wait_for_function("(id) => document.querySelector('.tool-body').__ds.store.find(id).node.t === 'path'", arg=cid, timeout=30000)
+    undo_redo(page, "Convert to curves (Ctrl+Q)", to_curves)
+    pn = node_of(page, cid)
+    ob = nbox(page, cid)
+    check(pn["t"] == "path" and len(pn["d"]) > 10 and pn["fill"] == node0["fill"], f"the text became a filled path ({len(pn['d'])} commands)")
+    baseline = node0["m"][5]
+    check(ob["x"] >= tb["x"] - 1 and ob["x"] + ob["w"] <= tb["x"] + tb["w"] + 1 and abs(ob["w"] - tb["w"]) <= 0.12 * tb["w"], f"the outline sits inside the text box and matches its width (outline {ob['x']:.1f}..{ob['x'] + ob['w']:.1f}, text {tb['x']:.1f}..{tb['x'] + tb['w']:.1f})")
+    check(abs(ob["y"] + ob["h"] - baseline) <= 1.5 or ob["y"] + ob["h"] <= baseline + 1.5, f"the letters rest on the baseline (bottom {ob['y'] + ob['h']:.1f}, baseline {baseline:.1f})")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    check(node_of(page, cid) == node0, "undo brings back the exact text object")
+    # rectangle converts to curves: the shape description goes
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.setSel([])")
+    check(not [e for e in errors if "pageerror" in e], f"no uncaught errors {errors[:3]}")
+    shot(page, "text")
+    page.close()
+
+
+def t_text_pdf(ctx, base):
+    """E7: PDF text opens in glyph mode at the PDF's own positions, edits in place (glyph mode becomes plain text), outlines come from the embedded font."""
+    page, errors = mount(ctx, base)
+    open_file(page, FIX / "designtool-3p.ai")
+    page.wait_for_function("() => document.querySelector('.tool-body').__ds.store.root.pages.every(p => !p.pending)", timeout=90000)
+    gl = [x for x in texts(page) if x["glyphs"]]
+    check(len(gl) >= 4, f"PDF text opens in glyph mode ({len(gl)} items)")
+    # positions: the browser puts every character where the PDF put it (within 0.5 pt)
+    worst = page.evaluate("""() => { const ds = document.querySelector('.tool-body').__ds; let worst = 0, n = 0
+      const rec = (items) => items.forEach((it) => { if (it.t === 'group') return rec(it.items); if (it.t !== 'text' || !it.glyphs) return
+        const t = ds.renderer.elOf(it.id)?.querySelector('text'); if (!t) return
+        let i = 0; for (const g of it.glyphs) { for (let k = 0; k < g.c.length; k++, i++) { if (g.c.trim() === '' ) continue; const p = t.getStartPositionOfChar(i); worst = Math.max(worst, Math.abs(p.x - g.x)); n++ } } })
+      ds.store.root.pages[0].layers.forEach((l) => rec(l.items)); return { worst, n } }""")
+    check(worst["n"] > 30 and worst["worst"] <= 0.5, f"glyph positions agree with the PDF within 0.5 pt ({worst['n']} characters, worst {worst['worst']:.3f})")
+    title = [x for x in gl if x["str"].startswith("Draw Studio")][0]
+    n0 = node_of(page, title["id"])
+    page.evaluate("(id) => { const ds = document.querySelector('.tool-body').__ds; ds.store.setSel([id]); ds.view.zoomSel() }", title["id"])
+    page.wait_for_timeout(300)
+    # Text tool: click the PDF text, type, glyph mode switches to plain text on the first change
+    page.keyboard.press("F8")
+    b = nbox(page, title["id"])
+    sx, sy = scr(page, b["x"] + b["w"] / 2, b["y"] + b["h"] / 2)
+    h0 = hist(page)
+    page.mouse.click(sx, sy)
+    page.wait_for_selector(".ds-textedit", timeout=3000)
+    check(page.evaluate("() => document.querySelector('.ds-textedit').value") == "Draw Studio fixture", "clicking PDF text with the Text tool edits it in place")
+    page.keyboard.press("Escape")
+    check(hist(page) == h0 and node_of(page, title["id"]) == n0, "leaving without a change records nothing and keeps the exact glyph text")
+    page.mouse.click(sx, sy)
+    page.wait_for_selector(".ds-textedit")
+    page.keyboard.press("End")
+    page.keyboard.type(" 2")
+    page.keyboard.press("Escape")
+    n1 = node_of(page, title["id"])
+    check(n1["str"] == "Draw Studio fixture 2" and "glyphs" not in n1 and n1["font"] == n0["font"], f"after the first change the text is plain (glyphs dropped, embedded font kept first) {n1['str']!r}")
+    check(page.evaluate("(id) => document.querySelector('.tool-body').__ds.renderer.elOf(id).querySelector('text').getAttribute('font-family')", title["id"]).startswith('"ds'), "and it is still drawn with the embedded face")
+    page.keyboard.press("Control+z")
+    check(node_of(page, title["id"]) == n0, "undo brings back the exact glyph text")
+    # Convert to curves on PDF text uses the embedded font; the outline matches the glyph run
+    page.keyboard.press("v")
+    select_ids(page, title["id"])
+    page.locator(".ds-view").focus()
+    tb = nbox(page, title["id"])
+    page.keyboard.press("Control+q")
+    page.wait_for_function("(id) => document.querySelector('.tool-body').__ds.store.find(id).node.t === 'path'", arg=title["id"], timeout=30000)
+    ob = nbox(page, title["id"])
+    check(ob["x"] >= tb["x"] - 1 and ob["x"] + ob["w"] <= tb["x"] + tb["w"] + 1 and abs(ob["w"] - tb["w"]) <= 0.1 * tb["w"], f"embedded-font outline lies inside the glyph run box and has its width ({ob['x']:.1f}..{ob['x'] + ob['w']:.1f} vs {tb['x']:.1f}..{tb['x'] + tb['w']:.1f})")
+    # an edited text with spaces the subset font lacks converts without empty boxes: the outline is as wide as the text on screen
+    page.keyboard.press("Control+z")
+    page.keyboard.press("F8")
+    page.mouse.click(sx, sy)
+    page.wait_for_selector(".ds-textedit")
+    page.keyboard.press("End"); page.keyboard.type(" and more words")
+    page.keyboard.press("Escape")
+    page.keyboard.press("v")
+    select_ids(page, title["id"])
+    page.locator(".ds-view").focus()
+    tb2 = nbox(page, title["id"])
+    page.keyboard.press("Control+q")
+    page.wait_for_function("(id) => document.querySelector('.tool-body').__ds.store.find(id).node.t === 'path'", arg=title["id"], timeout=30000)
+    ob2 = nbox(page, title["id"])
+    check(abs(ob2["w"] - tb2["w"]) <= 0.05 * tb2["w"], f"edited text keeps its width when converted ({ob2['w']:.1f} vs {tb2['w']:.1f} pt)")
+    check(not [e for e in errors if "pageerror" in e], f"no uncaught errors {errors[:3]}")
+    page.close()
+
+
+# ---------------------------------------------------------------- E8: save and export
+SUM_JS = """() => { const ds = document.querySelector('.tool-body').__ds; const r = ds.store.root
+  const leaves = (items) => items.flatMap((n) => n.t === 'group' ? leaves(n.items) : [n])
+  return r.pages.map((p) => { const all = p.layers.flatMap((l) => leaves(l.items)); let b = null
+    for (const n of all) { const x = ds.renderer.nodeBox(n); if (!x) continue; b = b ? { x: Math.min(b.x, x.x), y: Math.min(b.y, x.y), x2: Math.max(b.x2, x.x + x.w), y2: Math.max(b.y2, x.y + x.h) } : { x: x.x, y: x.y, x2: x.x + x.w, y2: x.y + x.h } }
+    return { w: p.w, h: p.h, n: all.length, images: all.filter((n) => n.t === 'image').length, box: b && [b.x, b.y, b.x2, b.y2] } }) }"""
+OUTDIR = Path(os.environ.get("DS_OUT", r"C:/Projects/tools-packs/draw-studio-scratch/editor/out"))
+
+
+def export_via_dialog(page, fmt, setup=None, keep_open=False):
+    """Ctrl+Shift+S, choose a format, optionally change options, click the primary button and save the download. Returns (path, dialog text)."""
+    import re
+    OUTDIR.mkdir(parents=True, exist_ok=True)
+    page.locator(".ds-view").focus()
+    page.keyboard.press("Control+Shift+s")
+    d = dialog(page)
+    d.get_by_label("Format").select_option(fmt)
+    page.wait_for_timeout(150)
+    if setup:
+        setup(d)
+    with page.expect_download(timeout=180000) as dl:
+        d.locator(".btn-primary").click()
+    path = OUTDIR / dl.value.suggested_filename
+    dl.value.save_as(str(path))
+    page.wait_for_selector("dialog[open] .alert.success", timeout=10000)
+    text = page.inner_text("dialog[open]")
+    if not keep_open:
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(200)
+    return path, text
+
+
+def reopen(ctx, base, path, timeout=90000):
+    p = ctx.new_page()
+    p.set_viewport_size({"width": 1280, "height": 800})
+    open_tool(p, base, "draw-studio")
+    open_file(p, path, timeout=timeout)
+    p.wait_for_function("() => document.querySelector('.tool-body').__ds.store.root.pages.every(p => !p.pending)", timeout=timeout)
+    return p
+
+
+def box_close(a, b, tol=1.0):
+    return a is not None and b is not None and all(abs(x - y) <= tol for x, y in zip(a, b))
+
+
+def t_save(ctx, base):
+    """E8: the Export dialog and Save as CDR. Every format re-opens (page count, objects, boxes within 1 pt), raster sizes, transparency, ZIPs, notes, selection export."""
+    import zipfile
+    from PIL import Image
+    page, errors = mount(ctx, base)
+    info = load_scene(page, pages=2)
+    orig = page.evaluate(SUM_JS)
+    page.locator(".ds-view").focus()
+    page.keyboard.press("Control+Shift+s")
+    d = dialog(page)
+    opts = d.get_by_label("Format").locator("option").all_inner_texts()
+    check(opts == ["CDR", "AI", "PDF", "EPS", "SVG", "PNG", "JPG"], f"the Export dialog offers every format {opts}")
+    check("Convert text to curves" in d.inner_text() and "Smaller file" in d.inner_text(), "CDR options: text to curves, smaller file")
+    d.get_by_label("Format").select_option("png")
+    page.wait_for_timeout(150)
+    txt = d.inner_text()
+    check("Resolution" in txt and "Transparent background" in txt and "pixels" in txt, f"PNG options: resolution, transparency, size preview ({txt[txt.find('A page'):][:40]!r})")
+    d.get_by_label("Format").select_option("svg")
+    page.wait_for_timeout(150)
+    check(d.get_by_role("switch", name="Convert text to curves").is_checked() is False, "SVG leaves text as text by default")
+    d.get_by_label("Format").select_option("pdf")
+    page.wait_for_timeout(150)
+    check(d.get_by_role("switch", name="Convert text to curves").is_checked() is True, "PDF converts text to curves by default")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(200)
+    check(page.locator("dialog[open]").count() == 0, "Esc closes the dialog")
+
+    # CDR through the dialog, then re-open it
+    path, text = export_via_dialog(page, "cdr", keep_open=True)
+    check(path.suffix == ".cdr" and path.stat().st_size > 1000 and path.name == "scene.cdr", f"CDR file saved as {path.name} ({path.stat().st_size} bytes)")
+    check("Notes" in text and "Compatibility" in text and "RGB" in text, "the dialog lists the notes of the export (compatibility, RGB)")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(200)
+    check(not page.evaluate("() => document.querySelector('.tool-body').__ds.store.dirty"), "a whole-drawing CDR counts as saving")
+    check(page.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; return ds.assets.ids().every((id) => ds.assets.dataUrl(id) === null) }"), "no data URL is held after an export")
+    p2 = reopen(ctx, base, path)
+    s2 = p2.evaluate(SUM_JS)
+    check(len(s2) == 2 and all(abs(a["w"] - b["w"]) < 0.01 and abs(a["h"] - b["h"]) < 0.01 for a, b in zip(s2, orig)), f"CDR re-opens with the same pages and sizes {[(round(x['w'], 3), round(x['h'], 3)) for x in s2]}")
+    check([x["n"] for x in s2] == [x["n"] for x in orig] and [x["images"] for x in s2] == [x["images"] for x in orig], f"same object counts {[x['n'] for x in s2]} vs {[x['n'] for x in orig]}")
+    check(all(box_close(a["box"], b["box"]) for a, b in zip(orig, s2)), f"content boxes within 1 pt {[x['box'] for x in s2]}")
+    check(p2.evaluate("() => document.querySelector('.tool-body').__ds.store.root.pages[0].layers.map((l) => l.name)") == page.evaluate("() => document.querySelector('.tool-body').__ds.store.root.pages[0].layers.map((l) => l.name)"), "layer names survive")
+    p2.close()
+
+    # PDF and AI
+    path, text = export_via_dialog(page, "pdf")
+    pdf_bytes = path.read_bytes()
+    check(pdf_bytes[:5] == b"%PDF-" and path.name == "scene.pdf", f"PDF saved ({len(pdf_bytes)} bytes)")
+    p2 = reopen(ctx, base, path)
+    s2 = p2.evaluate(SUM_JS)
+    check(len(s2) == 2 and [(x["w"], x["h"]) for x in s2] == [(x["w"], x["h"]) for x in orig], f"PDF re-opens with the same pages and sizes {[(x['w'], x['h']) for x in s2]}")
+    check(all(abs(a["n"] - b["n"]) <= 2 for a, b in zip(orig, s2)) and s2[0]["images"] == 1, f"similar object counts {[x['n'] for x in s2]} vs {[x['n'] for x in orig]}")
+    check(all(box_close(a["box"], b["box"]) for a, b in zip(orig, s2)), f"content boxes within 1 pt {[x['box'] for x in s2]}")
+    p2.close()
+    path, _ = export_via_dialog(page, "ai")
+    check(path.name == "scene.ai" and path.read_bytes() == pdf_bytes, "AI is the PDF-compatible file under a .ai name")
+    p2 = reopen(ctx, base, path)
+    check(len(p2.evaluate(SUM_JS)) == 2, "AI re-opens")
+    p2.close()
+    # one file per page for PDF
+    path, _ = export_via_dialog(page, "pdf", setup=lambda d: d.get_by_role("switch", name="One file per page (a ZIP)").check())
+    z = zipfile.ZipFile(path)
+    check(path.suffix == ".zip" and len(z.namelist()) == 2 and all(n.endswith(".pdf") for n in z.namelist()), f"PDF per page packs a ZIP {z.namelist()}")
+
+    # EPS, SVG: one file per page in a ZIP, each re-opens
+    path, _ = export_via_dialog(page, "eps")
+    z = zipfile.ZipFile(path)
+    check(len(z.namelist()) == 2 and all(n.endswith(".eps") for n in z.namelist()), f"EPS: a ZIP with one file per page {z.namelist()}")
+    z.extract(z.namelist()[0], OUTDIR)
+    p2 = reopen(ctx, base, OUTDIR / z.namelist()[0])
+    s2 = p2.evaluate(SUM_JS)
+    first = p2.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; const n = ds.store.root.pages[0].layers[0].items[0]; return ds.renderer.nodeBox(n) }")
+    check(len(s2) == 1 and (s2[0]["w"], s2[0]["h"]) == (400, 300) and s2[0]["n"] >= orig[0]["n"] and box_close([first["x"], first["y"], first["x"] + first["w"], first["y"] + first["h"]], [50, 50, 150, 110]) and s2[0]["images"] == 1,
+          f"EPS page 1 re-opens at its size; the first rectangle is where it was (the gradient is drawn as clipped strips, so only solid objects are compared) {s2[0]['w']}x{s2[0]['h']} {s2[0]['n']} objects")
+    p2.close()
+    path, _ = export_via_dialog(page, "svg")
+    z = zipfile.ZipFile(path)
+    check(len(z.namelist()) == 2 and all(n.endswith(".svg") for n in z.namelist()), f"SVG: a ZIP with one file per page {z.namelist()}")
+    z.extract(z.namelist()[0], OUTDIR)
+    p2 = reopen(ctx, base, OUTDIR / z.namelist()[0])
+    s2 = p2.evaluate(SUM_JS)
+    check(len(s2) == 1 and abs(s2[0]["w"] - 400) < 0.5 and abs(s2[0]["h"] - 300) < 0.5 and abs(s2[0]["n"] - orig[0]["n"]) <= 2 and box_close(s2[0]["box"], orig[0]["box"]), f"SVG page 1 re-opens {s2[0]['w']:.1f}x{s2[0]['h']:.1f} {s2[0]['n']} objects")
+    p2.close()
+    path, _ = export_via_dialog(page, "svg", setup=lambda d: d.get_by_role("button", name="This page").click())
+    check(path.suffix == ".svg" and path.read_text(encoding="utf8").lstrip().startswith("<svg") or "<svg" in path.read_text(encoding="utf8")[:300], f"This page gives a single SVG, no ZIP ({path.name})")
+
+    # PNG and JPG: pixel size = page size x dpi / 72, transparency
+    def png_opts(d):
+        d.get_by_label("Resolution in dots per inch").fill("150")
+    path, text = export_via_dialog(page, "png", setup=png_opts)
+    z = zipfile.ZipFile(path)
+    sizes = []
+    for n in z.namelist():
+        im = Image.open(io.BytesIO(z.read(n))); sizes.append((n, im.size, im.mode, im.getpixel((0, 0))))
+    check(len(sizes) == 2 and sizes[0][1] == (833, 625) and sizes[1][1] == (625, 417), f"PNG pixel size is page size x dpi / 72 {[(s[1]) for s in sizes]}")
+    check(sizes[0][2] == "RGBA" and sizes[0][3][3] == 0, f"a transparent PNG has alpha 0 at the corner {sizes[0][3]}")
+    im0 = Image.open(io.BytesIO(z.read(z.namelist()[0]))).convert("RGBA")
+    px = im0.getpixel((int(75 * 150 / 72), int(80 * 150 / 72)))
+    check(px[3] == 255 and px[0] > 200 and px[1] < 60, f"and the red rectangle is drawn opaque {px}")
+    path, _ = export_via_dialog(page, "png", setup=lambda d: (d.get_by_label("Resolution in dots per inch").fill("72"), d.get_by_role("switch", name="Transparent background").uncheck()))
+    z = zipfile.ZipFile(path)
+    check(Image.open(io.BytesIO(z.read(z.namelist()[0]))).convert("RGBA").getpixel((0, 0)) == (255, 255, 255, 255), "without transparency the page is white")
+    path, _ = export_via_dialog(page, "jpg", setup=lambda d: (d.get_by_label("Resolution in dots per inch").fill("96"), d.get_by_role("button", name="This page").click()))
+    im = Image.open(path)
+    check(path.suffix == ".jpg" and im.size == (533, 400) and im.mode == "RGB" and sum(im.getpixel((2, 2))) > 740, f"JPG is {im.size} {im.mode} on white {im.getpixel((2, 2))}")
+    # selection only
+    select_ids(page, info["ids"]["Red"])
+    path, _ = export_via_dialog(page, "png", setup=lambda d: (d.get_by_role("button", name="Selection").click(), d.get_by_label("Resolution in dots per inch").fill("72")))
+    im = Image.open(path)
+    check(path.name == "scene-selection.png" and abs(im.size[0] - 100) <= 1 and abs(im.size[1] - 60) <= 1, f"selection export crops to the selection {im.size}")
+    check(im.convert("RGBA").getpixel((50, 30))[:3] == (255, 0, 0), "and shows only the selected object")
+    check(page.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; return ds.assets.ids().every((id) => ds.assets.dataUrl(id) === null) }"), "no data URL is held after any export")
+    # notes command, Export menu items
+    page.keyboard.press("Escape")
+    page.get_by_role("menuitem", name="File").click()
+    for label in ("Save as CDR", "Save as...", "Export...", "Export selection as PNG...", "Notes about the last save or export", "Restore autosaved drawing..."):
+        check(page.get_by_role("menuitem", name=label).count() == 1, f"File menu has {label}")
+    page.get_by_role("menuitem", name="Notes about the last save or export").click()
+    d = dialog(page)
+    check("scene" in d.inner_text(), f"the last export's notes can be opened again: {d.inner_text()[:60]!r}")
+    page.keyboard.press("Escape")
+    # Ctrl+S saves a CDR straight away
+    page.locator(".ds-view").focus()
+    with page.expect_download(timeout=60000) as dl:
+        page.keyboard.press("Control+s")
+    check(dl.value.suggested_filename == "scene.cdr", f"Ctrl+S saves {dl.value.suggested_filename} without a dialog")
+    page.wait_for_selector(".toast", timeout=5000)
+    check("Saved scene.cdr" in page.inner_text(".toasts"), "and says so")
+    check(not [e for e in errors if "pageerror" in e or "console" in e], f"no console errors {errors[:3]}")
+    page.close()
+
+
+def t_save_text(ctx, base):
+    """E8: text in exports. Convert text to curves on and off, live text in SVG, multi-line and centred text, embedded-font text, notes."""
+    page, errors = mount(ctx, base)
+    open_file(page, FIX / "designtool-3p.ai")
+    page.wait_for_function("() => document.querySelector('.tool-body').__ds.store.root.pages.every(p => !p.pending)", timeout=90000)
+    # add multi-line centred live text on page 1
+    page.evaluate("""() => { const ds = document.querySelector('.tool-body').__ds; const l = ds.store.root.pages[0].layers[0]
+      const n = { id: ds.store.newId(), t: 'text', str: 'Centre one\\nCentre two longer', family: 'Inter', size: 20, bold: false, italic: false, fill: '#cc0000', opacity: 1, m: [1, 0, 0, 1, 300, 700], lh: 1.2, align: 'center' }
+      ds.store.tx('Add text', (r) => ({ ...r, pages: r.pages.map((p, i) => i === 0 ? { ...p, layers: p.layers.map((ly, j) => j === 0 ? { ...ly, items: [...ly.items, n] } : ly) } : p) })) }""")
+    page.wait_for_timeout(1500)
+    # SVG with live text: fonts embedded for glyph text, lines baked
+    path, text = export_via_dialog(page, "svg", setup=lambda d: d.get_by_role("button", name="This page").click())
+    svg = path.read_text(encoding="utf8")
+    check("<text" in svg and "@font-face" in svg and "Centre one" in svg and "Centre two longer" in svg, "SVG keeps text as text and embeds the fonts of glyph text")
+    check("\n" not in svg[svg.index("Centre one"):svg.index("Centre one") + 12], "lines of multi-line text are written one per text element")
+    # curves on: no <text> left, outlines exist
+    path, text = export_via_dialog(page, "svg", setup=lambda d: (d.get_by_role("button", name="This page").click(), d.get_by_role("switch", name="Convert text to curves").check()))
+    svg2 = path.read_text(encoding="utf8")
+    check("<text" not in svg2 and svg2.count("<path") > svg.count("<path") + 3, f"with Convert text to curves the text is paths ({svg2.count('<path')} paths, no <text>)")
+    # PDF always works from curves by default: the rendered page matches the editor (outlines of the centred text sit where the live text is)
+    path, _ = export_via_dialog(page, "pdf", setup=lambda d: d.get_by_role("button", name="This page").click())
+    p2 = reopen(ctx, base, path)
+    s2 = p2.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; const r = ds.store.root; const t = []; const rec = (items) => items.forEach((n) => { if (n.t === 'group') rec(n.items); else t.push(n.t) }); r.pages[0].layers.forEach((l) => rec(l.items)); return { pages: r.pages.length, kinds: [...new Set(t)] } }")
+    check(s2["pages"] == 1 and "text" not in s2["kinds"], f"the PDF has curves, not live text {s2}")
+    # the centred text's outline is centred on its anchor x (300) within 1 pt
+    cx = p2.evaluate("""() => { const ds = document.querySelector('.tool-body').__ds; let hit = null; const rec = (items) => items.forEach((n) => { if (n.t === 'group') rec(n.items); else if (n.t === 'path' && n.fill === '#cc0000') { const b = ds.renderer.nodeBox(n); hit = hit ? { x: Math.min(hit.x, b.x), x2: Math.max(hit.x2, b.x + b.w) } : { x: b.x, x2: b.x + b.w } } })
+      ds.store.root.pages[0].layers.forEach((l) => rec(l.items)); return hit && (hit.x + hit.x2) / 2 }""")
+    check(cx is not None and abs(cx - 300) < 6, f"centred multi-line text stays centred on its anchor in the PDF ({cx})")
+    p2.close()
+    # notes: the substitute-font note appears for a family that is not bundled and has no file
+    page.evaluate("""() => { const ds = document.querySelector('.tool-body').__ds; const id = ds.store.root.pages[0].layers[0].items.at(-1).id; ds.store.setSel([id]) }""")
+    page.locator(".ds-textbar select[aria-label='Font']").select_option("Georgia")
+    path, text = export_via_dialog(page, "pdf", setup=lambda d: d.get_by_role("button", name="This page").click(), keep_open=True)
+    check("similar bundled font" in text and "Georgia" in text, f"the notes say a similar font was used for a font that is not in the drawing ({text[text.find('Notes'):][:120]!r})")
+    page.keyboard.press("Escape")
+    check(not [e for e in errors if "pageerror" in e or "console" in e], f"no console errors {errors[:3]}")
+    page.close()
+
+
+def t_e2e(ctx, base):
+    """The user's workflow: open a PDF-based .ai, edit it (move an object, change text), Save as CDR with Ctrl+S, re-open the CDR and compare every page visually."""
+    from PIL import Image
+    import numpy as np
+    files = [("fixture", FIX / "designtool-3p.ai", None)] + ([("user", USER_FILE, "Ansh Wedding Virtual Invitation.ai")] if USER_FILE.exists() else [])
+    OUTDIR.mkdir(parents=True, exist_ok=True)
+    for tag, f, as_name in files:
+        page = ctx.new_page(); page.set_viewport_size({"width": 1500, "height": 1800})
+        open_tool(page, base, "draw-studio")
+        open_file(page, f, as_name=as_name, timeout=120000)
+        page.wait_for_function("() => document.querySelector('.tool-body').__ds.store.root.pages.every(p => !p.pending)", timeout=120000)
+        n = page.evaluate("() => document.querySelector('.tool-body').__ds.store.root.pages.length")
+        # edit: the first text gets more words (Text tool session), and the first path of page 1 moves 10 pt
+        tid = page.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; let t = null; const rec = (items) => items.forEach((n) => { if (n.t === 'group') rec(n.items); else if (!t && n.t === 'text') t = n.id }); ds.store.root.pages[0].layers.forEach((l) => rec(l.items)); return t }")
+        check(tid is not None, f"{tag}: the file has text to edit")
+        page.evaluate("(id) => { const ds = document.querySelector('.tool-body').__ds; ds.store.setSel([id]); ds.store.emit('edittext', id) }", tid)
+        page.wait_for_selector(".ds-textedit")
+        page.keyboard.press("End"); page.keyboard.type(" (edited)"); page.keyboard.press("Escape")
+        page.wait_for_timeout(500)
+        check(page.evaluate("(id) => document.querySelector('.tool-body').__ds.store.find(id).node.str", tid).endswith("(edited)"), f"{tag}: the text edit is in the drawing")
+        pid = page.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; let t = null; const rec = (items) => items.forEach((n) => { if (n.t === 'group') rec(n.items); else if (!t && n.t === 'path') t = n.id }); ds.store.root.pages[0].layers.forEach((l) => rec(l.items)); return t }")
+        before_box = nbox(page, pid)
+        select_ids(page, pid)
+        page.locator(".ds-view").focus()
+        for _ in range(3):
+            page.keyboard.press("ArrowRight")
+        # shots of the edited drawing
+        def shots(pg, prefix):
+            out = []
+            for i in range(n):
+                pg.evaluate("(i) => { const ds = document.querySelector('.tool-body').__ds; ds.store.setSel([]); ds.store.setPage(i); ds.view.setView({ z: 1, x: 20, y: 20 }) }", i)
+                pg.wait_for_timeout(900)
+                pw, ph = pg.evaluate("() => { const p = document.querySelector('.tool-body').__ds.store.page(); return [p.w, p.h] }")
+                box = pg.locator(".ds-view").bounding_box()
+                png = pg.screenshot(clip={"x": box["x"] + 20, "y": box["y"] + 20, "width": min(pw, box["width"] - 25), "height": min(ph, box["height"] - 25)})
+                im = Image.open(io.BytesIO(png)).convert("RGB"); SHOTS.mkdir(parents=True, exist_ok=True); im.save(SHOTS / f"e2e-{tag}-{prefix}-p{i + 1}.png"); out.append(im)
+            return out
+        a = shots(page, "edited")
+        page.evaluate("() => document.querySelector('.tool-body').__ds.store.setPage(0)")
+        page.locator(".ds-view").focus()
+        t0 = time.time()
+        with page.expect_download(timeout=240000) as dl:
+            page.keyboard.press("Control+s")
+        path = OUTDIR / f"e2e-{tag}.cdr"
+        dl.value.save_as(str(path))
+        print(f"   {tag}: saved {dl.value.suggested_filename} {path.stat().st_size / 1e6:.1f} MB in {time.time() - t0:.1f}s")
+        check(path.stat().st_size > 50000 and path.read_bytes()[:4] == b"RIFF", f"{tag}: Ctrl+S wrote a RIFF CDR file")
+        p2 = ctx.new_page(); p2.set_viewport_size({"width": 1500, "height": 1800})
+        open_tool(p2, base, "draw-studio")
+        open_file(p2, path, timeout=180000)
+        st = p2.evaluate(STATE_JS)
+        check(st["pages"] == n and st["source"] == "cdr" and st["warnings"] == 0, f"{tag}: the saved CDR re-opens with {n} pages and no notes ({st['pages']}, {st['warnings']})")
+        b = shots(p2, "cdr")
+        for i in range(min(len(a), len(b))):
+            w, h = min(a[i].size[0], b[i].size[0]), min(a[i].size[1], b[i].size[1])
+            A = np.asarray(a[i].crop((0, 0, w, h)), dtype="float32"); B = np.asarray(b[i].crop((0, 0, w, h)), dtype="float32")
+            mad = float(np.abs(A - B).mean()); big = float((np.abs(A - B).mean(axis=2) > 60).mean())
+            Image.fromarray(255 - np.abs(A - B).astype("uint8")).save(SHOTS / f"e2e-{tag}-diff-p{i + 1}.png")
+            print(f"   {tag} page {i + 1}: {a[i].size} vs {b[i].size}, mean abs difference {mad:.2f}, pixels differing by more than 60: {big * 100:.2f}%")
+            check(a[i].size == b[i].size and mad <= 4 and big <= 0.03, f"{tag} page {i + 1}: the re-opened CDR looks like the edited drawing (mean difference {mad:.2f})")
+        # the edits are in the saved file
+        moved = p2.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; let t = null; const rec = (items) => items.forEach((n) => { if (n.t === 'group') rec(n.items); else if (!t && n.t === 'path') t = ds.renderer.nodeBox(n) }); ds.store.root.pages[0].layers.forEach((l) => rec(l.items)); return t }")
+        check(moved is not None and abs(moved["x"] - (before_box["x"] + 3 * (1 * 72 / 25.4))) < 1.5, f"{tag}: the moved object is where it was moved to ({moved['x']:.1f} vs {before_box['x'] + 3 * 72 / 25.4:.1f})")
+        p2.close(); page.close()
+
+
+def t_e678_phone(ctx, base):
+    """375 px: the New, Page setup, Export dialogs and the page and text bars fit without horizontal overflow."""
+    page, errors = mount(ctx, base, 375, 700)
+    ov = lambda: page_state(page)["overflow"]
+    page.get_by_role("button", name="New drawing").click()
+    d = dialog(page)
+    box = d.bounding_box()
+    check(box["width"] <= 375 and ov() <= 1, f"New dialog fits a phone (width {box['width']:.0f}, overflow {ov()})")
+    page.get_by_role("button", name="Create").click()
+    page.wait_for_timeout(400)
+    check(ov() <= 1, f"the page bar fits (overflow {ov()})")
+    page.get_by_role("button", name="Add a page after this one").click()
+    page.wait_for_timeout(200)
+    check(ov() <= 1 and page.evaluate("() => { const e = document.querySelector('.ds-pages'); return e.getBoundingClientRect().width <= 375 }"), f"page tabs stay inside the screen (overflow {ov()})")
+    page.get_by_role("button", name="Page setup").click()
+    d = dialog(page)
+    check(d.bounding_box()["width"] <= 375 and ov() <= 1, f"Page setup fits a phone (overflow {ov()})")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(200)
+    page.get_by_role("button", name="Text").click()
+    check(page.locator(".ds-textbar").is_visible() and ov() <= 1, f"the text controls scroll inside the property bar (overflow {ov()})")
+    page.get_by_role("button", name="Menu").click()
+    page.locator(".ds-msheet-head", has_text="File").click()
+    page.locator('.ds-msheet .ds-mi[data-cmd="file.saveAs"]').click()
+    d = dialog(page)
+    check(d.bounding_box()["width"] <= 375 and ov() <= 1, f"Export dialog fits a phone (width {d.bounding_box()['width']:.0f}, overflow {ov()})")
+    d.get_by_label("Format").select_option("png")
+    page.wait_for_timeout(200)
+    check(d.bounding_box()["width"] <= 375 and ov() <= 1, f"and its PNG options too (overflow {ov()})")
+    shot(page, "e678-phone")
+    page.keyboard.press("Escape")
+    check(not [e for e in errors if "pageerror" in e or "console" in e], f"no console errors {errors[:3]}")
+    page.close()
+
+
 def shot(page, name):
     SHOTS.mkdir(parents=True, exist_ok=True)
     page.screenshot(path=str(SHOTS / f"{name}.png"))
 
 
 CHECKS = {"mount": t_mount, "inject": t_inject, "fixture": t_open_fixture, "cdr": t_open_cdr, "pixels": t_pixels, "other": t_open_other, "handoff": t_handoff, "leaks": t_leaks, "keys": t_keys_menus, "quick": t_quick, "dark": t_dark, "phone": t_phone, "truth": t_truth,
-          "pick": t_pick, "pickperf": t_pick_perf, "palette": t_palette, "objects": t_objects, "domfuzz": t_dom_fuzz, "objectsmany": t_objects_many, "objectsfiles": t_objects_files, "editphone": t_edit_phone}
+          "pick": t_pick, "pickperf": t_pick_perf, "palette": t_palette, "objects": t_objects, "domfuzz": t_dom_fuzz, "objectsmany": t_objects_many, "objectsfiles": t_objects_files, "editphone": t_edit_phone, "pages": t_pages, "autosave": t_autosave, "text": t_text, "textpdf": t_text_pdf, "save": t_save, "savetext": t_save_text, "e2e": t_e2e, "e678phone": t_e678_phone}
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -1493,7 +2347,8 @@ if __name__ == "__main__":
     a = ap.parse_args()
     base = serve_ds()
     names = [n for n in CHECKS if not a.only or n in a.only.split(",")]
-    with launch("dsedit") as ctx:
+    profile = f"dsedit-{os.getpid()}"  # a fresh profile per run: autosaved drawings of earlier runs must not show up
+    with launch(profile) as ctx:
         for n in names:
             print(f"== {n}")
             try:
@@ -1501,6 +2356,8 @@ if __name__ == "__main__":
             except Exception as e:  # a crashing check is a failure, the rest still run
                 import traceback; traceback.print_exc()
                 FAILS.append(f"{n} crashed: {e}")
+    import shutil
+    shutil.rmtree(Path(r"C:/Projects/tools-packs/_profiles") / profile, ignore_errors=True)
     print(f"\n{len(FAILS)} failure(s)")
     for f in FAILS:
         print(" -", f)

@@ -9,6 +9,7 @@ export const TOOL_INFO = [
   { id: 'pick', label: 'Pick', icon: 'mouse-pointer-2', keys: ['V'], cursor: 'default', tip: 'Select objects. Shift adds to the selection, Ctrl selects inside a group.' },
   { id: 'zoom', label: 'Zoom', icon: 'zoom-in', keys: ['Z', 'F2'], cursor: 'zoom-in', tip: 'Click to zoom in, Alt or right-click to zoom out, drag a box to zoom to it.' },
   { id: 'pan', label: 'Pan', icon: 'hand', keys: ['H'], cursor: 'grab', tip: 'Drag to move the view. Holding Space does the same from any tool.' },
+  { id: 'text', label: 'Text', icon: 'type', keys: ['F8'], cursor: 'text', tip: 'Click to type text. Click existing text to edit it in place.' },
 ]
 
 const DRAG = 4 // px before a press becomes a drag

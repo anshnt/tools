@@ -11,6 +11,11 @@ export function quoteFamily(name) {
   if (GENERIC.has(s.toLowerCase())) return s.toLowerCase()
   return `"${s.replace(/[\\"]/g, '\\$&')}"`
 }
+/** The bundled family (the one the curves export draws) that stands in for any family: sans -> Inter, serif -> Noto Serif, mono -> Roboto Mono. */
+export function bundledFor(family = '') {
+  const k = kindOf(family)
+  return k === 'monospace' ? 'Roboto Mono' : k === 'serif' ? 'Noto Serif' : 'Inter'
+}
 export const faceFamily = (uid, key) => `ds${uid}-${String(key).replace(/[^\w-]/g, '_')}`
 export const COMPLEX_FALLBACK = '"Nirmala UI","Noto Sans Devanagari",Mangal'
 const kindOf = (family = '') => (/mono|courier|consolas|menlo|code/i.test(family) ? 'monospace' : /serif|times|georgia|garamond|palatino|cambria|book/i.test(family) && !/sans/i.test(family) ? 'serif' : 'sans-serif')
@@ -24,7 +29,7 @@ export function fontStack(node, faces, uid) {
   if (node.font != null && (!faces || faces.ok?.(node.font) !== false)) parts.push(quoteFamily(faces?.family?.(node.font) || faceFamily(uid, node.font)))
   const own = quoteFamily(node.family)
   if (own) parts.push(own)
-  parts.push(COMPLEX_FALLBACK, kindOf(node.family))
+  parts.push(quoteFamily(bundledFor(node.family)), COMPLEX_FALLBACK, kindOf(node.family)) // the bundled stand-in comes first, so a letter the font lacks looks the same on screen and in a curves export
   return [...new Set(parts.filter(Boolean))].join(',')
 }
 

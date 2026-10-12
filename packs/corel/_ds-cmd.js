@@ -3,13 +3,16 @@
 // _ds-keys.js, from the menus and from the toolbox together (no dead controls).
 import { COMMANDS, buildKeymap, normalizeKey } from './_ds-keys.js'
 import { PASS, createEditImpl } from './_ds-cmd-edit.js'
+import { createDocImpl } from './_ds-cmd-doc.js'
 
 const TYPING = 'input, select, textarea, [contenteditable]:not([contenteditable="false"])'
 // While focus is in a field only these shortcuts still reach the app (the field keeps Ctrl+Z, Ctrl+A, letters, arrows and Esc).
-const ALWAYS = /^(F\d+|Ctrl\+O|Alt\+N)$/
+const ALWAYS = /^(F\d+|Ctrl\+O|Alt\+N|Ctrl\+S|Ctrl\+Shift\+S|Ctrl\+E)$/
+// these keys only belong to the canvas itself (so Tab and Enter keep working on buttons, menus and the page tabs)
+const CANVAS_ONLY = new Set(['Tab', 'Shift+Tab', 'Enter'])
 
 /** env: {store, view, tools, boxOf, app: {openPicker, newDoc, showNotes, showShortcuts, fullscreen, gotoPage, colorDialog, toggleDock, dockOpen, noteColor}} */
-export function createCommands({ store, view, tools, boxOf, app }) {
+export function createCommands({ store, view, tools, boxOf, app, fonts, renderer }) {
   const topLevelIds = () => {
     const out = []
     for (const l of store.page()?.layers || []) if (!l.hidden && !l.locked) for (const n of l.items) if (!n.hidden && !n.locked) out.push(n.id)
@@ -36,16 +39,19 @@ export function createCommands({ store, view, tools, boxOf, app }) {
     'tool.pick': { run: () => tools.set('pick'), checked: () => store.tool === 'pick' },
     'tool.zoom': { run: () => tools.set('zoom'), checked: () => store.tool === 'zoom' },
     'tool.pan': { run: () => tools.set('pan'), checked: () => store.tool === 'pan' },
+    'tool.text': { run: () => tools.set('text'), checked: () => store.tool === 'text' },
     'help.shortcuts': { run: () => app.showShortcuts() },
   }
   const edit = createEditImpl({ store, boxOf, tools, app })
   Object.assign(impl, edit.impl)
+  const doc = createDocImpl({ store, app, fonts, renderer })
+  Object.assign(impl, doc.impl)
   const meta = new Map(COMMANDS.map((c) => [c.id, c]))
   for (const id of meta.keys()) if (!impl[id]) console.warn(`Draw Studio: command ${id} has no implementation`)
   const { map: keymap, args: keyArgs } = buildKeymap()
 
   const api = {
-    meta, impl, paint: edit.paint,
+    meta, impl, paint: edit.paint, doc,
     has: (id) => meta.has(id) && !!impl[id],
     /** Run a command (may return a promise). Disabled commands do nothing. */
     run(id, args) { const c = impl[id]; if (!c || (c.enabled && !c.enabled())) return undefined; return c.run(args) },
@@ -61,8 +67,8 @@ export function createCommands({ store, view, tools, boxOf, app }) {
       if (typing && !ALWAYS.test(key)) return false
       const id = keymap.get(key)
       if (!id || !api.has(id)) return false
-      // Tab only belongs to the canvas itself, so keyboard users can still tab out of the app
-      if ((key === 'Tab' || key === 'Shift+Tab') && !e.target.classList?.contains('ds-view')) return false
+      if (CANVAS_ONLY.has(key) && !e.target.classList?.contains('ds-view')) return false
+      if (impl[id].passWhenDisabled && impl[id].enabled && !impl[id].enabled()) return false
       const r = api.run(id, keyArgs.get(key))
       if (r === PASS) return false
       e.preventDefault(); e.stopPropagation()

@@ -4,7 +4,7 @@
 // Later milestones add context sections through add({el, refresh(sel)}); the units choice always sits at the right end.
 import { h, icon } from '../../lib/ui.js'
 import { UNITS_LIST, fmt, fromUnit, toUnit } from './_ds-units.js'
-import { rotateAbout, scaleAbout, setStyle, transformIds } from './_ds-ops.js'
+import { leavesOf, rotateAbout, scaleAbout, setStyle, transformIds } from './_ds-ops.js'
 import { editableIds, selectionBox, selectionStyle, topIds } from './_ds-sel.js'
 import { translate } from './_model.js'
 import { commandById } from './_ds-keys.js'
@@ -22,7 +22,8 @@ export function createPropBar({ store, boxOf, commands }) {
   const lock = h('button', { type: 'button', class: 'ds-btn', 'aria-pressed': 'false', 'aria-label': 'Keep the width and height in proportion', title: 'Keep proportions when changing W or H', onclick: () => { store.prefs.lockRatio = !store.prefs.lockRatio; refresh(true) } }, icon('unlink'))
   const cmd = (id, label) => { const c = commandById(id); const b = h('button', { type: 'button', class: 'ds-btn', 'aria-label': label, title: label, onclick: () => commands.run(id) }, icon(c.icon)); b.refresh = () => { b.disabled = !commands.enabled(id) }; return b }
   const mh = cmd('object.mirrorH', 'Mirror horizontally'), mv = cmd('object.mirrorV', 'Mirror vertically')
-  const fields = h('div', { class: 'ds-selfields' }, fx.el, fy.el, fw.el, lock, fh.el, h('span', { class: 'ds-sep', role: 'separator' }), fa.el, mh, mv, h('span', { class: 'ds-sep', role: 'separator' }), fo.el)
+  const sepOutline = h('span', { class: 'ds-sep', role: 'separator' })
+  const fields = h('div', { class: 'ds-selfields' }, fx.el, fy.el, fw.el, lock, fh.el, h('span', { class: 'ds-sep', role: 'separator' }), fa.el, mh, mv, sepOutline, fo.el)
   const extra = h('div', { class: 'ds-extra' })
   const units = h('select', { class: 'select ds-units', 'aria-label': 'Units', onchange: (e) => { const u = e.target.value; store.tx('Change units', (r) => (r.units === u ? r : { ...r, units: u })) } },
     UNITS_LIST.map((u) => h('option', { value: u }, u)))
@@ -67,7 +68,7 @@ export function createPropBar({ store, boxOf, commands }) {
     const ids = store.sel.ids.filter((id) => store.find(id)?.node)
     const nodes = ids.map((id) => store.find(id).node)
     fields.hidden = !nodes.length
-    if (!nodes.length) { cur = null; text.hidden = false; text.textContent = page ? `Page size ${fmt(page.w, u)} x ${fmt(page.h, u)} ${u}` : '' }
+    if (!nodes.length) { cur = null; text.hidden = sections.some((s) => s.page); text.textContent = page ? `Page size ${fmt(page.w, u)} x ${fmt(page.h, u)} ${u}` : '' } // the Page section (E6) replaces this text
     else {
       text.hidden = true
       const b = selectionBox(store, boxOf, ids)
@@ -79,6 +80,8 @@ export function createPropBar({ store, boxOf, commands }) {
       }
       put(fa, String(+cur.angle.toFixed(3)), force)
       const w = selectionStyle(store)?.width
+      const paths = leavesOf(nodes).some((l) => l.t === 'path') // text and pictures have no outline, so the field would only crowd the text controls
+      fo.el.hidden = sepOutline.hidden = !paths
       put(fo, w == null ? '' : show(w, u), force)
       fo.input.placeholder = w == null ? '-' : ''
       for (const f of [fx, fy, fw, fh, fa, fo]) f.input.disabled = !can

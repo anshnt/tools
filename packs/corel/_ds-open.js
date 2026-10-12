@@ -118,7 +118,7 @@ export async function normalizeDoc(raw, o) {
     const { map } = merger.merge(raw.fonts)
     walkTree(tree, (n) => {
       if (n.t !== 'text' || n.font == null) return
-      if (n.font in map) n.font = map[n.font]
+      if (Object.hasOwn(map, n.font)) n.font = map[n.font]
       else { delete n.font; delete n.glyphs }
     })
     tree.fonts = merger.all

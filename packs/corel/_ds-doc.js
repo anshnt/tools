@@ -17,6 +17,21 @@ export const LIMITS = {
 /** Paper sizes in points, portrait (the same values as lib/pdf.js PAGE_SIZES, repeated here so this module stays pure). */
 export const PAGE_SIZES = { A3: [841.89, 1190.55], A4: [595.28, 841.89], A5: [419.53, 595.28], Letter: [612, 792], Legal: [612, 1008], Tabloid: [792, 1224] }
 
+/** Which paper preset a page size is (either orientation, within 0.6 pt), as {name, landscape}, or null for a custom size. */
+export function pagePreset(w, h) {
+  const near = (a, b) => Math.abs(a - b) <= 0.6
+  for (const [name, [pw, ph]] of Object.entries(PAGE_SIZES)) {
+    if (near(w, pw) && near(h, ph)) return { name, landscape: false }
+    if (near(w, ph) && near(h, pw)) return { name, landscape: true }
+  }
+  return null
+}
+/** [w, h] in points of a paper preset in the given orientation (portrait when landscape is false), or null for an unknown name. */
+export function presetSize(name, landscape = false) {
+  const s = PAGE_SIZES[name]
+  return s ? (landscape ? [s[1], s[0]] : [s[0], s[1]]) : null
+}
+
 export const UNITS = ['mm', 'in', 'pt', 'px']
 export const SOURCES = ['cdr', 'pdf', 'ai', 'ps', 'eps', 'svg', 'bitmap', 'new', 'import']
 const I6 = [1, 0, 0, 1, 0, 0]
@@ -214,7 +229,8 @@ function cleanShape(s) {
 /**
  * Whitelist deep copy of an untrusted EditorDoc (autosave restore) or of a tree built from reader output.
  * Returns {doc, notes}. Throws a readable Error only when the document must be refused (too many nodes or pages unreadable).
- * opts: {freshIds: true, or a function returning the next id: assign new ids to everything (reader results), assets: {has(id)} to check image assets}
+ * opts: {freshIds: true, or a function returning the next id: assign new ids to everything (reader results), assets: {has(id)} to check image assets,
+ *   assetMap: Map(stored asset id -> id in the asset store), used by an autosave restore whose pictures were given new ids}
  */
 export function validateDoc(raw, opts = {}) {
   const notes = []
@@ -307,7 +323,7 @@ export function validateDoc(raw, opts = {}) {
     }
     if (n.t === 'image') {
       const o = withCommon(n, { t: 'image' })
-      if (typeof n.asset === 'string' && /^[\w.-]{1,64}$/.test(n.asset) && !BAD_KEYS.has(n.asset)) o.asset = n.asset
+      if (typeof n.asset === 'string' && /^[\w.-]{1,64}$/.test(n.asset) && !BAD_KEYS.has(n.asset)) o.asset = opts.assetMap?.get(n.asset) ?? n.asset
       else if (typeof n.href === 'string' && HREF.test(n.href.slice(0, 40))) o.href = n.href
       else { totals.dropped++; return null }
       if (o.asset && hasAsset && !hasAsset(o.asset)) { totals.dropped++; note('Some pictures were missing from the saved data and were skipped.'); return null }
@@ -332,7 +348,7 @@ export function validateDoc(raw, opts = {}) {
       o.m = mat(n.m) || I6.slice()
       o.lh = num(n.lh, 1.2, 0.5, 10)
       o.align = n.align === 'center' || n.align === 'right' ? n.align : 'left'
-      if (typeof n.font === 'string' && fonts[n.font]) {
+      if (typeof n.font === 'string' && Object.hasOwn(fonts, n.font)) {
         o.font = n.font
         if (Array.isArray(n.glyphs) && !o.str.includes('\n') && n.glyphs.length <= LIMITS.glyphs) {
           const gl = []

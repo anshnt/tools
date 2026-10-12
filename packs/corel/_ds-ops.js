@@ -482,6 +482,23 @@ export function setTextProps(root, ids, patch, { widthOf } = {}) {
   }
   return mapItems(root, new Set(ids), rec)
 }
+/**
+ * Convert to curves: text leaves under the nodes `ids` become the paths in `made` (id -> path node; a missing or null entry leaves the text alone),
+ * and shapes (rectangle, ellipse, polygon, star) lose their parametric description so only the curve remains.
+ */
+export function toCurves(root, ids, made = new Map()) {
+  const rec = (n) => {
+    if (n.t === 'group') {
+      let items = null
+      n.items.forEach((k, i) => { const r = rec(k); if (r !== k) { items ??= n.items.slice(); items[i] = r } })
+      return items ? { ...n, items } : n
+    }
+    if (n.t === 'text') return made.get(n.id) || n
+    if (n.t === 'path' && (n.shape || n.sm)) { const { shape: _s, sm: _m, ...rest } = n; return rest }
+    return n
+  }
+  return mapItems(root, new Set(ids), rec)
+}
 /** Replace leaves by id: map id -> a node, an array of nodes, or null (delete). Groups left empty go away. */
 export const replaceLeaves = (root, map) => (map.size ? mapItems(root, new Set(map.keys()), (n) => (map.has(n.id) ? map.get(n.id) : n)) : root)
 

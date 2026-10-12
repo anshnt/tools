@@ -45,7 +45,7 @@ const CSS = `
 .t-ds .ds-docname { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); padding: 0 8px; flex: 0 1 auto; }
 .t-ds .ds-prop-t { white-space: nowrap; }
 .t-ds .ds-unitlbl { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); flex: none; }
-.t-ds .ds-units { height: 28px; min-height: 28px; width: auto; padding: 0 28px 0 8px; font-size: 13px; }
+.t-ds .ds-units, .t-ds .ds-selsm { height: 28px; min-height: 28px; width: auto; padding: 0 28px 0 8px; font-size: 13px; }
 
 /* middle: toolbox and canvas */
 .t-ds .ds-mid { flex: 1; min-height: 0; display: grid; grid-template-columns: var(--ds-tool) minmax(0, 1fr) var(--ds-dock) var(--ds-pal); grid-template-rows: minmax(0, 1fr); }
@@ -180,12 +180,34 @@ const CSS = `
 .t-ds-dlg .ds-cd-hex { display: flex; align-items: center; gap: 10px; }
 .t-ds-dlg .ds-cd-hex input { width: 110px; }
 
+/* text editing, page tabs, context bars, restore banner */
+.t-ds .ds-textedit { position: absolute; left: 0; top: 0; z-index: 4; margin: 0; padding: 0; border: 0; outline: 0; resize: none; overflow: hidden; background: transparent; color: transparent; caret-color: var(--accent); white-space: pre; transform-origin: 0 0; box-sizing: border-box; font-synthesis: none; user-select: text; -webkit-user-select: text; }
+.t-ds .ds-textedit::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); color: transparent; }
+.t-ds .ds-draft { pointer-events: none; }
+.t-ds .ds-fam { max-width: 140px; }
+.t-ds .ds-textbar .ds-num { width: 62px; }
+.t-ds .ds-preset { max-width: 96px; }
+.t-ds .ds-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.t-ds .ds-pages .ds-sep { margin: 0 3px; }
+.t-ds .ds-tab-input { width: 130px; height: 24px; min-height: 24px; padding: 0 6px; font-size: 13px; }
+.t-ds .ds-tab.ds-drop-before { box-shadow: inset 2px 0 0 var(--accent); }
+.t-ds .ds-tab.ds-drop-after { box-shadow: inset -2px 0 0 var(--accent); }
+.t-ds .ds-restore { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 10px 12px; text-align: left; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 12px; background: var(--accent-soft); }
+.t-ds .ds-restore p { margin: 0; font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+
 /* dialogs */
 .t-ds-dlg { display: flex; flex-direction: column; gap: 12px; min-width: 0; max-width: 100%; }
 .t-ds-dlg .ds-list { margin: 0; padding-left: 18px; font-size: 13.5px; display: flex; flex-direction: column; gap: 4px; }
 .t-ds-dlg .ds-keys { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; font-size: 13px; max-height: 60vh; overflow-y: auto; }
 .t-ds-dlg .ds-keys dt { color: var(--text-2); }
 .t-ds-dlg .ds-keys dd { margin: 0; color: var(--muted); text-align: right; }
+.t-ds-dlg .ds-form { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.t-ds-dlg .ds-form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; min-width: 0; }
+.t-ds-dlg .ds-form-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.t-ds-dlg .ds-form-row > * { min-width: 0; }
+.t-ds-dlg .ds-export { min-width: min(520px, 100%); }
+.t-ds-dlg .ds-fmt-desc { margin: 0; }
+@media (max-width: 520px) { .t-ds-dlg .ds-form-row, .t-ds-dlg .ds-form-row.three { grid-template-columns: minmax(0, 1fr); } }
 
 @media (max-width: 860px) {
   .t-ds .ds-menubar { display: none; }
@@ -213,7 +235,7 @@ const CSS = `
   .t-ds .ds-docname { display: none; }
   .t-ds .ds-st-pos { display: none; }
   .t-ds .ds-st-w { display: none; }
-  .t-ds input, .t-ds select, .t-ds .ds-units, .t-ds .ds-num, .t-ds .ds-tolayer, .t-ds .ds-rename { font-size: 16px; }
+  .t-ds input, .t-ds select, .t-ds .ds-units, .t-ds .ds-selsm, .t-ds .ds-num, .t-ds .ds-tolayer, .t-ds .ds-rename, .t-ds .ds-tab-input { font-size: 16px; }
   .t-ds .ds-num { height: 36px; min-height: 36px; width: 84px; }
   .t-ds .ds-row { min-height: 36px; }
   .t-ds .ds-eye, .t-ds .ds-lock { width: 36px; height: 36px; }
@@ -222,7 +244,7 @@ const CSS = `
   .t-ds .ds-tolayer { height: 36px; min-height: 36px; }
   .t-ds .ds-st-sw { width: 22px; height: 22px; }
   .t-ds .ds-btn, .t-ds .ds-tab { min-height: 36px; min-width: 36px; }
-  .t-ds .ds-units { height: 36px; min-height: 36px; }
+  .t-ds .ds-units, .t-ds .ds-selsm { height: 36px; min-height: 36px; }
   .t-ds .ds-dsec-head, .t-ds .ds-dock-close { min-height: 36px; }
 }
 @media (pointer: coarse) {

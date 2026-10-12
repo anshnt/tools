@@ -11,13 +11,17 @@ import { createAssets } from './_ds-assets.js'
 import { createFonts } from './_ds-text.js'
 import { createRenderer } from './_ds-render.js'
 import { createView } from './_ds-view.js'
-import { createTools } from './_ds-tools.js'
+import { TOOL_INFO, createTools } from './_ds-tools.js'
+import { createTextEditor, createTextTool } from './_ds-text-edit.js'
 import { createCommands } from './_ds-cmd.js'
 import { createMenus } from './_ds-ui-menu.js'
 import { createToolbox, createStandardBar, createPageTabs, createStatusBar } from './_ds-ui-bars.js'
 import { createPropBar } from './_ds-ui-prop.js'
 import { createPalette, openColorDialog } from './_ds-ui-palette.js'
 import { createDocks } from './_ds-ui-docks.js'
+import { createPageSection, createTextSection } from './_ds-ui-ctx.js'
+import { createDialogs } from './_ds-ui-dialogs.js'
+import { createPersist } from './_ds-persist.js'
 import { leavesOf } from './_ds-ops.js'
 import { selectionStyle } from './_ds-sel.js'
 import { rgbFromCmyk, rgbToHex } from './_ds-colors.js'
@@ -51,7 +55,11 @@ export async function mount(root, ctx = {}) {
   const renderer = createRenderer({ store, svgRoot: art, assets, faces: fonts })
   const boxOf = renderer.nodeBox
   const view = createView({ store, host, ov, renderer, boxOf })
-  const tools = createTools({ store, view, boxOf, host, renderer })
+  let tools = null
+  const textEditor = createTextEditor({ store, view, renderer, host, stage, fonts, setTool: (id) => tools.set(id) })
+  const textTool = createTextTool({ store, boxOf, editor: textEditor, info: TOOL_INFO.find((t) => t.id === 'text') })
+  tools = createTools({ store, view, boxOf, host, renderer, extra: { text: textTool } })
+  const persist = createPersist({ store, assets })
 
   const app = {
     openPicker: () => input.click(),
@@ -63,8 +71,22 @@ export async function mount(root, ctx = {}) {
     colorDialog: (kind) => colorDialog(kind),
     toggleDock: () => docks.toggle(),
     dockOpen: () => docks.isOpen(),
+    hasDoc: () => hasDoc,
+    commitEdits: () => textEditor.commit(),
+    pageSetup: () => dialogs.openPageSetup(),
+    renamePage: (i) => pageTabs.rename(i),
+    save: () => save(),
+    saveAs: (format, o = {}) => dialogs.openExport({ format, ...o }),
+    restore: () => restoreDrawing(),
+    exportNotes: () => showExportNotes(),
+    hasExportNotes: () => !!lastExport,
+    noteExport: (res) => { lastExport = { notes: res.notes, name: res.files[0]?.name || '' } },
+    textProps: (p) => commands.doc.textProps(p),
+    fontChosen: (f) => commands.doc.fontChosen(f),
+    addFont: () => commands.doc.addFont(),
   }
-  const commands = createCommands({ store, view, tools, boxOf, app })
+  let lastExport = null
+  const commands = createCommands({ store, view, tools, boxOf, app, fonts, renderer })
   app.run = commands.run
   app.enabled = commands.enabled
   app.paint = commands.paint
@@ -77,6 +99,9 @@ export async function mount(root, ctx = {}) {
   const docks = createDocks({ store, app, commands, focusBack: () => host.focus({ preventScroll: true }) })
   const pageTabs = createPageTabs({ store, app })
   const status = createStatusBar({ store, view, app })
+  const dialogs = createDialogs({ store, app, assets, fonts, boxOf, persist })
+  prop.add(createPageSection({ store, app }))
+  prop.add(createTextSection({ store, app }))
 
   const panelsBtn = h('button', { type: 'button', class: 'ds-panelsbtn', 'aria-label': 'Panels', 'aria-haspopup': 'dialog', onclick: () => docks.toggle() }, icon('panel-bottom'), h('span', 'Panels'))
   const wrap = h('div', { class: 't-ds', 'aria-label': 'Draw Studio editor' },
@@ -90,6 +115,8 @@ export async function mount(root, ctx = {}) {
   // ---------- refresh ----------
   const refreshAll = () => { std.refresh(); prop.refresh(); pageTabs.refresh(); status.refresh(); toolbox.refresh(); palette.refresh() }
   let hasDoc = false
+  let restoreInfo = null // {title, savedAt, pages} of an autosaved drawing the user may bring back
+  const ago = (t) => { const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m < 1 ? 'just now' : m < 60 ? `${m} minute${m === 1 ? '' : 's'} ago` : m < 1440 ? `${Math.round(m / 60)} hour${Math.round(m / 60) === 1 ? '' : 's'} ago` : `${Math.round(m / 1440)} day${Math.round(m / 1440) === 1 ? '' : 's'} ago` }
   const drawEmpty = () => {
     empty.hidden = hasDoc
     if (hasDoc) return
@@ -97,12 +124,15 @@ export async function mount(root, ctx = {}) {
       icon(quick ? 'file-output' : 'vector-square'),
       h('h3', quick ? `Drop a CDR, AI, PDF or SVG file to save it as ${CONVERSIONS[quick]}` : 'Open a drawing'),
       h('p', quick ? 'Your file is opened here in the browser and never uploaded.' : 'Drop a CDR, AI, PDF, EPS, SVG or picture file here, or start a new drawing. Your files stay on this device.'),
-      h('div', { class: 'ds-empty-row' }, button('Choose a file', { icon: 'folder-open', variant: 'primary', onClick: () => input.click() }), quick ? null : button('New drawing', { icon: 'file-plus', variant: 'secondary', onClick: () => newDrawing() })))
+      h('div', { class: 'ds-empty-row' }, button('Choose a file', { icon: 'folder-open', variant: 'primary', onClick: () => input.click() }), quick ? null : button('New drawing', { icon: 'file-plus', variant: 'secondary', onClick: () => newDrawing() })),
+      restoreInfo && !quick ? h('div', { class: 'ds-restore', role: 'region', 'aria-label': 'Restore your last drawing' },
+        h('p', h('strong', 'Restore your last drawing?'), ` "${restoreInfo.title}" (${restoreInfo.pages} page${restoreInfo.pages === 1 ? '' : 's'}) was saved automatically ${ago(restoreInfo.savedAt)}.`),
+        h('div', { class: 'ds-empty-row' }, button('Restore', { icon: 'history', variant: 'primary', onClick: () => restoreDrawing() }), button('Discard', { variant: 'secondary', onClick: () => { restoreInfo = null; persist.clear(); drawEmpty() } }))) : null)
   }
   drawEmpty()
   const offs = [
-    store.on('doc', (e) => { if (e?.load && !hasDoc) { hasDoc = true; wrap.classList.remove('ds-dim'); drawEmpty() } refreshAll() }), store.on('sel', () => { status.clearTransient(); refreshAll() }), store.on('page', refreshAll), store.on('tool', refreshAll),
-    store.on('status', (t) => status.say(typeof t === 'string' ? t : '')), store.on('view', () => { std.refresh(); status.refresh() }), store.on('cursor', status.cursor),
+    store.on('doc', (e) => { if (e?.load && !hasDoc) { hasDoc = true; wrap.classList.remove('ds-dim'); drawEmpty() } refreshAll() }), store.on('sel', () => { status.clearTransient(); refreshAll() }), store.on('page', refreshAll), store.on('tool', refreshAll), store.on('fonts', refreshAll),
+    store.on('status', (t) => { status.say(typeof t === 'string' ? t : ''); if (typeof t !== 'string') std.refresh() }), store.on('view', () => { std.refresh(); status.refresh() }), store.on('cursor', status.cursor),
   ]
   cleanups.push(...offs)
   refreshAll()
@@ -205,10 +235,11 @@ export async function mount(root, ctx = {}) {
 
   // ---------- opening and loading ----------
   let openCtl = null
-  async function loadDocument(res) {
+  async function loadDocument(res, meta = {}) {
     const { doc, rest } = res
     await fonts.use(doc.fonts, doc.uid)
-    store.load(doc)
+    store.load(doc, meta)
+    restoreInfo = null
     assets.prune(assetIds(doc))
     hasDoc = true
     wrap.classList.remove('ds-dim')
@@ -247,6 +278,7 @@ export async function mount(root, ctx = {}) {
       hideBusy()
       const n = store.root.pages.length
       status.say(`Opened ${file.name}: ${n} page${n === 1 ? '' : 's'}`)
+      if (quick) dialogs.openExport({ format: quick, quick: true })
       if (files.length > 1) toast(`Opened ${file.name}. Open the other files one at a time.`)
     } catch (e) {
       hideBusy()
@@ -262,11 +294,64 @@ export async function mount(root, ctx = {}) {
     showBusy('Opening the preview', () => ctl.abort())
     try { await loadDocument(await openBitmap(blob, name, { assets })) } catch (e) { showOpenError(new OpenError(errorMessage(e), { code: 'FAILED' }), { name }) } finally { hideBusy() }
   }
-  async function newDrawing() {
-    const go = async () => { openCtl?.abort(); await loadDocument({ doc: newDoc({ title: 'Untitled', source: 'new' }) }) }
-    if (!hasDoc || !store.dirty) return go()
-    const m = dlg('Start a new drawing?', 'file-plus', h('p', 'The drawing you are working on has changes that are not saved. They will be lost.'),
-      [button('Cancel', { variant: 'secondary', onClick: () => m.close() }), button('New drawing', { variant: 'danger', onClick: () => { m.close(); go() } })])
+  function newDrawing() {
+    dialogs.openNew({ dirty: hasDoc && store.dirty, onCreate: async (o) => {
+      openCtl?.abort()
+      await loadDocument({ doc: newDoc({ title: o.title, w: o.w, h: o.h, units: o.units, source: 'new' }) })
+    } })
+  }
+
+  // ---------- save, restore, export notes ----------
+  let saving = false
+  async function save() {
+    if (!hasDoc || saving) return
+    saving = true
+    const ctl = new AbortController()
+    showBusy('Saving CDR', () => ctl.abort())
+    setBusy('Preparing', null)
+    try {
+      const res = await dialogs.runExport('cdr', {}, { signal: ctl.signal, onProgress: (f, t) => setBusy(t, f) })
+      hideBusy()
+      const n = res.notes.length
+      toast(`Saved ${res.files[0].name}${n ? `. ${n} note${n === 1 ? '' : 's'}: see File > Notes about the last save or export.` : ''}`, 'success')
+      status.say(`Saved ${res.files[0].name}`)
+      refreshAll()
+    } catch (e) {
+      hideBusy()
+      if (!isAbort(e)) { console.error(e); toast(errorMessage(e), 'error') }
+    } finally { saving = false; hideBusy() }
+  }
+  function showExportNotes() {
+    if (!lastExport) return
+    dlg('Notes about the last save or export', 'info', lastExport.notes.length
+      ? [h('p', `${lastExport.name}: these things were approximated or left out.`), h('ul', { class: 'ds-list' }, lastExport.notes.map((n) => h('li', n)))]
+      : h('p', `${lastExport.name}: nothing was approximated.`))
+  }
+  async function restoreDrawing() {
+    const info = await persist.peek()
+    if (!info || info.bad) { toast(info?.bad ? 'The autosaved drawing is damaged, so it was discarded.' : 'There is no autosaved drawing to restore.', info?.bad ? 'error' : 'info'); if (info?.bad) await persist.clear(); restoreInfo = null; drawEmpty(); return }
+    const go = async () => {
+      showBusy('Restoring your drawing', null)
+      setBusy('Restoring your drawing', null)
+      try {
+        const { doc, notes } = await persist.restore()
+        openCtl?.abort()
+        await loadDocument({ doc }, { dirty: true })
+        restoreInfo = null
+        status.say(`Restored ${doc.title}${notes.length ? `. ${notes[0]}` : ''}`)
+        if (notes.length) toast(`Restored with changes: ${notes.join(' ')}`)
+      } catch (e) {
+        console.error(e)
+        toast(`${errorMessage(e)}`, 'error')
+        await persist.clear()
+        restoreInfo = null
+        drawEmpty()
+      } finally { hideBusy() }
+    }
+    if (hasDoc && store.dirty) {
+      const m = dlg('Restore the autosaved drawing?', 'history', h('p', 'The drawing you are working on has changes that are not saved. They will be replaced.'),
+        [button('Cancel', { variant: 'secondary', onClick: () => m.close() }), button('Restore', { variant: 'danger', onClick: () => { m.close(); go() } })])
+    } else go()
   }
 
   // ---------- drag and drop on the canvas ----------
@@ -282,16 +367,25 @@ export async function mount(root, ctx = {}) {
   })
 
   // ---------- test hook (no globals): root.__ds drives the editor from the harness ----------
-  const api = { store, commands, assets, fonts, renderer, view, tools, docks, palette, prop, openFile: (file, opts) => openFiles([file], opts), openFiles, whenReady: () => store.whenReady() }
+  const api = { store, commands, assets, fonts, renderer, view, tools, docks, palette, prop, persist, dialogs, textEditor, pageTabs, openFile: (file, opts) => openFiles([file], opts), openFiles, whenReady: () => store.whenReady() }
   root.__ds = api
   wrap.__ds = api
   host.focus({ preventScroll: true })
+  if (!quick) {
+    persist.start()
+    persist.peek().then(async (info) => {
+      if (!info || hasDoc) return
+      if (info.bad) { await persist.clear(); toast('The autosaved drawing was damaged, so it was discarded.', 'error'); return }
+      restoreInfo = info
+      drawEmpty()
+    }).catch(() => {})
+  }
 
   return () => {
     openCtl?.abort()
     clearTimeout(busyTimer)
     cleanups.forEach((fn) => fn())
-    menus.dispose(); docks.dispose(); view.dispose(); renderer.dispose(); fonts.dispose(); assets.dispose()
+    textEditor.dispose(); persist.dispose(); menus.dispose(); docks.dispose(); view.dispose(); renderer.dispose(); fonts.dispose(); assets.dispose()
     delete root.__ds
     wrap.remove()
   }

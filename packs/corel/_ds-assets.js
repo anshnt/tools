@@ -80,16 +80,23 @@ export function createAssets() {
       for (const [k, id] of keys) if (!items.has(id)) keys.delete(k)
     },
     serialize: (ids) => ids.filter((id) => items.has(id)).map((id) => ({ id, ...items.get(id) })),
-    /** Re-add assets read from storage under their old ids. */
+    /**
+     * Re-add assets read from storage. A stored id that the open drawing already uses is given a fresh id, so a restore can never overwrite a
+     * picture that is in use. Returns Map(stored id -> id in this store); the caller maps the document's picture references through it.
+     */
     async restore(list) {
+      const map = new Map()
       for (const a of list || []) {
-        if (!a || typeof a.id !== 'string' || !(a.blob instanceof Blob) || items.has(a.id)) continue
+        if (!a || typeof a.id !== 'string' || !(a.blob instanceof Blob)) continue
         const mime = sniffImage(new Uint8Array(await a.blob.slice(0, 16).arrayBuffer()))
         if (!mime) continue
-        items.set(a.id, { blob: a.blob.type === mime ? a.blob : new Blob([a.blob], { type: mime }), w: a.w | 0, h: a.h | 0, mime, name: String(a.name || '') })
+        const id = items.has(a.id) ? `a${seq + 1}` : a.id
+        items.set(id, { blob: a.blob.type === mime ? a.blob : new Blob([a.blob], { type: mime }), w: a.w | 0, h: a.h | 0, mime, name: String(a.name || '') })
         bytes += a.blob.size
-        seq = Math.max(seq, parseInt(a.id.slice(1), 10) || 0)
+        seq = Math.max(seq, parseInt(id.slice(1), 10) || 0)
+        map.set(a.id, id)
       }
+      return map
     },
     revokeAll() { for (const u of urls.values()) URL.revokeObjectURL(u); urls.clear() },
     clear() { api.revokeAll(); items.clear(); keys.clear(); dataUrls = new Map(); bytes = 0 },

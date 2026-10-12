@@ -9,7 +9,13 @@ export const COMMANDS = [
   // File
   { id: 'file.new', label: 'New', menu: 'File', group: 1, keys: ['Alt+N'], icon: 'file-plus' },
   { id: 'file.open', label: 'Open...', menu: 'File', group: 1, keys: ['Ctrl+O'], icon: 'folder-open', phone: true },
+  { id: 'file.restore', label: 'Restore autosaved drawing...', menu: 'File', group: 1, keys: [], icon: 'history' },
+  { id: 'file.save', label: 'Save as CDR', menu: 'File', group: 2, keys: ['Ctrl+S'], icon: 'save', phone: true },
+  { id: 'file.saveAs', label: 'Save as...', menu: 'File', group: 2, keys: ['Ctrl+Shift+S'], icon: 'file-down' },
+  { id: 'file.export', label: 'Export...', menu: 'File', group: 2, keys: ['Ctrl+E'], icon: 'file-output' },
+  { id: 'file.exportSel', label: 'Export selection as PNG...', menu: 'File', group: 2, keys: [], icon: 'image' },
   { id: 'file.notes', label: 'Notes about this file', menu: 'File', group: 4, keys: [], icon: 'info' },
+  { id: 'file.exportNotes', label: 'Notes about the last save or export', menu: 'File', group: 4, keys: [], icon: 'info' },
   // Edit
   { id: 'edit.undo', label: 'Undo', menu: 'Edit', group: 1, keys: ['Ctrl+Z'], icon: 'undo-2', phone: true },
   { id: 'edit.redo', label: 'Redo', menu: 'Edit', group: 1, keys: ['Ctrl+Shift+Z', 'Ctrl+Y'], icon: 'redo-2', phone: true },
@@ -29,8 +35,17 @@ export const COMMANDS = [
   { id: 'view.snap', label: 'Snap to objects and page', menu: 'View', group: 4, keys: ['Alt+Z'], icon: 'magnet' },
   { id: 'view.fullscreen', label: 'Full screen', menu: 'View', group: 5, keys: ['F9'], icon: 'maximize' },
   // Layout
-  { id: 'page.prev', label: 'Previous page', menu: 'Layout', group: 1, keys: ['PageUp'], icon: 'chevron-left' },
-  { id: 'page.next', label: 'Next page', menu: 'Layout', group: 1, keys: ['PageDown'], icon: 'chevron-right' },
+  { id: 'page.insertAfter', label: 'Insert page after', menu: 'Layout', group: 1, keys: [], icon: 'file-plus' },
+  { id: 'page.insertBefore', label: 'Insert page before', menu: 'Layout', group: 1, keys: [], icon: 'file-plus' },
+  { id: 'page.duplicate', label: 'Duplicate page', menu: 'Layout', group: 1, keys: [], icon: 'copy' },
+  { id: 'page.delete', label: 'Delete page', menu: 'Layout', group: 1, keys: [], icon: 'trash-2' },
+  { id: 'page.rename', label: 'Rename page', menu: 'Layout', group: 1, keys: [], icon: 'pencil' },
+  { id: 'page.moveLeft', label: 'Move page left', menu: 'Layout', group: 1, keys: [], icon: 'chevron-left' },
+  { id: 'page.moveRight', label: 'Move page right', menu: 'Layout', group: 1, keys: [], icon: 'chevron-right' },
+  { id: 'page.prev', label: 'Previous page', menu: 'Layout', group: 2, keys: ['PageUp'], icon: 'chevron-left' },
+  { id: 'page.next', label: 'Next page', menu: 'Layout', group: 2, keys: ['PageDown'], icon: 'chevron-right' },
+  { id: 'page.setup', label: 'Page setup...', menu: 'Layout', group: 3, keys: [], icon: 'ruler' },
+  { id: 'page.orientation', label: 'Switch orientation', menu: 'Layout', group: 3, keys: [], icon: 'rotate-cw' },
   // Object
   { id: 'arrange.group', label: 'Group', menu: 'Object', group: 1, keys: ['Ctrl+G'], icon: 'group' },
   { id: 'arrange.ungroup', label: 'Ungroup', menu: 'Object', group: 1, keys: ['Ctrl+U'], icon: 'ungroup' },
@@ -48,18 +63,31 @@ export const COMMANDS = [
   { id: 'object.nudgeRight', label: 'Nudge right', menu: 'Object', path: ['Nudge'], keys: ['Right', 'Shift+Right', 'Ctrl+Right'], keyArgs: { Right: { step: 1 }, 'Shift+Right': { step: 10 }, 'Ctrl+Right': { step: 0.1 } }, icon: 'chevron-right' },
   { id: 'object.nudgeUp', label: 'Nudge up', menu: 'Object', path: ['Nudge'], keys: ['Up', 'Shift+Up', 'Ctrl+Up'], keyArgs: { Up: { step: 1 }, 'Shift+Up': { step: 10 }, 'Ctrl+Up': { step: 0.1 } }, icon: 'chevron-up' },
   { id: 'object.nudgeDown', label: 'Nudge down', menu: 'Object', path: ['Nudge'], keys: ['Down', 'Shift+Down', 'Ctrl+Down'], keyArgs: { Down: { step: 1 }, 'Shift+Down': { step: 10 }, 'Ctrl+Down': { step: 0.1 } }, icon: 'chevron-down' },
+  { id: 'object.toCurves', label: 'Convert to curves', menu: 'Object', group: 5, keys: ['Ctrl+Q', 'Ctrl+Alt+Q'], icon: 'spline' },
   { id: 'object.newLayer', label: 'New layer', menu: 'Object', group: 4, keys: [], icon: 'plus' },
   // Effects
   { id: 'effects.fillColor', label: 'Fill colour...', menu: 'Effects', group: 1, keys: ['F11'], icon: 'paint-bucket' },
   { id: 'effects.outlineColor', label: 'Outline colour...', menu: 'Effects', group: 1, keys: ['Shift+F12'], icon: 'pen-line' },
   { id: 'effects.clearFill', label: 'Clear fill', menu: 'Effects', group: 2, keys: [], icon: 'circle-slash' },
   { id: 'effects.clearOutline', label: 'Clear outline', menu: 'Effects', group: 2, keys: [], icon: 'circle-slash' },
+  // Text
+  { id: 'text.edit', label: 'Edit text', menu: 'Text', group: 1, keys: ['Enter'], icon: 'type' },
+  { id: 'text.bold', label: 'Bold', menu: 'Text', group: 2, keys: [], icon: 'bold' },
+  { id: 'text.italic', label: 'Italic', menu: 'Text', group: 2, keys: [], icon: 'italic' },
+  { id: 'text.alignLeft', label: 'Align left', menu: 'Text', group: 3, keys: [], icon: 'align-left' },
+  { id: 'text.alignCenter', label: 'Align centre', menu: 'Text', group: 3, keys: [], icon: 'align-center' },
+  { id: 'text.alignRight', label: 'Align right', menu: 'Text', group: 3, keys: [], icon: 'align-right' },
+  { id: 'text.larger', label: 'Increase size', menu: 'Text', group: 4, keys: [], icon: 'a-arrow-up' },
+  { id: 'text.smaller', label: 'Decrease size', menu: 'Text', group: 4, keys: [], icon: 'a-arrow-down' },
+  { id: 'text.toCurves', label: 'Convert to curves', menu: 'Text', group: 5, keys: [], icon: 'spline' },
+  { id: 'text.addFont', label: 'Add font file...', menu: 'Text', group: 5, keys: [], icon: 'file-up' },
   // Window
   { id: 'win.objects', label: 'Objects', menu: 'Window', group: 1, keys: ['Ctrl+F3'], icon: 'layers' },
   // Tools (the toolbox is built from TOOL_INFO in _ds-tools.js; the keys are mirrored here so duplicates are caught)
   { id: 'tool.pick', label: 'Pick tool', menu: 'View', path: ['Tools'], keys: ['V'], icon: 'mouse-pointer-2' },
   { id: 'tool.zoom', label: 'Zoom tool', menu: 'View', path: ['Tools'], keys: ['Z', 'F2'], icon: 'zoom-in' },
   { id: 'tool.pan', label: 'Pan tool', menu: 'View', path: ['Tools'], keys: ['H'], icon: 'hand' },
+  { id: 'tool.text', label: 'Text tool', menu: 'View', path: ['Tools'], keys: ['F8'], icon: 'type' },
   // Help
   { id: 'help.shortcuts', label: 'Keyboard shortcuts', menu: 'Help', group: 1, keys: ['F1', '?'], icon: 'keyboard' },
 ]

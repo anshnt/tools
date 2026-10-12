@@ -170,6 +170,7 @@ export function createRenderer({ store, svgRoot, assets, faces }) {
       const lockWanted = !!(locked || n.locked)
       if (!el) { el = build(n, locked); els.set(n, el) }
       else {
+        byId.set(n.id, el) // a page rebuild clears byId, and a cached element must be found again (previews and text editing look nodes up by id)
         if (el.hasAttribute('data-lock') !== lockWanted) el.toggleAttribute('data-lock', lockWanted)
         // a cached group element may have lost children to another parent (a member dragged out, then undo): put its members back
         if (n.t === 'group') syncChildren(el, n.items, locked)
@@ -230,7 +231,7 @@ export function createRenderer({ store, svgRoot, assets, faces }) {
         for (const n of layer.items.slice(i, i + SLICE)) {
           if (n.hidden) continue
           let el = els.get(n)
-          if (!el) { el = build(n, layer.locked); els.set(n, el) }
+          if (!el) { el = build(n, layer.locked); els.set(n, el) } else byId.set(n.id, el)
           g.append(el)
         }
         store.setStatus(`Drawing ${Math.min(i + SLICE, layer.items.length).toLocaleString()} of ${layer.items.length.toLocaleString()} objects`)
@@ -279,10 +280,20 @@ export function createRenderer({ store, svgRoot, assets, faces }) {
     return box
   }
   const applyM = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]
-  /** Width of the widest line of a rendered text node in text units (null when it is not on screen). */
+  /**
+   * Advance width of the widest line of a rendered text node in text units (null when it is not on screen). This is the length an alignment
+   * anchor uses, not the bounding box, which is wider for slanted letters.
+   */
   function textWidth(n) {
     const t = els.get(n)?.querySelector?.('text')
-    try { return t?.isConnected ? t.getBBox().width : null } catch { return null }
+    try {
+      if (!t?.isConnected) return null
+      const spans = t.querySelectorAll('tspan')
+      if (!spans.length) return t.getComputedTextLength()
+      let w = 0
+      for (const s of spans) w = Math.max(w, s.getComputedTextLength())
+      return w
+    } catch { return null }
   }
 
   function preview(ids, M) {

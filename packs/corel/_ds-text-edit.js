@@ -6,7 +6,7 @@ import { h } from '../../lib/ui.js'
 import { mul, translate } from './_model.js'
 import { DEFAULT_LH, fontStack } from './_ds-text-model.js'
 import { addLayer, boxQuad, deleteIds, replaceLeaves } from './_ds-ops.js'
-import { insertAt } from './_ds-doc.js'
+import { LIMITS, insertAt } from './_ds-doc.js'
 import { hitByDistance, pickFromTarget } from './_ds-hit.js'
 import { isLocked } from './_ds-sel.js'
 
@@ -71,6 +71,7 @@ export function createTextEditor({ store, view, renderer, host, stage, fonts, se
       base = { id: store.newId(), t: 'text', str: '', family: d.family, ...(key ? { font: key } : {}), size: d.size, bold: !!d.bold, italic: !!d.italic, fill: d.fill, opacity: 1, m: [1, 0, 0, 1, spec.p.x, spec.p.y], lh: d.lh, align: d.align }
     }
     setTool?.('text')
+    fonts.needBundled([base.family]) // the typing view uses the same face the page and the exports draw (redraws when it arrives)
     if (!isNew) store.setSel([base.id])
     const g = document.createElementNS(NS, 'g')
     g.setAttribute('class', 'ds-draft')
@@ -81,6 +82,7 @@ export function createTextEditor({ store, view, renderer, host, stage, fonts, se
     if (orig) orig.style.visibility = 'hidden'
     const ta = h('textarea', { class: 'ds-textedit', spellcheck: 'false', wrap: 'off', rows: 1, autocomplete: 'off', autocapitalize: 'off', 'aria-label': 'Text. Press Escape when you are done.' })
     ta.value = base.str
+    ta.maxLength = LIMITS.str
     stage.append(ta)
     sess = { id: base.id, isNew, base, draft: base, g, t, ta, orig, pageId: store.page().id, box: null }
     ta.addEventListener('input', () => { if (sess) setDraft({ str: ta.value.replace(/\r/g, '') }, true) })

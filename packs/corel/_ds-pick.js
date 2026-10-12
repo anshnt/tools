@@ -201,14 +201,14 @@ export function createPick({ store, view, boxOf, renderer, host, info }) {
       endGesture()
     },
     dblclick(ev) {
-      const id = pickFromTarget(ev.target, store)
+      const id = pickFromTarget(ev.target, store) ?? hitByDistance(store, boxOf, ev.p, 6 / store.view.z)
       const n = id != null && store.find(id)?.node
       if (n?.t === 'group') {
         store.ctx = n.id
         const inner = pickFromTarget(ev.target, store, { deep: true })
         store.setSel(inner != null && inner !== n.id ? [inner] : [])
         store.emit('status')
-      }
+      } else if (n?.t === 'text') store.emit('edittext', n.id) // double-click on text edits it in place (E7)
     },
     cancel() { if (drag) { renderer.clearPreview(); drag = null; store.setStatus('') } view.requestOverlay() },
     deactivate() { host.style.cursor = info.cursor || 'default' },

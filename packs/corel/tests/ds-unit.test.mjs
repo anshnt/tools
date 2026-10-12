@@ -1,7 +1,8 @@
 // Node tests for the DOM-free Draw Studio modules.   node packs/corel/tests/ds-unit.test.mjs [samples dir with manifest.json]
 // Covers: _tree, _ds-doc (validateDoc fuzz, immutable helpers), _ds-store (undo fuzz against a deep-clone oracle), _ds-units, _ds-colors,
 // _ds-keys (command table), _ds-text-model, _ds-path, _ds-hit, _ds-open (sniff, font merge, CDR to tree), import specifiers,
-// and (E3 to E5) _ds-ops, _ds-gesture, _ds-sel and the new commands.
+// (E3 to E5) _ds-ops, _ds-gesture, _ds-sel and the new commands, and (E6 to E8) page operations, text properties,
+// autosave (_ds-persist with a fake key-value store) and _ds-save (toWriterDoc, cropPage, formats).
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -662,6 +663,285 @@ await t('palette data: default swatches, used colours counted, hex validation fo
   const used = C.usedColors(root, root.pages[0].id)
   assert.equal(used.find((u) => u.hex === '#ff0000').count, 5)
   assert.equal(C.normHex('red;background:url(x)'), null)
+})
+
+// ---------- E6 to E8: page operations, text properties, convert to curves, autosave, save and export ----------
+const Pers = await imp('_ds-persist.js')
+const Save = await imp('_ds-save.js')
+const textNode = (id, extra = {}) => ({ id, t: 'text', str: 'Hello', family: 'Inter', size: 20, bold: false, italic: false, fill: '#000000', opacity: 1, m: [1, 0, 0, 1, 10, 30], lh: 1.2, align: 'left', ...extra })
+
+await t('pages: add, duplicate, delete, move, rename, resize, presets (frozen input, sharing, guards)', () => {
+  const root = opsRoot()
+  const out = {}
+  const a = Ops.addPage(root, newId, { afterId: root.pages[0].id, out })
+  assert.equal(a.pages.length, 2); assert.equal(a.pages[0], root.pages[0]); assert.equal(a.pages[1].id, out.id)
+  assert.equal(a.pages[1].name, 'Page 2'); assert.equal(a.pages[1].w, 200); assert.equal(a.pages[1].h, 100); assert.equal(a.pages[1].layers.length, 1)
+  assert.equal(Ops.addPage(root, newId, { beforeId: root.pages[0].id }).pages[1], root.pages[0], 'before puts the new page first')
+  const big = Ops.addPage(root, newId, { w: 1e9, h: -5 })
+  assert.ok(big.pages[1].w <= D.LIMITS.pageSize && big.pages[1].h >= 1)
+  let many = root
+  for (let i = 0; i < D.LIMITS.pages + 5; i++) many = Ops.addPage(many, newId)
+  assert.equal(many.pages.length, D.LIMITS.pages, 'a drawing holds at most 300 pages')
+  assert.equal(Ops.addPage(many, newId), many)
+  // duplicate: fresh ids everywhere, pictures share assets, name gets "copy"
+  const withImg = { ...root, pages: [{ ...root.pages[0], guides: [{ id: 77, axis: 'h', pos: 10 }], layers: [{ ...root.pages[0].layers[0], items: [...root.pages[0].layers[0].items, { id: 99, t: 'image', asset: 'a1', w: 2, h: 2, m: [5, 0, 0, 5, 0, 0], opacity: 1 }] }, root.pages[0].layers[1]] }] }
+  const d = Ops.duplicatePage(withImg, withImg.pages[0].id, newId, { out })
+  assert.equal(d.pages.length, 2); assert.equal(d.pages[1].name, 'Page 1 copy')
+  const idsOf = (p) => { const s = []; D.walkNodes({ pages: [p] }, (n) => s.push(n.id)); return s }
+  const a1 = idsOf(d.pages[0]), a2 = idsOf(d.pages[1])
+  assert.equal(a1.length, a2.length); assert.ok(a2.every((i) => !a1.includes(i)), 'fresh node ids'); assert.notEqual(d.pages[1].layers[0].id, d.pages[0].layers[0].id)
+  assert.equal(d.pages[1].layers[0].items.at(-1).asset, 'a1'); assert.notEqual(d.pages[1].guides[0].id, 77)
+  const pend = { ...root, pages: [{ ...root.pages[0], pending: { n: 2 } }, { ...root.pages[0], id: 50 }] }
+  assert.equal(Ops.duplicatePage(pend, pend.pages[0].id, newId), pend, 'a page still being read is never copied')
+  assert.equal(Ops.deletePage(pend, pend.pages[0].id), pend); assert.equal(Ops.setPageSize(pend, null, 10, 10).pages[0], pend.pages[0])
+  assert.equal(Ops.renamePage(pend, pend.pages[0].id, 'x'), pend)
+  // delete and move
+  assert.equal(Ops.deletePage(root, root.pages[0].id), root, 'the last page stays')
+  const three = Ops.addPage(Ops.addPage(root, newId), newId)
+  const del = Ops.deletePage(three, three.pages[1].id)
+  assert.equal(del.pages.length, 2); assert.equal(del.pages[0], three.pages[0]); assert.equal(del.pages[1], three.pages[2])
+  const mv = Ops.movePage(three, three.pages[0].id, 2)
+  assert.deepEqual(mv.pages.map((p) => p.id), [three.pages[1].id, three.pages[2].id, three.pages[0].id])
+  assert.equal(Ops.movePage(three, three.pages[0].id, 0), three); assert.equal(Ops.movePage(three, three.pages[0].id, NaN), three)
+  assert.equal(Ops.movePage(three, three.pages[0].id, 99).pages[2], three.pages[0], 'clamped to the end')
+  // rename
+  assert.equal(Ops.renamePage(root, root.pages[0].id, '  Cover\u0000 ').pages[0].name, 'Cover'); assert.equal(Ops.renamePage(root, root.pages[0].id, '   '), root)
+  assert.equal(Ops.renamePage(root, root.pages[0].id, 'x'.repeat(500)).pages[0].name.length, 200); assert.equal(Ops.renamePage(root, root.pages[0].id, 'Page 1'), root)
+  // page size: objects keep their distance from the BOTTOM edge, horizontal guides move with them
+  const g = { ...root, pages: [{ ...root.pages[0], guides: [{ id: 5, axis: 'h', pos: 20 }, { id: 6, axis: 'v', pos: 20 }] }] }
+  const tall = Ops.setPageSize(g, [g.pages[0].id], 200, 300)
+  assert.equal(tall.pages[0].h, 300); boxNear(bbox(tall.pages[0].layers[0].items[0]), 0, 200, 10, 10)
+  assert.deepEqual(tall.pages[0].guides.map((x) => x.pos), [220, 20])
+  assert.equal(Ops.setPageSize(root, null, 200, 100), root); assert.equal(Ops.setPageSize(root, null, NaN, 5), root)
+  const wide = Ops.setPageSize(root, null, 400, 100); assert.equal(wide.pages[0].w, 400); assert.equal(wide.pages[0].layers[0], root.pages[0].layers[0], 'same height: nothing moves')
+  assert.equal(Ops.setPageSize(root, null, 1e9, 1e9).pages[0].w, D.LIMITS.pageSize)
+  const other = Ops.setPageSize({ ...three }, [three.pages[1].id], 10, 10)
+  assert.equal(other.pages[0], three.pages[0]); assert.equal(other.pages[1].w, 10)
+  // presets
+  assert.deepEqual(D.pagePreset(595.28, 841.89), { name: 'A4', landscape: false }); assert.deepEqual(D.pagePreset(841.89, 595.28), { name: 'A4', landscape: true })
+  assert.deepEqual(D.pagePreset(612, 792), { name: 'Letter', landscape: false }); assert.equal(D.pagePreset(500, 500), null)
+  assert.deepEqual(D.presetSize('A3', true), [1190.55, 841.89]); assert.equal(D.presetSize('Nope'), null)
+  for (const name of ['A3', 'A4', 'A5', 'Letter', 'Legal', 'Tabloid']) for (const l of [false, true]) assert.deepEqual(D.pagePreset(...D.presetSize(name, l)), { name, landscape: l })
+})
+
+await t('store: page operations undo and redo exactly, and the current page follows its id', () => {
+  const store = S.createStore(opsRoot())
+  const r0 = store.root
+  const out = {}
+  store.tx('Insert page', (r) => Ops.addPage(r, store.newId, { afterId: r.pages[0].id, out }), { get page() { return out.id } })
+  assert.equal(store.root.pages.length, 2); assert.equal(store.pageIndex, 1, 'the new page is shown')
+  store.tx('Move page', (r) => Ops.movePage(r, out.id, 0))
+  assert.equal(store.pageIndex, 0, 'the page being shown moved with its id')
+  store.tx('Rename page', (r) => Ops.renamePage(r, out.id, 'Back'))
+  store.tx('Page size', (r) => Ops.setPageSize(r, [out.id], 100, 100), { merge: 'page-size' })
+  store.tx('Page size', (r) => Ops.setPageSize(r, [out.id], 120, 100), { merge: 'page-size' })
+  assert.equal(store.historyLength, 4, 'typing a size twice is one undo step')
+  store.tx('Delete page', (r) => Ops.deletePage(r, out.id))
+  assert.equal(store.root.pages.length, 1)
+  for (let i = 0; i < 5; i++) assert.ok(store.undo())
+  assert.equal(store.root, r0); assert.equal(store.undo(), false)
+  for (let i = 0; i < 5; i++) store.redo()
+  assert.equal(store.root.pages.length, 1)
+})
+
+await t('text ops: setTextProps (size scales glyphs, bold drops them, font keys, alignment keeps the text in place), toCurves', () => {
+  const g = textNode(2, { font: 'f1', glyphs: [{ c: 'H', x: 0 }, { c: 'i', x: 10 }] })
+  const root0 = opsRoot()
+  const root = deepFreeze({ ...root0, fonts: { f1: { name: 'F', family: 'Foo', bold: false, italic: false, data: null } }, pages: [{ ...root0.pages[0], layers: [{ ...root0.pages[0].layers[0], items: [textNode(1), g, { id: 3, t: 'group', name: 'G', items: [textNode(4), path(5, 0, 0)] }] }, root0.pages[0].layers[1]] }] })
+  const all = [1, 2, 3]
+  const f = (r, id) => D.findNode(r, id).node
+  const big = Ops.setTextProps(root, all, { size: 40 })
+  assert.equal(f(big, 1).size, 40); assert.equal(f(big, 4).size, 40, 'groups are searched'); assert.deepEqual(f(big, 2).glyphs.map((x) => x.x), [0, 20], 'exact glyph positions scale with the size')
+  assert.equal(f(big, 5), f(root, 5), 'paths are untouched')
+  assert.equal(Ops.setTextProps(root, all, { size: 20 }), root, 'nothing changed means the same root'); assert.equal(Ops.setTextProps(root, all, { size: -3 }), root)
+  assert.equal(f(Ops.setTextProps(root, all, { size: 1e9 }), 1).size, D.LIMITS.size)
+  const bold = Ops.setTextProps(root, [2], { bold: true })
+  assert.equal(f(bold, 2).bold, true); assert.equal(f(bold, 2).glyphs, undefined, 'a letter-shape change turns exact positions into plain text'); assert.equal(f(bold, 2).font, 'f1', 'the embedded font stays the first choice')
+  const fam = Ops.setTextProps(root, [2], { family: 'Noto Serif', font: undefined })
+  assert.equal(f(fam, 2).family, 'Noto Serif'); assert.ok(!('font' in f(fam, 2)))
+  const emb = Ops.setTextProps(root, [1], { family: 'Foo', font: 'f1' })
+  assert.equal(f(emb, 1).font, 'f1')
+  assert.equal(f(Ops.setTextProps(root, [1], { lh: 99 }), 1).lh, 10); assert.equal(f(Ops.setTextProps(root, [1], { lh: 0.1 }), 1).lh, 0.5)
+  const al = Ops.setTextProps(root, [1], { align: 'center' }, { widthOf: () => 40 })
+  assert.equal(f(al, 1).align, 'center'); near(f(al, 1).m[4], 30, 1e-9, 'the origin moves to the centre of the line, so the text stays where it was')
+  const back = Ops.setTextProps(al, [1], { align: 'left' }, { widthOf: () => 40 }); near(f(back, 1).m[4], 10, 1e-9)
+  const right = Ops.setTextProps(root, [1], { align: 'right' }, { widthOf: () => 40 }); near(f(right, 1).m[4], 50, 1e-9)
+  assert.equal(Ops.setTextProps(root, [1], { align: 'sideways' }), root)
+  // convert to curves
+  const made = new Map([[1, path(1, 10, 10, 5, 5)], [4, path(4, 0, 0, 2, 2)]])
+  const curved = Ops.toCurves(root, all, made)
+  assert.equal(f(curved, 1).t, 'path'); assert.equal(f(curved, 4).t, 'path'); assert.equal(f(curved, 2).t, 'text', 'text with no outline stays text')
+  assert.equal(f(curved, 5), f(root, 5)); assert.equal(Ops.toCurves(root, [5]), root)
+  const shaped = deepFreeze({ ...root, pages: [{ ...root.pages[0], layers: [{ ...root.pages[0].layers[0], items: [path(7, 0, 0, 10, 10, { shape: { k: 'rect', w: 10, h: 10, rx: 0, ry: 0 }, sm: [1, 0, 0, 1, 0, 0] })] }] }] })
+  const sc = Ops.toCurves(shaped, [7], new Map())
+  assert.ok(!('shape' in f(sc, 7)) && !('sm' in f(sc, 7))); assert.deepEqual(f(sc, 7).d, f(shaped, 7).d, 'the curve itself is unchanged')
+})
+
+/** A tiny in-memory stand-in for lib/idb.js. */
+const fakeKv = () => { const m = new Map(); return { m, get: async (k) => m.get(k), set: async (k, v) => { m.set(k, v); return true }, del: async (k) => m.delete(k), keys: async (p = '') => [...m.keys()].filter((k) => k.startsWith(p)) } }
+const fakeAssets = () => { const items = new Map([['a1', { blob: { size: 3 }, w: 2, h: 2, name: 'x.png' }]]); return { items, has: (id) => items.has(id), serialize: (ids) => ids.filter((i) => items.has(i)).map((id) => ({ id, ...items.get(id) })), restored: [], async restore(list) { this.restored.push(...list.map((a) => a.id)) } } }
+const imgRoot = () => { const r = opsRoot(); return { ...r, title: 'Saved', pages: [{ ...r.pages[0], layers: [{ ...r.pages[0].layers[0], items: [...r.pages[0].layers[0].items, { id: 90, t: 'image', asset: 'a1', w: 2, h: 2, m: [5, 0, 0, 5, 0, 0], opacity: 1 }, textNode(91, { font: 'f9', glyphs: [{ c: 'H', x: 0 }] })] }, r.pages[0].layers[1]] }], fonts: { f9: { name: 'F9', family: 'Nine', bold: false, italic: false, data: new Uint8Array([1, 2, 3, 4]) } } } }
+
+await t('autosave: only dirty drawings are written, pictures and fonts once, restore goes through validateDoc', async () => {
+  const kv = fakeKv(), assets = fakeAssets()
+  const store = S.createStore(imgRoot())
+  const persist = Pers.createPersist({ store, assets, delay: 5, idb: kv })
+  persist.start()
+  await persist.flush()
+  assert.equal(kv.m.size, 0, 'a drawing with no changes is not written')
+  store.tx('Move', (r) => Ops.transformIds(r, [10], M.translate(5, 5)))
+  await persist.flush()
+  assert.deepEqual([...kv.m.keys()].sort(), ['ds:autosave:a:a1', 'ds:autosave:doc', 'ds:autosave:fonts'])
+  const rec = kv.m.get('ds:autosave:doc')
+  assert.equal(rec.v, 1); assert.equal(rec.title, 'Saved'); assert.deepEqual(rec.assetIds, ['a1']); assert.equal(rec.root.fonts.f9.data, null, 'font bytes live under their own key')
+  assert.equal(kv.m.get('ds:autosave:fonts')[0].data.length, 4)
+  const picWrites = []; const set0 = kv.set; kv.set = async (k, v) => { picWrites.push(k); return set0(k, v) }
+  store.tx('Move again', (r) => Ops.transformIds(r, [10], M.translate(1, 1)))
+  await persist.flush()
+  assert.deepEqual(picWrites, ['ds:autosave:doc'], 'pictures and fonts are not rewritten')
+  const info = await persist.peek(); assert.equal(info.title, 'Saved'); assert.equal(info.pages, 1)
+  const { doc, notes } = await persist.restore()
+  assert.deepEqual(assets.restored, ['a1']); assert.deepEqual(notes, [])
+  assert.equal(doc.pages.length, 1); assert.deepEqual(D.findNode(doc, 10).node.d, D.findNode(store.root, 10).node.d, 'the edit came back')
+  assert.equal(D.findNode(doc, 90).node.asset, 'a1'); assert.equal(doc.fonts.f9.data.length, 4); assert.equal(D.findNode(doc, 91).node.glyphs.length, 1)
+  assert.equal(doc.uid, store.root.uid)
+  // while a PDF page is still being read nothing is written
+  const kv2 = fakeKv(), s2 = S.createStore(imgRoot())
+  const p2 = Pers.createPersist({ store: s2, assets: fakeAssets(), delay: 5, idb: kv2 }); p2.start()
+  s2.tx('Move', (r) => Ops.transformIds(r, [10], M.translate(5, 5)))
+  s2.silent((r) => { r.pages[0].pending = { n: 2 } })
+  await p2.flush(); assert.equal(kv2.m.size, 0)
+  delete s2.root.pages[0].pending
+  await p2.flush(); assert.ok(kv2.m.has('ds:autosave:doc'))
+  // a saved file needs no autosave copy
+  await p2.saved(); assert.equal(kv2.m.size, 0)
+  assert.ok(Pers.estimateBytes(imgRoot()) > 1000); assert.deepEqual([...Pers.assetIdsOf(imgRoot())], ['a1'])
+  persist.dispose(); p2.dispose()
+})
+
+await t('autosave: restoring next to pictures already in use gives the restored ones new ids and maps the document through them', async () => {
+  const A = await imp('_ds-assets.js')
+  const png = (n) => new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47, n, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])])
+  const kv = fakeKv()
+  await kv.set('ds:autosave:doc', { v: 1, savedAt: 1, title: 'Saved', pages: 1, assetIds: ['a1'], root: { ...Pers.packRoot(imgRoot()), nextId: 2000 } })
+  await kv.set('ds:autosave:a:a1', { id: 'a1', blob: png(7), w: 2, h: 2, name: 'stored.png' })
+  const assets = A.createAssets()
+  const used = await assets.restore([{ id: 'a1', blob: png(1), w: 9, h: 9, name: 'in use' }]) // a picture of the drawing that is open now
+  assert.deepEqual([...used], [['a1', 'a1']])
+  const persist = Pers.createPersist({ store: S.createStore(opsRoot()), assets, idb: kv })
+  const { doc } = await persist.restore()
+  const img = D.findNode(doc, 90).node
+  assert.equal(img.asset, 'a2', 'the stored picture got a fresh id'); assert.deepEqual(assets.dims('a1'), { w: 9, h: 9 }, 'the picture in use was not overwritten'); assert.deepEqual(assets.dims('a2'), { w: 2, h: 2 })
+  const again = await assets.restore([{ id: 'a7', blob: png(3), w: 1, h: 1 }, { id: 'zz', blob: new Blob(['not an image']), w: 1, h: 1 }])
+  assert.deepEqual([...again], [['a7', 'a7']], 'a stored file that is not a picture is ignored')
+})
+
+await t('autosave: a poisoned or damaged record is cleaned or refused with a plain message', async () => {
+  const kv = fakeKv(), assets = fakeAssets(), store = S.createStore(opsRoot())
+  const persist = Pers.createPersist({ store, assets, idb: kv })
+  assert.equal(await persist.peek(), null)
+  await kv.set('ds:autosave:doc', 'hello'); assert.deepEqual(await persist.peek(), { bad: true })
+  await assert.rejects(() => persist.restore(), /could not be read/)
+  await kv.set('ds:autosave:doc', { v: 2, root: {} }); assert.deepEqual(await persist.peek(), { bad: true })
+  await kv.set('ds:autosave:doc', { v: 1, root: { pages: 'nope' } }); await assert.rejects(() => persist.restore(), /could not be read/)
+  const evil = JSON.parse('{"v":1,"savedAt":1,"title":"<img src=x onerror=alert(1)>","pages":1,"assetIds":["../x",5,"a1","__proto__"],"root":{"title":"<b>x</b>","units":"furlongs","uid":"A B","fonts":{"__proto__":{"data":null},"bad key!":{},"f1":{"family":"A\\"};x","name":5}},"pages":[{"id":1,"name":"<img onerror=alert(1)>","w":"wide","h":1e99,"layers":[{"id":2,"name":"L","items":[{"t":"path","d":"<svg onload=alert(1)>","fill":"red;background:url(x)"},{"t":"path","d":[["M",0,0],["L",5,"NaN"],["L",9,9],["Z"]],"fill":"red;background:url(x)","stroke":"javascript:alert(1)","strokeWidth":1e99},{"t":"text","str":"ok","family":"<b>x</b>","fill":"url(javascript:alert(1))","font":"__proto__","glyphs":[{"c":"ab","x":1}]},{"t":"image","asset":"../../etc","w":1,"h":1,"m":[1,0,0,1,0,0]},{"t":"script","src":"x"}]}]}]}}')
+  await kv.set('ds:autosave:doc', evil)
+  const { doc, notes } = await persist.restore()
+  assert.ok(notes.length >= 1 && notes.some((n) => /skipped/.test(n)), `a note says items were skipped: ${notes}`)
+  assert.equal(doc.units, 'mm'); assert.ok(/^[a-z0-9]{4,16}$/.test(doc.uid)); assert.ok(doc.pages[0].w <= D.LIMITS.pageSize && doc.pages[0].h <= D.LIMITS.pageSize)
+  const items = doc.pages[0].layers[0].items
+  assert.ok(items.every((n) => ['path', 'text'].includes(n.t)), 'unknown types and bad pictures are gone')
+  const p = items.find((n) => n.t === 'path'); assert.ok(p.fill === null && p.stroke === null, 'colours are validated'); assert.ok(p.d.every((c) => c.slice(1).every(Number.isFinite)))
+  const tx = items.find((n) => n.t === 'text'); assert.ok(!/[<>]/.test(tx.family) && tx.fill === '#000000' && !('font' in tx) && !('glyphs' in tx))
+  assert.deepEqual(Object.keys(doc.fonts), ['f1']); assert.ok(!/["\\;]/.test(doc.fonts.f1.family))
+  assert.equal(Object.getPrototypeOf(doc.fonts), Object.prototype)
+  assert.deepEqual(assets.restored, [], 'asset ids that are not plain keys are never read')
+})
+
+await t('save: toWriterDoc builds a flat doc for most formats and a tree for CDR (hidden dropped, editor fields stripped, text outlined or baked)', async () => {
+  const r0 = imgRoot()
+  const L0 = r0.pages[0].layers[0]
+  const items = [
+    path(20, 0, 0, 10, 10, { shape: { k: 'rect', w: 10, h: 10, rx: 0, ry: 0 }, sm: [1, 0, 0, 1, 0, 0], fillK: [0, 1, 1, 0], rot: 10, src: 4 }),
+    path(21, 20, 0, 10, 10, { hidden: true }),
+    { id: 22, t: 'group', name: 'Grp', items: [path(23, 40, 0), textNode(24, { str: 'one\ntwo', align: 'center', size: 10 })] },
+    { id: 25, t: 'image', asset: 'a1', w: 2, h: 2, m: [5, 0, 0, 5, 0, 0], opacity: 1 },
+    textNode(26, { str: 'plain' }),
+    textNode(27, { str: 'g', font: 'f9', glyphs: [{ c: 'g', x: 0 }] }),
+  ]
+  const root = deepFreeze({ ...r0, pages: [{ ...r0.pages[0], guides: [{ id: 8, axis: 'v', pos: 30 }], layers: [{ ...L0, items }, { ...r0.pages[0].layers[1], hidden: true, items: [path(30, 1, 1)] }, { id: 901, name: 'Guides', hidden: false, locked: true, printable: false, items: [path(31, 2, 2)] }] }, { ...r0.pages[0], id: 60, name: 'Second', layers: [{ id: 61, name: 'L', hidden: false, locked: false, printable: true, items: [path(62, 0, 0)] }] }], fonts: { ...r0.fonts, f2: { name: 'Unused', family: 'U', bold: false, italic: false, data: null } } })
+  let urlsAsked = null
+  const assets = { ensureDataUrls: async (ids) => { urlsAsked = [...ids] }, dataUrl: (id) => (id === 'a1' ? 'data:image/png;base64,AAAA' : null) }
+  const measurer = (n) => (s) => s.length * n.size * 0.5
+  // flat, text stays text (outline off): lines baked, alignment baked into m
+  const flat = await Save.toWriterDoc(root, { assets, outline: false, measurer })
+  assert.deepEqual(urlsAsked, ['a1']); assert.equal(flat.doc.pages.length, 2)
+  const fi = flat.doc.pages[0].items
+  assert.deepEqual(fi.map((n) => n.id), [20, 23, 24, undefined, 25, 26, 27], 'hidden objects, hidden and non-printable layers are gone, groups dissolved, the second line of a text has no id')
+  for (const k of ['shape', 'sm', 'fillK', 'rot', 'src', 'asset']) assert.ok(fi.every((n) => !(k in n)), `${k} is stripped`)
+  assert.equal(fi.find((n) => n.t === 'image').href, 'data:image/png;base64,AAAA')
+  const lines = fi.filter((n) => n.t === 'text' && n.str !== 'plain' && n.str !== 'g')
+  assert.deepEqual(lines.map((n) => n.str), ['one', 'two']); assert.ok(lines.every((n) => !('lh' in n) && !('align' in n)))
+  assert.deepEqual(lines[0].m, M.mul([1, 0, 0, 1, 10, 30], M.translate(-7.5, 0)), 'a centred line starts half its width to the left of the origin (3 letters x 5 pt)')
+  assert.deepEqual(lines[1].m, M.mul([1, 0, 0, 1, 10, 30], M.translate(-7.5, 12)), 'the second line sits one line height lower')
+  assert.deepEqual(Object.keys(flat.doc.fonts), ['f9'], 'only fonts that text still uses are kept'); assert.ok(flat.notes.some((n) => /hidden/.test(n)))
+  assert.ok(!('layers' in flat.doc.pages[0]) && !('guides' in flat.doc.pages[0]))
+  // outline on: every text becomes a path through the outliner; kept text is reported
+  const outliner = async (nodes) => ({ map: new Map(nodes.filter((n) => n.str !== 'plain').map((n) => [n.id, path(n.id, 0, 0, 3, 3)])), kept: 1 })
+  const out = await Save.toWriterDoc(root, { assets, outline: true, outliner, measurer })
+  const oi = out.doc.pages[0].items
+  assert.equal(oi.filter((n) => n.t === 'text').length, 1, 'only the text the outliner kept stays text'); assert.ok(out.notes.some((n) => /1 text object uses characters/.test(n)))
+  assert.ok(oi.some((n) => n.id === 24 && n.t === 'path'))
+  // tree for CDR: layers, flags, groups and ids kept, hidden objects dropped, guides passed on
+  const tr = await Save.toWriterDoc(root, { assets, outline: false, flat: false, pages: [0], measurer })
+  const p = tr.doc.pages[0]
+  assert.equal(tr.doc.pages.length, 1); assert.deepEqual(p.layers.map((l) => [l.name, l.hidden, l.locked, l.printable]), [[L0.name, false, false, true], ['Layer B', true, false, true], ['Guides', false, true, false]])
+  assert.equal(p.layers[0].items.find((n) => n.t === 'group').name, 'Grp'); assert.ok(p.layers[0].items.every((n) => n.id !== 21)); assert.deepEqual(p.guides, [{ axis: 'v', pos: 30 }])
+  // selection only: a leaf, or everything inside a selected group
+  const sel = await Save.toWriterDoc(root, { assets, outline: false, only: new Set([20, 22]), measurer })
+  assert.deepEqual(sel.doc.pages[0].items.map((n) => n.id).filter((x) => x != null), [20, 23, 24])
+  // pending pages and missing pictures
+  await assert.rejects(() => Save.toWriterDoc({ ...root, pages: [{ ...root.pages[0], pending: { n: 1 } }] }, { assets }), /still being read/)
+  const noPic = await Save.toWriterDoc(root, { assets: { ensureDataUrls: async () => {}, dataUrl: () => null }, outline: false, measurer })
+  assert.ok(noPic.notes.some((n) => /picture/.test(n)) && noPic.doc.pages[0].items.every((n) => n.t !== 'image'))
+  // the input was frozen: nothing was mutated, nothing shared mutably
+})
+
+await t('save: cropPage, formats table, option defaults, selection guards', async () => {
+  const page = { w: 100, h: 100, name: 'P', items: [path(1, 30, 40, 10, 10)] }
+  const c = Save.cropPage(page, { x: 30, y: 40, w: 10, h: 10 }, 2)
+  assert.equal(c.w, 14); assert.equal(c.h, 14); boxNear(M.pathBBox(c.items[0].d), 2, 2, 10, 10)
+  assert.equal(page.items[0].d[0][1], 30, 'the input page is untouched')
+  assert.deepEqual(Object.keys(Save.FORMATS), ['cdr', 'ai', 'pdf', 'eps', 'svg', 'png', 'jpg'])
+  assert.equal(Save.defaultsFor('svg').outline, false); assert.equal(Save.defaultsFor('cdr').outline, true); assert.equal(Save.defaultsFor('png').transparent, true); assert.equal(Save.defaultsFor('jpg').transparent, false)
+  assert.equal(Save.defaultsFor('cdr').bitmapAlpha, 'rgba', 'CDR keeps picture transparency by default (the writer default of flatten gives white boxes)')
+  const store = { whenReady: async () => {}, root: opsRoot(), pageIndex: 0, sel: { ids: [] }, find: () => null }
+  await assert.rejects(() => Save.exportDoc('nope', {}, { store, assets: null }), /not available/)
+  await assert.rejects(() => Save.exportDoc('png', { selection: true }, { store, assets: null }), /Select something first/)
+  await assert.rejects(() => Save.exportDoc('pdf', { selection: true }, { store, assets: null }), /Only PNG, JPG and SVG/)
+  // one export at a time (the picture data URLs are shared)
+  let release
+  const slow = { ...store, whenReady: () => new Promise((r) => { release = r }) }
+  const first = Save.exportDoc('png', { selection: true }, { store: slow, assets: null }).catch((e) => e)
+  await assert.rejects(() => Save.exportDoc('png', {}, { store, assets: null }), /Another save or export is still running/)
+  release(); assert.match(String((await first).message), /Select something first/)
+  await assert.rejects(() => Save.exportDoc('png', { selection: true }, { store, assets: null }), /Select something first/, 'the lock is released afterwards')
+})
+
+await t('text model: the bundled stand-in family and the font stack that uses it (screen and curves export agree on a missing letter)', () => {
+  assert.equal(T.bundledFor('Times New Roman'), 'Noto Serif'); assert.equal(T.bundledFor('Courier New'), 'Roboto Mono'); assert.equal(T.bundledFor('Arial'), 'Inter'); assert.equal(T.bundledFor(undefined), 'Inter')
+  assert.equal(T.bundledFor('DejaVu Sans'), 'Inter', 'a name with "sans" is a sans family even when it says serif elsewhere')
+  const st = T.fontStack({ font: 'f1', family: 'Georgia' }, { ok: () => true, family: () => 'ds9-f1' }, 'abc').split(',')
+  assert.deepEqual(st.slice(0, 3), ['"ds9-f1"', '"Georgia"', '"Noto Serif"']); assert.equal(st.at(-1), 'serif')
+  assert.ok(!T.fontStack({ family: 'A"};x{' }, null, 'u').includes('};'), 'hostile names stay quoted')
+})
+
+await t('keys: save, export, curves, text keys are bound and unique', () => {
+  const { map } = K.buildKeymap()
+  for (const [k, id] of [['Ctrl+S', 'file.save'], ['Ctrl+Shift+S', 'file.saveAs'], ['Ctrl+E', 'file.export'], ['Ctrl+Q', 'object.toCurves'], ['Ctrl+Alt+Q', 'object.toCurves'], ['F8', 'tool.text'], ['Enter', 'text.edit']]) assert.equal(map.get(k), id, k)
+  assert.equal(K.normalizeKey({ key: 'q', code: 'KeyQ', ctrlKey: true, altKey: true }), 'Ctrl+Alt+Q'); assert.equal(K.normalizeKey({ key: 'Enter' }), 'Enter')
+  const layout = K.menuTree().find((m) => m.menu === 'Layout').items.filter((i) => i.id).map((i) => i.id)
+  for (const id of ['page.insertAfter', 'page.insertBefore', 'page.duplicate', 'page.delete', 'page.rename', 'page.moveLeft', 'page.moveRight', 'page.setup', 'page.orientation']) assert.ok(layout.includes(id), id)
 })
 
 // ---------- every import specifier resolves (check.mjs only validates static imports) ----------
