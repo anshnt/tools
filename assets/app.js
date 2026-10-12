@@ -79,7 +79,7 @@ function chips(active) {
 }
 
 function setMeta(title, desc) {
-  document.title = title ? `${title} · Tools` : 'Tools · Every everyday tool, in your browser'
+  document.title = title ? `${title} · Toolverse` : 'Toolverse · Every everyday tool, in your browser'
   document.querySelector('meta[name="description"]')?.setAttribute('content', desc || 'Free, private online tools for PDFs, images, video, data, text, calculators and more. Most run entirely in your browser.')
 }
 
@@ -224,7 +224,7 @@ function toolView(t) {
           h('div', { class: 'head-actions' },
             appMode && document.fullscreenEnabled && button('', { icon: 'maximize', variant: 'ghost', ariaLabel: 'Full screen', title: 'Full screen (Esc to leave)', onClick: () => body.requestFullscreen?.().catch(() => {}) }),
             favButton(t, 'icon-btn'),
-            navigator.share && button('', { icon: 'share-2', variant: 'ghost', ariaLabel: 'Share this tool', onClick: () => navigator.share({ title: `${t.name} · Tools`, text: t.desc, url: location.href }).catch(() => {}) }),
+            navigator.share && button('', { icon: 'share-2', variant: 'ghost', ariaLabel: 'Share this tool', onClick: () => navigator.share({ title: `${t.name} · Toolverse`, text: t.desc, url: location.href }).catch(() => {}) }),
             button('', { icon: 'link', variant: 'ghost', ariaLabel: 'Copy link to this tool', onClick: () => copyText(location.href) }))))),
     h('div', { class: ['container', appMode && 'wide'] },
       body,
