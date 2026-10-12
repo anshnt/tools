@@ -13,7 +13,8 @@ export const TOOL_INFO = [
 
 const DRAG = 4 // px before a press becomes a drag
 
-export function createTools({ store, view, boxOf, host, renderer }) {
+/** extra: tools built elsewhere because they need more of the app (the Text tool needs the in-place editor): {id: tool}. */
+export function createTools({ store, view, boxOf, host, renderer, extra = {} }) {
   const rectOf = (a, b) => ({ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) })
   let drag = null // zoom tool: {a, b, sa, out, moved}
 
@@ -49,7 +50,7 @@ export function createTools({ store, view, boxOf, host, renderer }) {
   // Pan is handled by the view's pointer router (store.tool === 'pan'), the tool object only supplies the cursor.
   const pan = { ...TOOL_INFO[2] }
 
-  const tools = { pick, zoom, pan }
+  const tools = { pick, zoom, pan, ...extra }
   let current = null
   function set(id) {
     const next = tools[id]

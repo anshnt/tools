@@ -124,7 +124,12 @@ export function createStore(initial, { prefs = {} } = {}) {
     const selBefore = snapSel()
     root = after
     index = null
-    if (pageIndex >= root.pages.length) pageIndex = root.pages.length - 1
+    // the current page follows its id (pages added or removed before it do not move the user to another page); o.page asks for a page to show
+    const want = o.page != null ? root.pages.findIndex((p) => p.id === o.page) : -1
+    const keep = want >= 0 ? want : root.pages.findIndex((p) => p.id === S.page)
+    pageIndex = keep >= 0 ? keep : Math.max(0, Math.min(pageIndex, root.pages.length - 1))
+    const switched = root.pages[pageIndex].id !== S.page
+    if (switched) { S.page = root.pages[pageIndex].id; S.ids = []; store.ctx = null }
     if (o.sel) setSel(Array.isArray(o.sel) ? o.sel : o.sel.ids, o.selMode || 'click'); else clean()
     const selAfter = snapSel()
     const now = Date.now()
@@ -141,6 +146,7 @@ export function createStore(initial, { prefs = {} } = {}) {
       pos = hist.length
       evict()
     }
+    if (switched) emit('page', root.pages[pageIndex])
     emit('doc', { label, tx: true })
     return true
   }

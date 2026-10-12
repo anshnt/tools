@@ -68,6 +68,41 @@ export function normalizeText(node) {
   return out
 }
 
+/**
+ * Family and style names plus bold and italic flags of a TrueType or OpenType font file (the sfnt name, OS/2 and head tables), or null when the
+ * bytes are not one (WOFF files are compressed: the browser loads those, the caller falls back to the file name). Never throws.
+ */
+export function readFontNames(b) {
+  try {
+    if (!(b instanceof Uint8Array) || b.length < 12) return null
+    const v = new DataView(b.buffer, b.byteOffset, b.byteLength)
+    const tag = (at) => String.fromCharCode(b[at], b[at + 1], b[at + 2], b[at + 3])
+    let o = 0
+    if (tag(0) === 'ttcf') o = v.getUint32(12)
+    if (!['\u0000\u0001\u0000\u0000', 'OTTO', 'true', 'typ1'].includes(tag(o))) return null
+    const tables = {}
+    for (let i = 0, n = Math.min(v.getUint16(o + 4), 100); i < n; i++) { const at = o + 12 + i * 16; tables[tag(at)] = v.getUint32(at + 8) }
+    const names = {}
+    if (tables.name != null) {
+      const t = tables.name, count = Math.min(v.getUint16(t + 2), 2000), base = t + v.getUint16(t + 4)
+      for (let i = 0; i < count; i++) {
+        const r = t + 6 + i * 12, plat = v.getUint16(r), lang = v.getUint16(r + 4), id = v.getUint16(r + 6), len = v.getUint16(r + 8), off = base + v.getUint16(r + 10)
+        if (off + len > b.length) continue
+        let s = ''
+        if (plat === 3 || plat === 0) for (let k = 0; k + 1 < len; k += 2) s += String.fromCharCode(v.getUint16(off + k))
+        else if (plat === 1) for (let k = 0; k < len; k++) s += String.fromCharCode(b[off + k])
+        else continue
+        const rank = plat === 3 && lang === 0x409 ? 3 : plat === 1 && lang === 0 ? 2 : 1
+        if (!names[id] || rank > names[id].rank) names[id] = { s: s.replace(/[\u0000-\u001f\u007f<>{};"\\]/g, '').trim(), rank }
+      }
+    }
+    const family = names[16]?.s || names[1]?.s || '', style = names[17]?.s || names[2]?.s || ''
+    let bold = /\b(bold|black|heavy)\b/i.test(style), italic = /\b(italic|oblique)\b/i.test(style)
+    if (tables['OS/2'] != null) { const fs = v.getUint16(tables['OS/2'] + 62); bold = !!(fs & 32); italic = !!(fs & 1) } else if (tables.head != null) { const ms = v.getUint16(tables.head + 44); bold = !!(ms & 1); italic = !!(ms & 2) }
+    return family ? { family: family.slice(0, 160), style: style.slice(0, 80), bold, italic, postscript: (names[6]?.s || '').slice(0, 120) } : null
+  } catch { return null }
+}
+
 /** Font families offered in the property bar: bundled-exact first, then fonts embedded in the document, then common system families. */
 export const BUNDLED_FAMILIES = ['Inter', 'Noto Serif', 'Roboto Mono']
 export const SYSTEM_FAMILIES = ['Arial', 'Helvetica', 'Times New Roman', 'Georgia', 'Courier New', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Segoe UI', 'Calibri', 'Nirmala UI']

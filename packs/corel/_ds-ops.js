@@ -3,7 +3,7 @@
 // store.tx records no history step for a no-op. Operations that create nodes take a newId() callback and may report new ids through `out`.
 // transformItem(item, M, opts) is the single place that knows how each item type transforms (see PLAN 5.7).
 import { I, mul, apply, translate, scale, rotate, meanScale, mapPath } from './_model.js'
-import { mapItems, mapList, removeIds, replaceLayer, replacePage } from './_ds-doc.js'
+import { LIMITS, mapItems, mapList, newLayer, removeIds, replaceLayer, replacePage } from './_ds-doc.js'
 import { normalizeText } from './_ds-text-model.js'
 
 export const DEFAULT_OUTLINE = 0.75 // points, used when a colour or a width is set on an object that had no outline
@@ -283,7 +283,77 @@ export function renameNode(root, id, name) {
 }
 export function renamePage(root, pageId, name) {
   name = String(name ?? '').replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 200).trim()
-  return name ? replacePage(root, pageId, (p) => (p.name === name ? p : { ...p, name })) : root
+  return name ? replacePage(root, pageId, (p) => (p.pending || p.name === name ? p : { ...p, name })) : root // a pending PDF page is a shared placeholder: never copied
+}
+
+// ---------- pages ----------
+// A page that is still being read (page.pending) is one object shared by every history snapshot and filled in place once, so it is never
+// copied, renamed, resized or deleted here (the operations return the same root and the command says to wait).
+const pidx = (root, id) => root.pages.findIndex((p) => p.id === id)
+/** The first unused "Page N" name. */
+export function nextPageName(root) {
+  const names = new Set(root.pages.map((p) => p.name))
+  let k = root.pages.length + 1
+  while (names.has(`Page ${k}`)) k++
+  return `Page ${k}`
+}
+/** Add a blank page after `afterId` or before `beforeId` (default: at the end) with that page's size unless w and h are given. out.id receives the page id. */
+export function addPage(root, newId, { afterId, beforeId, w, h, name, out } = {}) {
+  if (root.pages.length >= LIMITS.pages) return root
+  const ref = root.pages.find((p) => p.id === (beforeId ?? afterId)) || root.pages[root.pages.length - 1]
+  const id = newId(), lid = newId()
+  const size = (v, d) => (Number.isFinite(v) ? Math.min(LIMITS.pageSize, Math.max(1, v)) : d)
+  const page = { id, name: String(name ?? '').replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 200).trim() || nextPageName(root), w: size(w, ref.w), h: size(h, ref.h), layers: [newLayer(lid)], guides: [] }
+  if (out) out.id = id
+  const pages = root.pages.slice()
+  pages.splice(pidx(root, ref.id) + (beforeId != null ? 0 : 1), 0, page)
+  return { ...root, pages }
+}
+/** Copy a page (fresh ids; pictures share their assets) right after it, named "<name> copy". out.id receives the new page id. */
+export function duplicatePage(root, pageId, newId, { out } = {}) {
+  const i = pidx(root, pageId), p = root.pages[i]
+  if (!p || p.pending || root.pages.length >= LIMITS.pages) return root
+  const id = newId()
+  const layers = p.layers.map((l) => ({ ...l, id: newId(), items: l.items.map((n) => cloneNode(n, newId)) }))
+  const copy = { ...p, id, name: `${p.name} copy`.slice(0, 200), layers, guides: p.guides.map((g) => ({ ...g, id: newId() })) }
+  if (out) out.id = id
+  const pages = root.pages.slice()
+  pages.splice(i + 1, 0, copy)
+  return { ...root, pages }
+}
+/** Delete a page. The last page cannot be deleted. */
+export function deletePage(root, pageId) {
+  const p = root.pages.find((x) => x.id === pageId)
+  return !p || p.pending || root.pages.length < 2 ? root : { ...root, pages: root.pages.filter((x) => x !== p) }
+}
+/** Move a page to index `to` (clamped). */
+export function movePage(root, pageId, to) {
+  const i = pidx(root, pageId)
+  const j = Math.max(0, Math.min(root.pages.length - 1, Math.round(to)))
+  if (i < 0 || i === j || !Number.isFinite(to)) return root
+  const pages = root.pages.slice()
+  const [p] = pages.splice(i, 1)
+  pages.splice(j, 0, p)
+  return { ...root, pages }
+}
+/**
+ * Resize pages (ids = page ids, or null for every page). Objects keep their distance from the BOTTOM edge, because the editor measures Y up
+ * from the bottom-left corner: a taller page leaves the numbers in the Y field unchanged. Horizontal guides move with the objects.
+ */
+export function setPageSize(root, ids, w, h) {
+  if (!Number.isFinite(w) || !Number.isFinite(h)) return root
+  w = Math.min(LIMITS.pageSize, Math.max(1, w)); h = Math.min(LIMITS.pageSize, Math.max(1, h))
+  const set = ids ? new Set(ids) : null
+  let changed = false
+  const pages = root.pages.map((p) => {
+    if ((set && !set.has(p.id)) || p.pending || (Math.abs(p.w - w) < 1e-6 && Math.abs(p.h - h) < 1e-6)) return p
+    changed = true
+    const dy = h - p.h
+    if (Math.abs(dy) < 1e-9) return { ...p, w, h }
+    const M = translate(0, dy), memo = new Map()
+    return { ...p, w, h, layers: p.layers.map((l) => ({ ...l, items: l.items.map((n) => transformItem(n, M, { memo })) })), guides: p.guides.map((g) => (g.axis === 'h' ? { ...g, pos: g.pos + dy } : g)) }
+  })
+  return changed ? { ...root, pages } : root
 }
 
 // ---------- layers ----------
@@ -366,6 +436,54 @@ export function setStyle(root, ids, patch) {
   }
   return mapItems(root, new Set(ids), rec)
 }
+
+// ---------- text ----------
+const ALIGN_LEFT = { left: 0, center: -0.5, right: -1 }
+/**
+ * Set text properties on every text leaf under the nodes `ids`. patch: {size (pt), bold, italic, align, lh, family, font (a key of root.fonts, or null)}.
+ * Glyph positions (exact PDF text) are kept when only the size changes (they scale with it) and dropped when the letter shapes may change.
+ * widthOf(node) -> width of the widest line in text units (from the DOM); it lets an alignment change keep the text where it is.
+ */
+export function setTextProps(root, ids, patch, { widthOf } = {}) {
+  const leaf = (n) => {
+    if (n.t !== 'text') return n
+    const o = { ...n }
+    let changed = false
+    const put = (k, v) => { if (o[k] !== v) { o[k] = v; changed = true } }
+    const dropGlyphs = () => { if (o.glyphs) { delete o.glyphs; changed = true } }
+    if (Number.isFinite(patch.size) && patch.size > 0 && Math.min(LIMITS.size, patch.size) !== n.size) {
+      const size = Math.min(LIMITS.size, patch.size), k = size / n.size
+      put('size', size)
+      if (o.glyphs) o.glyphs = o.glyphs.map((g) => ({ c: g.c, x: g.x * k }))
+    }
+    if ('bold' in patch && !!patch.bold !== !!n.bold) { put('bold', !!patch.bold); dropGlyphs() }
+    if ('italic' in patch && !!patch.italic !== !!n.italic) { put('italic', !!patch.italic); dropGlyphs() }
+    if (typeof patch.family === 'string' && patch.family) {
+      const font = patch.font ?? undefined
+      if (patch.family !== n.family || font !== n.font) {
+        put('family', patch.family)
+        if (font != null) put('font', font); else if ('font' in o) { delete o.font; changed = true }
+        dropGlyphs()
+      }
+    }
+    if (Number.isFinite(patch.lh)) put('lh', Math.min(10, Math.max(0.5, patch.lh)))
+    if (patch.align && ALIGN_LEFT[patch.align] != null && patch.align !== (n.align || 'left')) {
+      const w = widthOf?.(n)
+      if (w > 0) { o.m = mul(n.m, translate((ALIGN_LEFT[n.align || 'left'] - ALIGN_LEFT[patch.align]) * w, 0)); changed = true }
+      put('align', patch.align)
+    }
+    return changed ? o : n
+  }
+  const rec = (n) => {
+    if (n.t !== 'group') return leaf(n)
+    let items = null
+    n.items.forEach((k, i) => { const r = rec(k); if (r !== k) { items ??= n.items.slice(); items[i] = r } })
+    return items ? { ...n, items } : n
+  }
+  return mapItems(root, new Set(ids), rec)
+}
+/** Replace leaves by id: map id -> a node, an array of nodes, or null (delete). Groups left empty go away. */
+export const replaceLeaves = (root, map) => (map.size ? mapItems(root, new Set(map.keys()), (n) => (map.has(n.id) ? map.get(n.id) : n)) : root)
 
 /**
  * What the given nodes look like, for the status bar swatches: {fill, stroke, width} where fill and stroke are

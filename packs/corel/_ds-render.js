@@ -279,6 +279,11 @@ export function createRenderer({ store, svgRoot, assets, faces }) {
     return box
   }
   const applyM = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]
+  /** Width of the widest line of a rendered text node in text units (null when it is not on screen). */
+  function textWidth(n) {
+    const t = els.get(n)?.querySelector?.('text')
+    try { return t?.isConnected ? t.getBBox().width : null } catch { return null }
+  }
 
   function preview(ids, M) {
     const css = `matrix(${M.map((v) => +v.toFixed(6)).join(',')})`
@@ -315,7 +320,7 @@ export function createRenderer({ store, svgRoot, assets, faces }) {
   })
 
   return {
-    world, defs, paper, patch, renderPage, elOf, textBox, nodeBox: (n) => boxer(n), preview, clearPreview, previewPath, applyView, setWire, resetBoxes, dStr,
+    world, defs, paper, patch, renderPage, elOf, textBox, textWidth, textEl, fillText, nodeBox: (n) => boxer(n), preview, clearPreview, previewPath, applyView, setWire, resetBoxes, dStr,
     dispose() { offDoc(); offPage(); offFonts(); world.remove(); defs.remove() },
   }
 }
