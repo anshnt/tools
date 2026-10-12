@@ -115,7 +115,7 @@ export function leavesOf(nodes) {
 // ---------- structure ----------
 export function deleteIds(root, ids) { return ids.length ? removeIds(root, new Set(ids)) : root }
 
-const cloneNode = (n, newId) => {
+export const cloneNode = (n, newId) => {
   const { src, ...rest } = n
   const o = { ...rest, id: newId() }
   if (n.t === 'group') o.items = n.items.map((k) => cloneNode(k, newId))

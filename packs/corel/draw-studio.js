@@ -19,6 +19,9 @@ import { createToolbox, createStandardBar, createPageTabs, createStatusBar } fro
 import { createPropBar } from './_ds-ui-prop.js'
 import { createPalette, openColorDialog } from './_ds-ui-palette.js'
 import { createDocks } from './_ds-ui-docks.js'
+import { createArrangeSection, createNodeSection, createShapeSection } from './_ds-ui-shape.js'
+import { createAlignSection, createTransformSection } from './_ds-ui-xform.js'
+import { createClipboard } from './_ds-clip.js'
 import { createPageSection, createTextSection } from './_ds-ui-ctx.js'
 import { createDialogs } from './_ds-ui-dialogs.js'
 import { createPersist } from './_ds-persist.js'
@@ -84,6 +87,15 @@ export async function mount(root, ctx = {}) {
     textProps: (p) => commands.doc.textProps(p),
     fontChosen: (f) => commands.doc.fontChosen(f),
     addFont: () => commands.doc.addFont(),
+    shapeProps: (kind, patch) => commands.obj.shapeProps(kind, patch),
+    shapeState: () => tools.tools.shape.state,
+    label: (id) => commands.label(id),
+    showDock: (id, tab) => { if (tab) xform.setTab(tab); docks.openSection(id) },
+    confirm: (title, text, ok = 'OK') => new Promise((resolve) => {
+      let done = false
+      const finish = (v) => { if (done) return; done = true; resolve(v); m.close() }
+      const m = modal({ title, icon: 'circle-help', body: h('div', { class: 't-ds-dlg' }, h('p', text)), actions: [button('Cancel', { variant: 'secondary', onClick: () => finish(false) }), button(ok, { variant: 'primary', onClick: () => finish(true) })], onClose: () => { if (!done) { done = true; resolve(false) } } })
+    }),
   }
   let lastExport = null
   const commands = createCommands({ store, view, tools, boxOf, app, fonts, renderer })
@@ -102,6 +114,13 @@ export async function mount(root, ctx = {}) {
   const dialogs = createDialogs({ store, app, assets, fonts, boxOf, persist })
   prop.add(createPageSection({ store, app }))
   prop.add(createTextSection({ store, app }))
+  prop.add(createShapeSection({ store, app }))
+  prop.add(createNodeSection({ store, app }))
+  prop.add(createArrangeSection({ store, app }))
+  const alignSec = createAlignSection({ store, app })
+  docks.addSection({ id: 'align', title: 'Align and distribute', el: alignSec.el, refresh: alignSec.refresh, open: false })
+  const xform = createTransformSection({ store, app, boxOf })
+  docks.addSection({ id: 'transform', title: 'Transform', el: xform.el, refresh: xform.refresh, open: false })
 
   const panelsBtn = h('button', { type: 'button', class: 'ds-panelsbtn', 'aria-label': 'Panels', 'aria-haspopup': 'dialog', onclick: () => docks.toggle() }, icon('panel-bottom'), h('span', 'Panels'))
   const wrap = h('div', { class: 't-ds', 'aria-label': 'Draw Studio editor' },
@@ -111,6 +130,7 @@ export async function mount(root, ctx = {}) {
   if (quick) { wrap.dataset.quick = quick; wrap.classList.add('ds-dim') }
   root.append(wrap)
   docks.attach(wrap)
+  app.clip = createClipboard({ store, boxOf, assets, fonts, view, wrap, host })
 
   // ---------- refresh ----------
   const refreshAll = () => { std.refresh(); prop.refresh(); pageTabs.refresh(); status.refresh(); toolbox.refresh(); palette.refresh() }
@@ -367,7 +387,7 @@ export async function mount(root, ctx = {}) {
   })
 
   // ---------- test hook (no globals): root.__ds drives the editor from the harness ----------
-  const api = { store, commands, assets, fonts, renderer, view, tools, docks, palette, prop, persist, dialogs, textEditor, pageTabs, openFile: (file, opts) => openFiles([file], opts), openFiles, whenReady: () => store.whenReady() }
+  const api = { store, commands, assets, fonts, renderer, view, tools, docks, palette, prop, persist, dialogs, textEditor, pageTabs, clip: app.clip, xform, openFile: (file, opts) => openFiles([file], opts), openFiles, whenReady: () => store.whenReady() }
   root.__ds = api
   wrap.__ds = api
   host.focus({ preventScroll: true })
@@ -385,7 +405,7 @@ export async function mount(root, ctx = {}) {
     openCtl?.abort()
     clearTimeout(busyTimer)
     cleanups.forEach((fn) => fn())
-    textEditor.dispose(); persist.dispose(); menus.dispose(); docks.dispose(); view.dispose(); renderer.dispose(); fonts.dispose(); assets.dispose()
+    app.clip.dispose(); textEditor.dispose(); persist.dispose(); menus.dispose(); docks.dispose(); view.dispose(); renderer.dispose(); fonts.dispose(); assets.dispose()
     delete root.__ds
     wrap.remove()
   }

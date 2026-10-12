@@ -1,7 +1,7 @@
-"""Browser checks for Draw Studio (Playwright, the installed Edge). Covers milestones E1 to E8; later milestones append their checks.
+"""Browser checks for Draw Studio (Playwright, the installed Edge). Covers milestones E1 to E10; later milestones append their checks.
 
 Groups: mount inject fixture cdr pixels other handoff leaks keys quick dark phone truth pick pickperf palette objects domfuzz objectsmany objectsfiles editphone
-        pages autosave text textpdf save savetext e2e e678phone
+        pages autosave text textpdf save savetext e2e e678phone shapes arrange e910phone
 
     uv run --with playwright --with pillow python ds_browser.py [--only name,name] [--samples DIR] [--fixtures DIR]
 
@@ -38,10 +38,15 @@ def check(cond, msg):
 
 
 def mount(ctx, base, width=1280, height=800, route="draw-studio"):
-    page = ctx.new_page()
-    page.set_viewport_size({"width": width, "height": height})
-    errors = open_tool(page, base, route)
-    return page, errors
+    for attempt in (1, 2):  # the site pulls icons from a CDN, so one slow load is retried on a fresh page
+        page = ctx.new_page()
+        page.set_viewport_size({"width": width, "height": height})
+        try:
+            return page, open_tool(page, base, route)
+        except Exception:
+            page.close()
+            if attempt == 2:
+                raise
 
 
 def ds_eval(page, js, arg=None):
@@ -2333,13 +2338,970 @@ def t_e678_phone(ctx, base):
     page.close()
 
 
+# ---------------------------------------------------------------- E9: shapes and node editing
+AREA_JS = """const area = (d) => { let a = 0, cx = 0, cy = 0, sx = 0, sy = 0; const e = (x0, y0, x1, y1) => { a += x0 * y1 - x1 * y0 }
+  for (const c of d) { if (c[0] === 'M') { cx = sx = c[1]; cy = sy = c[2] } else if (c[0] === 'L') { e(cx, cy, c[1], c[2]); cx = c[1]; cy = c[2] } else if (c[0] === 'C') { let px = cx, py = cy; for (let i = 1; i <= 64; i++) { const t = i / 64, u = 1 - t; const x = u*u*u*cx + 3*u*u*t*c[1] + 3*u*t*t*c[3] + t*t*t*c[5], y = u*u*u*cy + 3*u*u*t*c[2] + 3*u*t*t*c[4] + t*t*t*c[6]; e(px, py, x, y); px = x; py = y } cx = c[5]; cy = c[6] } else if (c[0] === 'Z') { e(cx, cy, sx, sy); cx = sx; cy = sy } }
+  return Math.abs(a / 2) };"""
+MM = 72 / 25.4
+
+
+def tool_of(page):
+    return page.evaluate("() => document.querySelector('.tool-body').__ds.store.tool")
+
+
+def all_items(page):
+    return ds_eval(page, "return ds.store.page().layers.flatMap((l) => l.items).map((n) => JSON.parse(JSON.stringify(n)))")
+
+
+def last_item(page):
+    return all_items(page)[-1]
+
+
+def snap_off(page):
+    ds_eval(page, "ds.store.setPref('snap', false)")
+
+
+def add_path(page, d, open_=False, **extra):
+    """Put a known path on the active layer (selected afterwards); returns its id."""
+    return ds_eval(page, "const T = await import('/packs/corel/_ds-tools-draw.js'); const n = T.newPath(ds.store, arg.d, arg.extra || {}, !!arg.open); T.placeNodes(ds.store, [n], 'add'); return n.id", {"d": d, "extra": extra, "open": open_})
+
+
+def shape_diff(page, nid):
+    """Largest difference between a shape's path and the path rebuilt from its shape and sm (0 when the parametric description is exact)."""
+    return ds_eval(page, "const P = await import('/packs/corel/_ds-path.js'); const n = ds.store.find(arg).node; const want = P.shapeD(n.shape, n.sm); if (want.length !== n.d.length) return 1e9; let m = 0; n.d.forEach((c, i) => c.slice(1).forEach((v, j) => { m = Math.max(m, Math.abs(v - want[i][j + 1])) })); return m", nid)
+
+
+def area_of(page, nid):
+    return ds_eval(page, AREA_JS + " return area(ds.store.find(arg).node.d)", nid)
+
+
+def pts_of(node):
+    return [(c[-2], c[-1]) for c in node["d"] if c[0] != "Z"]
+
+
+def focus_canvas(page):
+    page.locator(".ds-view").focus()
+
+
+def prop_field(page, aria, value):
+    f = page.locator(f'.ds-prop input[aria-label="{aria}"], .ds-prop select[aria-label="{aria}"]').first
+    if f.evaluate("(e) => e.tagName") == "SELECT":
+        f.select_option(str(value))
+    else:
+        f.fill(str(value))
+        f.press("Enter")
+    page.wait_for_timeout(120)
+
+
+def shape_state(page):
+    return page.evaluate("() => JSON.parse(JSON.stringify(document.querySelector('.tool-body').__ds.tools.tools.shape.state))")
+
+
+def click_node(page, nid, i, mods=()):
+    n = node_of(page, nid)
+    x, y = pts_of(n)[i]
+    click_pt(page, x, y, modifiers=mods)
+    page.wait_for_timeout(80)
+
+
+def node_btn(page, label):
+    return page.locator(f'.ds-nodebar button[aria-label="{label}"]')
+
+
+def collinear_opposite(inx, iny, outx, outy, tol=1e-6):
+    return abs(inx * outy - iny * outx) < tol and inx * outx + iny * outy < 0
+
+
+def t_shapes(ctx, base):
+    """E9: Rectangle, Ellipse, Polygon, Star, Freehand, Bezier and the Shape tool (real mouse and keyboard events); every command undoes exactly."""
+    page, errors = mount(ctx, base)
+    warns = []
+    page.on("console", lambda m: warns.append(m.text) if "has no implementation" in m.text else None)
+    new_blank(page, "Shapes")
+    snap_off(page)
+    icons = page.evaluate("""async () => {
+      const K = await import('/packs/corel/_ds-keys.js'), T = await import('/packs/corel/_ds-tools.js')
+      const pascal = (n) => n.split('-').map((p) => p[0].toUpperCase() + p.slice(1)).join('')
+      const L = window.lucide
+      const all = new Set([...K.COMMANDS.map((c) => c.icon), ...T.TOOL_INFO.map((x) => x.icon)].filter(Boolean))
+      return { n: all.size, missing: [...all].filter((n) => !(L.icons?.[pascal(n)] || L.icons?.[n])) } }""")
+    check(icons["n"] > 60 and not icons["missing"], f"every command and tool icon is a real Lucide icon ({icons['n']} checked, missing {icons['missing']})")
+    names = page.evaluate("() => [...document.querySelectorAll('.ds-tool')].map((b) => b.getAttribute('aria-label'))")
+    check(all(n in names for n in ("Pick", "Shape", "Freehand", "Bezier", "Rectangle", "Ellipse", "Polygon", "Star", "Text")), f"toolbox has every drawing tool {names}")
+    hidden = page.evaluate("() => { const t = document.querySelector('.ds-tools'); const b = t.getBoundingClientRect(); return [...t.querySelectorAll('.ds-tool')].filter((e) => e.getBoundingClientRect().bottom > b.bottom + 1).length }")
+    check(hidden == 0, f"all {len(names)} tools fit in the toolbox at 1280 x 800 without scrolling ({hidden} cut off)")
+    for key, tool in (("F6", "rect"), ("F7", "ellipse"), ("y", "polygon"), ("Shift+y", "star"), ("F5", "free"), ("Shift+p", "pen"), ("Shift+F5", "pen"), ("F10", "shape"), ("v", "pick")):
+        focus_canvas(page)
+        page.keyboard.press(key)
+        pressed = page.evaluate("(t) => document.querySelector('.ds-tool[data-tool=\"' + t + '\"]').getAttribute('aria-pressed')", tool)
+        check(tool_of(page) == tool and pressed == "true", f"{key} selects the {tool} tool")
+    check(not warns, f"every command in the table has an implementation {warns}")
+
+    # ---------- rectangle ----------
+    focus_canvas(page)
+    page.keyboard.press("F6")
+    n0 = len(all_items(page))
+    undo_redo(page, "draw a rectangle", lambda: drag_pt(page, (100, 100), (300, 220)))
+    r = last_item(page)
+    check(len(all_items(page)) == n0 + 1 and r["shape"]["k"] == "rect" and abs(r["shape"]["w"] - 200) < 0.6 and abs(r["shape"]["h"] - 120) < 0.6, f"rectangle: a path with a rect shape 200 x 120 {r['shape']}")
+    check(abs(r["sm"][4] - 100) < 0.6 and abs(r["sm"][5] - 100) < 0.6 and shape_diff(page, r["id"]) < 1e-9, "rectangle: sm is its position and the path equals the shape")
+    check(sel_of(page) == [r["id"]] and tool_of(page) == "rect", "the new rectangle is selected and the tool stays active")
+    drag_pt(page, (350, 350), (352, 351))
+    check(len(all_items(page)) == n0 + 1, "a tiny drag (a click) makes no object")
+    drag_pt(page, (350, 350), (450, 420), keep=True)
+    page.keyboard.press("Escape")
+    page.mouse.up()
+    check(len(all_items(page)) == n0 + 1, "Esc during a drag cancels it")
+    drag_pt(page, (100, 300), (250, 380), mods=("Control",))
+    sq = last_item(page)
+    check(abs(sq["shape"]["w"] - sq["shape"]["h"]) < 0.01 and sq["shape"]["w"] > 100, f"Ctrl makes a square {sq['shape']}")
+    drag_pt(page, (400, 400), (450, 430), mods=("Shift",))
+    ce = last_item(page)
+    check(abs(ce["sm"][4] - 350) < 0.6 and abs(ce["sm"][5] - 370) < 0.6 and abs(ce["shape"]["w"] - 100) < 0.6, f"Shift draws from the centre {ce['sm'][4:]} {ce['shape']}")
+    # corner radius, then rotate, skew and scale: the radius stays editable
+    rid = r["id"]
+    select_ids(page, rid)
+    check(page.locator(".ds-shapebar").is_visible() and page.locator(".ds-shapebar input[aria-label='Corner radius']").is_visible(), "the rectangle shows its corner radius field")
+    undo_redo(page, "corner radius 5 mm", lambda: prop_field(page, "Corner radius", 5))
+    n = node_of(page, rid)
+    check(abs(n["shape"]["rx"] - 5 * MM) < 1e-6 and sum(1 for c in n["d"] if c[0] == "C") == 4 and shape_diff(page, rid) < 1e-9, f"radius 5 mm gives four curved corners {n['shape']}")
+    undo_redo(page, "angle 30", lambda: prop_field(page, "Angle in degrees", 30))
+    n = node_of(page, rid)
+    check(abs(n["sm"][0] - 0.8660254) < 1e-6 and abs(n["sm"][1] + 0.5) < 1e-6 and n.get("shape") and shape_diff(page, rid) < 1e-9, f"rotated 30: still a rect shape, sm carries the rotation {n['sm']}")
+    prop_field(page, "Corner radius", 10)
+    n = node_of(page, rid)
+    check(abs(n["shape"]["rx"] - 10 * MM) < 1e-6 and shape_diff(page, rid) < 1e-9 and abs(n["sm"][1] + 0.5) < 1e-6, "after the rotation the radius is still editable (path rebuilt through sm)")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('win.transform')")
+    page.locator(".ds-xtabs button[data-tab='skew']").click()
+    page.locator(".ds-xpanel input[aria-label='Transform horizontal skew in degrees']").fill("20")
+    h0, sm0 = hist(page), node_of(page, rid)["sm"]
+    page.get_by_role("button", name="Apply", exact=True).click()
+    page.wait_for_timeout(150)
+    n = node_of(page, rid)
+    check(hist(page)[1] == h0[1] + 1 and n.get("shape") and shape_diff(page, rid) < 1e-9 and n["sm"] != sm0, f"skewed 20 degrees: one step, the shape survives {n['sm']}")
+    prop_field(page, "Corner radius", 3)
+    n = node_of(page, rid)
+    check(abs(n["shape"]["rx"] - 3 * MM) < 0.05 and shape_diff(page, rid) < 1e-9, "after the skew the radius is still editable")
+    prop_field(page, "Width", 80)
+    n = node_of(page, rid)
+    check(n.get("shape") and shape_diff(page, rid) < 1e-9 and abs(nbox(page, rid)["w"] - 80 * MM) < 0.05, "scaling by the W field keeps the shape")
+    # ---------- ellipse ----------
+    focus_canvas(page)
+    page.keyboard.press("F7")
+    n0 = len(all_items(page))
+    undo_redo(page, "draw an ellipse", lambda: drag_pt(page, (100, 450), (200, 520)))
+    e = last_item(page)
+    check(e["shape"]["k"] == "ellipse" and abs(e["shape"]["rx"] - 50) < 0.6 and abs(e["shape"]["ry"] - 35) < 0.6 and sum(1 for c in e["d"] if c[0] == "C") == 4 and shape_diff(page, e["id"]) < 1e-9, f"ellipse {e['shape']}")
+    drag_pt(page, (250, 450), (320, 500), mods=("Control",))
+    c = last_item(page)
+    check(abs(c["shape"]["rx"] - c["shape"]["ry"]) < 1e-6, "Ctrl makes a circle")
+    prop_field(page, "Ellipse, pie or arc", "pie")
+    prop_field(page, "Start angle in degrees", 0)
+    prop_field(page, "End angle in degrees", 90)
+    drag_pt(page, (400, 450), (460, 510), mods=("Control",))
+    p = last_item(page)
+    ar = area_of(page, p["id"])
+    check(p["shape"].get("pie") and p["shape"]["a1"] == 0 and p["shape"]["a2"] == 90 and abs(ar / (3.14159265 * p["shape"]["rx"] ** 2 / 4) - 1) < 0.003 and p["d"][-1][0] == "Z", f"pie 0 to 90: a quarter of the circle, closed (area ratio {ar / (3.14159265 * p['shape']['rx'] ** 2 / 4):.4f})")
+    undo_redo(page, "pie to arc", lambda: prop_field(page, "Ellipse, pie or arc", "arc"))
+    a = node_of(page, p["id"])
+    check(not a["shape"].get("pie") and a["shape"]["a1"] == 0 and a["d"][-1][0] != "Z" and shape_diff(page, p["id"]) < 1e-9, "arc: an open curve")
+    prop_field(page, "Ellipse, pie or arc", "ellipse")
+    a = node_of(page, p["id"])
+    check("a1" not in a["shape"] and a["d"][-1][0] == "Z" and sum(1 for c in a["d"] if c[0] == "C") == 4, "back to a full ellipse")
+    # ---------- polygon and star ----------
+    focus_canvas(page)
+    page.keyboard.press("y")
+    prop_field(page, "Number of sides", 8)
+    undo_redo(page, "draw a polygon", lambda: drag_pt(page, (150, 600), (210, 600)))
+    pg = last_item(page)
+    check(pg["shape"]["k"] == "poly" and pg["shape"]["n"] == 8 and len(pg["d"]) == 9 and abs(pg["shape"]["r"] - 60) < 0.6, f"polygon with 8 sides, radius 60 {pg['shape']}")
+    undo_redo(page, "polygon sides", lambda: prop_field(page, "Number of sides", 5))
+    pg = node_of(page, pg["id"])
+    check(pg["shape"]["n"] == 5 and len(pg["d"]) == 6 and shape_diff(page, pg["id"]) < 1e-9, "sides edited on the selected polygon")
+    focus_canvas(page)
+    page.keyboard.press("v")
+    prop_field(page, "Angle in degrees", 45)
+    prop_field(page, "Number of sides", 7)
+    pg = node_of(page, pg["id"])
+    check(pg["shape"]["n"] == 7 and abs(pg["sm"][0] - 0.70710678) < 1e-6 and shape_diff(page, pg["id"]) < 1e-9, "after a rotation the sides are still editable and the rotation stays")
+    focus_canvas(page)
+    page.keyboard.press("Shift+y")
+    prop_field(page, "Number of points", 7)
+    prop_field(page, "Sharpness of the star points, 1 to 99", 30)
+    undo_redo(page, "draw a star", lambda: drag_pt(page, (300, 600), (360, 600)))
+    st = last_item(page)
+    check(st["shape"]["k"] == "star" and st["shape"]["n"] == 7 and abs(st["shape"]["r2"] / st["shape"]["r1"] - 0.7) < 1e-6 and len(st["d"]) == 15, f"star with 7 points and sharpness 30 {st['shape']}")
+    prop_field(page, "Sharpness of the star points, 1 to 99", 80)
+    st = node_of(page, st["id"])
+    check(abs(st["shape"]["r2"] / st["shape"]["r1"] - 0.2) < 1e-6 and shape_diff(page, st["id"]) < 1e-9, "star sharpness edited on the selected star")
+    # ---------- freehand ----------
+    import math
+    focus_canvas(page)
+    page.keyboard.press("F5")
+    pts = [(450 + 4 * i, 500 + 25 * math.sin(i / 4)) for i in range(0, 30)]
+    n0 = len(all_items(page))
+    h0 = hist(page)
+    ax, ay = scr(page, *pts[0])
+    page.mouse.move(ax, ay)
+    page.mouse.down()
+    for q in pts[1:]:
+        x, y = scr(page, *q)
+        page.mouse.move(x, y)
+    page.mouse.up()
+    page.wait_for_timeout(150)
+    fh = last_item(page)
+    check(len(all_items(page)) == n0 + 1 and hist(page)[1] == h0[1] + 1 and fh["fill"] is None and "shape" not in fh and 3 <= len(fh["d"]) <= 14, f"freehand: one smooth open curve with few nodes ({len(fh['d'])} commands from {len(pts)} points)")
+    check(fh["d"][0][0] == "M" and all(c[0] in ("C", "L") for c in fh["d"][1:]), "freehand: a single open curve")
+    for q in ((450, 700), (500, 740), (560, 700)):
+        click_pt(page, *q)
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(120)
+    pl = last_item(page)
+    check([c[0] for c in pl["d"]] == ["M", "L", "L"], f"clicks make a polyline, Enter finishes ({[c[0] for c in pl['d']]})")
+    for q in ((450, 760), (500, 790)):
+        click_pt(page, *q)
+    sx, sy = scr(page, 560, 760)
+    page.mouse.dblclick(sx, sy)
+    page.wait_for_timeout(120)
+    pl2 = last_item(page)
+    check([c[0] for c in pl2["d"]] == ["M", "L", "L"], f"a double-click ends the polyline without a doubled point ({[c[0] for c in pl2['d']]})")
+    # ---------- Bezier ----------
+    focus_canvas(page)
+    page.keyboard.press("Shift+p")
+    n0 = len(all_items(page))
+    click_pt(page, 100, 700)
+    click_pt(page, 180, 700)
+    drag_pt(page, (260, 740), (300, 760))
+    click_pt(page, 340, 700)
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(120)
+    bz = last_item(page)
+    check(len(all_items(page)) == n0 + 1 and [c[0] for c in bz["d"]] == ["M", "L", "C", "C"] and bz["fill"] is None, f"bezier: corner, corner, smooth, corner ({[c[0] for c in bz['d']]})")
+    c2, c1 = bz["d"][2], bz["d"][3]
+    mid = ((c2[3] + c1[1]) / 2, (c2[4] + c1[2]) / 2)
+    check(abs(mid[0] - c2[5]) < 1e-6 and abs(mid[1] - c2[6]) < 1e-6 and abs(c2[3] - c2[5]) > 5, "a dragged point gets two opposite, equal handles")
+    h0 = hist(page)
+    click_pt(page, 100, 780); click_pt(page, 160, 800); click_pt(page, 220, 780)
+    page.keyboard.press("Backspace")
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(120)
+    b2 = last_item(page)
+    check([c[0] for c in b2["d"]] == ["M", "L"] and hist(page)[1] == h0[1] + 1, "Backspace removes the last point; one undo step")
+    click_pt(page, 400, 700); click_pt(page, 460, 700); click_pt(page, 460, 760); click_pt(page, 400, 760)
+    click_pt(page, 400, 700)
+    page.wait_for_timeout(120)
+    b3 = last_item(page)
+    check(b3["d"][-1][0] == "Z" and b3["fill"] is not None and len(b3["d"]) == 5, f"clicking the first point closes the curve and fills it ({[c[0] for c in b3['d']]})")
+    click_pt(page, 500, 700); click_pt(page, 560, 740); click_pt(page, 560, 700)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(120)
+    b4 = last_item(page)
+    check([c[0] for c in b4["d"]] == ["M", "L", "L"] and b4["id"] != b3["id"], "Esc finishes the curve and keeps it")
+    n0 = len(all_items(page))
+    ex, ey = pts_of(b4)[-1]
+    click_pt(page, ex, ey)
+    click_pt(page, ex + 60, ey - 40)
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(120)
+    items = all_items(page)
+    again = next(i for i in items if i["id"] == b4["id"])
+    check(len(items) == n0 and len(pts_of(again)) == 4, f"clicking an open end continues that curve ({len(pts_of(again))} points, {len(items)} objects)")
+    check(page.locator(".ds-ov .ds-node").count() == 0, "no draft left in the overlay after finishing")
+    n_items = len(all_items(page))
+    svg_path, _ = export_via_dialog(page, "svg")
+    svg = Path(svg_path).read_text(encoding="utf-8")
+    check(svg.count("<path") == n_items and "shape" not in svg.replace("shape-rendering", "") and "data-ds" not in svg, f"SVG export: one path per drawn object, no editor fields ({svg.count('<path')} paths, {n_items} objects)")
+    shot(page, "shapes-draw")
+    page.close()
+
+    # ---------- the Shape tool on known paths ----------
+    page, errors2 = mount(ctx, base)
+    new_blank(page, "Nodes")
+    snap_off(page)
+    pid = add_path(page, [["M", 100, 100], ["C", 150, 60, 200, 60, 250, 100], ["L", 250, 200], ["L", 100, 200], ["Z"]])
+    focus_canvas(page)
+    page.keyboard.press("F10")
+    page.wait_for_timeout(200)
+    check(page.locator(".ds-ov .ds-node").count() == 4 and shape_state(page)["nodes"] == 4, "the Shape tool shows the four nodes of the selected curve")
+    check(page.locator(".ds-nodebar").is_visible() and not page.locator(".ds-selfields").is_visible(), "the property bar shows the node buttons")
+    click_node(page, pid, 1)
+    check(shape_state(page)["picked"] == [[0, 1]] and page.locator(".ds-ov .ds-hdl").count() == 2, f"a click picks a node and shows its handle and the facing one ({page.locator('.ds-ov .ds-hdl').count()} handles)")
+    n_before = node_of(page, pid)
+    undo_redo(page, "drag a node", lambda: drag_pt(page, pts_of(n_before)[1], (pts_of(n_before)[1][0] + 30, pts_of(n_before)[1][1] + 20)))
+    n = node_of(page, pid)
+    check(abs(pts_of(n)[1][0] - 280) < 0.3 and abs(pts_of(n)[1][1] - 120) < 0.3 and abs(n["d"][1][3] - 230) < 0.3, f"the node moved by (30, 20) and its handle came along {n['d'][1]}")
+    check(n.get("nt") is not None and len(n["nt"][0]) == 4, f"node types are remembered {n.get('nt')}")
+    # a rectangle becomes a curve on the first node edit: ONE undo step
+    page.keyboard.press("F6")
+    drag_pt(page, (400, 100), (500, 160))
+    rid = sel_of(page)[0]
+    page.keyboard.press("F10")
+    page.wait_for_timeout(150)
+    click_node(page, rid, 2)
+    rn = node_of(page, rid)
+    def drag_corner():
+        x, y = pts_of(rn)[2]
+        drag_pt(page, (x, y), (x + 15, y + 15))
+    undo_redo(page, "first node edit of a rectangle", drag_corner)
+    rn = node_of(page, rid)
+    check("shape" not in rn and "sm" not in rn and abs(pts_of(rn)[2][0] - 515) < 0.5, "the rectangle turned into a curve and the node moved, in one step")
+    page.keyboard.press("Control+z")
+    check("shape" in node_of(page, rid), "one undo brings the rectangle back")
+    page.keyboard.press("Control+Shift+z")
+    # node commands from the property bar (each is ONE undo step; picked nodes are not part of the history, so every step picks again)
+    pid2 = add_path(page, [["M", 100, 300], ["L", 200, 300], ["L", 300, 300], ["L", 300, 400]])
+    page.wait_for_timeout(150)
+    focus_canvas(page)
+    page.keyboard.press("F10")
+    page.wait_for_timeout(150)
+    check(node_btn(page, "Join two end nodes").is_disabled(), "Join is off until two end nodes are picked")
+
+    def node_step(label, picks, btn):
+        click_node(page, pid2, picks[0])
+        for i in picks[1:]:
+            click_node(page, pid2, i, ("Shift",))
+        box = {}
+        def go():
+            node_btn(page, btn).click()
+            box["state"] = shape_state(page)
+        undo_redo(page, label, go)
+        return box["state"], node_of(page, pid2)
+
+    st, n = node_step("add node", [0, 1], "Add node")
+    check(len(pts_of(n)) == 5 and abs(pts_of(n)[1][0] - 150) < 1e-6 and st["picked"] == [[0, 1]], f"Add node puts a node in the middle of the segment {pts_of(n)} picked {st['picked']}")
+    st, n = node_step("delete nodes", [1], "Delete nodes")
+    check(len(pts_of(n)) == 4 and pts_of(n)[1] == (200, 300), "Delete nodes removes it again")
+    st, n = node_step("to curve", [1, 2], "Make segment a curve")
+    check(n["d"][2][0] == "C" and abs(n["d"][2][1] - (200 + 100 / 3)) < 1e-6, f"To curve: handles a third of the way {n['d'][2]}")
+    st, n = node_step("to line", [1, 2], "Make segment straight")
+    check(n["d"][2][0] == "L", "To line: straight again")
+    for picks in ([1, 2], [2, 3]):
+        click_node(page, pid2, picks[0]); click_node(page, pid2, picks[1], ("Shift",))
+        node_btn(page, "Make segment a curve").click()
+    st, n = node_step("smooth", [2], "Smooth node")
+    pin, pout = n["d"][2], n["d"][3]
+    inh = (pin[3] - pin[5], pin[4] - pin[6]); outh = (pout[1] - pin[5], pout[2] - pin[6])
+    check(collinear_opposite(*inh, *outh, tol=1e-6) and n["nt"][0][2] == "s", f"Smooth: the two handles are on one line, opposite {inh} {outh}")
+    st, n = node_step("symmetrical", [2], "Symmetrical node")
+    pin, pout = n["d"][2], n["d"][3]
+    inh = (pin[3] - pin[5], pin[4] - pin[6]); outh = (pout[1] - pin[5], pout[2] - pin[6])
+    check(collinear_opposite(*inh, *outh) and abs(math.hypot(*inh) - math.hypot(*outh)) < 1e-6 and n["nt"][0][2] == "y", f"Symmetrical: equal length too {math.hypot(*inh):.3f} {math.hypot(*outh):.3f}")
+    # dragging a handle follows the node type
+    click_node(page, pid2, 2)
+    hx, hy = pout[1], pout[2]
+    drag_pt(page, (hx, hy), (hx + 10, hy + 25))
+    n = node_of(page, pid2)
+    pin, pout = n["d"][2], n["d"][3]
+    inh = (pin[3] - pin[5], pin[4] - pin[6]); outh = (pout[1] - pin[5], pout[2] - pin[6])
+    check(abs(outh[1] - (hy - pin[6] + 25)) < 0.3 and abs(inh[0] + outh[0]) < 1e-6 and abs(inh[1] + outh[1]) < 1e-6, "a symmetrical node mirrors the other handle while one is dragged")
+    node_btn(page, "Smooth node").click()
+    n = node_of(page, pid2)
+    pin, pout = n["d"][2], n["d"][3]
+    len_in = math.hypot(pin[3] - pin[5], pin[4] - pin[6])
+    hx, hy = pout[1], pout[2]
+    drag_pt(page, (hx, hy), (hx + 40, hy - 10))
+    n = node_of(page, pid2)
+    pin, pout = n["d"][2], n["d"][3]
+    inh = (pin[3] - pin[5], pin[4] - pin[6]); outh = (pout[1] - pin[5], pout[2] - pin[6])
+    check(collinear_opposite(*inh, *outh, tol=1e-5) and abs(math.hypot(*inh) - len_in) < 1e-6, "a smooth node keeps the other handle on the line and its length")
+    st, n = node_step("cusp", [2], "Cusp node")
+    check(n["nt"][0][2] == "c", "Cusp node")
+    # break, join, close, reverse
+    st, n = node_step("break", [1], "Break curve")
+    check(sum(1 for c in n["d"] if c[0] == "M") == 2 and len(pts_of(n)) == 5 and st["nodes"] == 5, f"Break splits the curve in two ({len(pts_of(n))} nodes)")
+    drag_pt(page, (170, 280), (230, 320))
+    check(len(shape_state(page)["picked"]) == 2, f"a rubber band picks the nodes inside ({shape_state(page)['picked']})")
+    undo_redo(page, "join", lambda: node_btn(page, "Join two end nodes").click())
+    n = node_of(page, pid2)
+    check(sum(1 for c in n["d"] if c[0] == "M") == 1 and len(pts_of(n)) == 4, "Join makes one curve again")
+    st, n = node_step("close", [3], "Close curve")
+    check(n["d"][-1][0] == "Z", "Close curve")
+    before = pts_of(n)
+    st, n = node_step("reverse", [0], "Reverse direction")
+    after = pts_of(n)
+    check(len(after) == len(before) and all(abs(a[0] - b[0]) < 1e-6 and abs(a[1] - b[1]) < 1e-6 for a, b in zip(after, reversed(before))), f"Reverse direction turns the node order round {before} {after}")
+    # keys on picked nodes
+    click_node(page, pid2, 0)
+    before = pts_of(node_of(page, pid2))[0]
+    page.keyboard.press("ArrowRight")
+    page.wait_for_timeout(100)
+    after = pts_of(node_of(page, pid2))[0]
+    check(abs(after[0] - before[0] - MM) < 1e-6 and sel_of(page) == [pid2], f"an arrow key moves the picked node by 1 mm {after[0] - before[0]:.4f}")
+    cnt = shape_state(page)["nodes"]
+    page.keyboard.press("Delete")
+    page.wait_for_timeout(100)
+    check(node_of(page, pid2) is not None and shape_state(page)["nodes"] == cnt - 1, f"Delete removes the picked node, not the object ({cnt} -> {shape_state(page)['nodes']} nodes)")
+    page.keyboard.press("Control+a")
+    check(len(shape_state(page)["picked"]) == shape_state(page)["nodes"], "Ctrl+A picks every node")
+    page.keyboard.press("Escape")
+    check(shape_state(page)["picked"] == [] and sel_of(page) == [pid2], "Esc first clears the picked nodes")
+    # a double-click on a segment adds a node, on a node switches cusp and smooth
+    pid3 = add_path(page, [["M", 100, 500], ["L", 300, 500], ["L", 300, 600]])
+    focus_canvas(page)
+    page.keyboard.press("F10")
+    page.wait_for_timeout(120)
+    sx, sy = scr(page, 200, 500)
+    h0 = hist(page)
+    page.mouse.dblclick(sx, sy)
+    page.wait_for_timeout(120)
+    check(len(pts_of(node_of(page, pid3))) == 4 and hist(page)[1] == h0[1] + 1, "double-click on a segment adds a node (one step)")
+    sx, sy = scr(page, 300, 500)
+    page.mouse.dblclick(sx, sy)
+    page.wait_for_timeout(120)
+    check(node_of(page, pid3)["nt"][0][2] == "s", f"double-click on a node makes it smooth {node_of(page, pid3).get('nt')}")
+    page.mouse.dblclick(sx, sy)
+    page.wait_for_timeout(120)
+    check(node_of(page, pid3)["nt"][0][2] == "c", "and back to a cusp")
+    # a click on a segment picks its two nodes, a drag on it reshapes the curve (the point under the pointer follows)
+    pid4 = add_path(page, [["M", 100, 650], ["L", 300, 650], ["L", 300, 750]])
+    focus_canvas(page)
+    page.keyboard.press("F10")
+    page.wait_for_timeout(120)
+    click_pt(page, 300, 700)
+    page.wait_for_timeout(80)
+    check(shape_state(page)["picked"] == [[0, 1], [0, 2]], f"a click on a segment picks both of its nodes {shape_state(page)['picked']}")
+    undo_redo(page, "reshape a segment", lambda: drag_pt(page, (200, 650), (200, 620)))
+    n = node_of(page, pid4)
+    c = n["d"][1]
+    mid_y = (650 + 3 * c[2] + 3 * c[4] + 650) / 8
+    check(c[0] == "C" and len(pts_of(n)) == 3 and abs(mid_y - 620) < 0.3 and abs(c[5] - 300) < 1e-6, f"dragging a straight segment made it a curve whose middle follows the pointer (middle y {mid_y:.2f})")
+    # Esc during a node drag cancels
+    pn = pts_of(node_of(page, pid3))[3]
+    h0, d0 = hist(page), node_of(page, pid3)["d"]
+    drag_pt(page, pn, (pn[0] + 40, pn[1] + 40), keep=True)
+    page.keyboard.press("Escape")
+    page.mouse.up()
+    page.wait_for_timeout(100)
+    check(hist(page) == h0 and node_of(page, pid3)["d"] == d0, "Esc during a node drag restores the curve (no history step)")
+    check(page.evaluate("(id) => { const ds = document.querySelector('.tool-body').__ds; const el = document.querySelector('.ds-world [data-id=\"' + id + '\"]'); const p = el.localName === 'path' ? el : el.querySelector('path'); return p.getAttribute('d') === ds.renderer.dStr(ds.store.find(id).node.d) }", pid3), "the drawn path is back to the document's")
+    # the Pick tool: a double-click on a curve switches to the Shape tool
+    page.keyboard.press("v")
+    sx, sy = scr(page, 300, 560)
+    page.mouse.dblclick(sx, sy)
+    page.wait_for_timeout(150)
+    check(tool_of(page) == "shape" and sel_of(page) == [pid3], "double-click on a curve with the Pick tool opens it in the Shape tool")
+    # locked curves are not edited
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('arrange.lock')")
+    page.wait_for_timeout(100)
+    check(shape_state(page)["target"] is None, "a locked curve is not offered for node editing")
+    check(not errors2, f"no console errors {errors2[:3]}")
+    shot(page, "shapes-nodes")
+    page.close()
+    check(not errors, f"no console errors in the drawing part {errors[:3]}")
+
+
+# ---------------------------------------------------------------- E10: arrange, shaping, transform, clipboard
+def circle_d(cx, cy, r):
+    k = 0.5522847498 * r
+    return [["M", cx + r, cy], ["C", cx + r, cy + k, cx + k, cy + r, cx, cy + r], ["C", cx - k, cy + r, cx - r, cy + k, cx - r, cy], ["C", cx - r, cy - k, cx - k, cy - r, cx, cy - r], ["C", cx + k, cy - r, cx + r, cy - k, cx + r, cy], ["Z"]]
+
+
+def sq_d(x, y, w, h=None):
+    h = w if h is None else h
+    return [["M", x, y], ["L", x + w, y], ["L", x + w, y + h], ["L", x, y + h], ["Z"]]
+
+
+def layer_names(page, layer=0):
+    return ds_eval(page, "return ds.store.page().layers[arg].items.map((n) => n.name || n.t)", layer)
+
+
+def bx(page, nid):
+    b = nbox(page, nid)
+    return (round(b["x"], 3), round(b["y"], 3), round(b["w"], 3), round(b["h"], 3))
+
+
+def status_text(page):
+    return page.inner_text(".ds-st-msg")
+
+
+def press_on_canvas(page, key):
+    focus_canvas(page)
+    page.keyboard.press(key)
+    page.wait_for_timeout(130)
+
+
+def total_area(page, ids):
+    return [round(area_of(page, i), 1) for i in ids]
+
+
+def t_arrange(ctx, base):
+    """E10: order, align and distribute, combine and break apart, lock, shaping (areas against analytic values), Transform docker, clipboard, clip to container."""
+    page, errors = mount(ctx, base)
+    warns = []
+    page.on("console", lambda m: warns.append(m.text) if "has no implementation" in m.text else None)
+    info = load_scene(page)
+    ids = info["ids"]
+    snap_off(page)
+    focus_canvas(page)
+    # ---------- order: every shortcut and alias ----------
+    def idx(name):
+        return layer_names(page, 0).index(name)
+    select_ids(page, ids["Red"])
+    h0 = hist(page)[1]
+    for keys, expect, label in ((("Control+]", "Control+PageUp"), (1, 2), "forward one"), (("Control+[", "Control+PageDown"), (1, 0), "back one"),
+                                (("Shift+PageUp", "Control+Shift+]"), (4, 4), "to front"), (("Shift+PageDown", "Control+Shift+["), (0, 0), "to back")):
+        for k, want in zip(keys, expect):
+            press_on_canvas(page, k)
+            check(idx("Red") == want, f"{k}: {label} puts Red at {want} ({layer_names(page, 0)})")
+    check(hist(page)[1] == h0 + 6 or hist(page)[1] > h0, "each order command is an undo step")
+    press_on_canvas(page, "Control+z")
+    # reverse order via the menu on two objects
+    select_ids(page, ids["Red"], ids["Blue"])
+    ib, ir = idx("Blue"), idx("Red")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('arrange.reverse')")
+    check(idx("Red") == ib and idx("Blue") == ir, "Reverse order swaps two objects")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    # ---------- align (on a fresh scene, so the z order is the original) ----------
+    info = load_scene(page)
+    ids = info["ids"]
+    snap_off(page)
+    select_ids(page, ids["Red"], ids["Blue"], ids["Yellow"])
+    want = {"l": [(50, 50), (50, 50), (50, 100)], "r": [(180, 50), (200, 50), (240, 100)], "t": [(50, 50), (200, 50), (170, 50)], "b": [(50, 80), (200, 60), (170, 100)],
+            "e": [(115, 50), (125, 50), (145, 100)], "c": [(50, 65), (200, 55), (170, 75)], "p": [(85, 105), (235, 105), (205, 155)]}
+    names = {"l": "left", "r": "right", "t": "top", "b": "bottom", "e": "centre horizontally", "c": "centre vertically", "p": "centre on page"}
+    for key, name in names.items():
+        press_on_canvas(page, key)
+        got = [(round(nbox(page, ids[n])["x"], 2), round(nbox(page, ids[n])["y"], 2)) for n in ("Red", "Blue", "Yellow")]
+        check(got == want[key], f"align {name} ({key}): {got} == {want[key]}")
+        press_on_canvas(page, "Control+z")
+    check(len(all_items(page)) > 0 and sel_of(page) == [ids["Red"], ids["Blue"], ids["Yellow"]], "undo restores the selection")
+    select_ids(page, ids["Red"])
+    press_on_canvas(page, "l")
+    check(bx(page, ids["Red"])[0] == 0, "a single object aligns to the page edge")
+    press_on_canvas(page, "p")
+    b = nbox(page, ids["Red"])
+    check(abs(b["x"] + b["w"] / 2 - 200) < 1e-6 and abs(b["y"] + b["h"] / 2 - 150) < 1e-6, "P centres it on the page")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()"); page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    # the docker, the property bar and the menu all do the same
+    select_ids(page, ids["Red"], ids["Blue"])
+    page.locator(".ds-arrangebar button[aria-label='Align left (L)']").click()
+    page.wait_for_timeout(120)
+    check(bx(page, ids["Blue"])[0] == 50, "the property bar's align buttons work")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    page.get_by_role("menuitem", name="Object", exact=True).click()
+    page.locator(".ds-menu:visible [data-cmd='align.right']").click()
+    page.wait_for_timeout(120)
+    check(bx(page, ids["Red"])[0] == 180, f"Object > Align > Align right works {bx(page, ids['Red'])}")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('win.align')")
+    page.wait_for_selector(".ds-xpanel .ds-xbtn[data-cmd='align.left']", state="visible")
+    page.locator(".ds-xradio button", has_text="Page").first.click()
+    check(page.evaluate("() => document.querySelector('.tool-body').__ds.store.prefs.alignTo") == "page", "Align to: Page")
+    select_ids(page, ids["Red"], ids["Blue"])
+    page.locator(".ds-xbtn[data-cmd='align.left']").click()
+    page.wait_for_timeout(120)
+    check(bx(page, ids["Red"])[0] == 0 and bx(page, ids["Blue"])[0] == 0, "with Page as the reference both go to the page edge")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    page.locator(".ds-xradio button", has_text="Active object").first.click()
+    select_ids(page, ids["Blue"], ids["Red"])
+    page.locator(".ds-xbtn[data-cmd='align.left']").click()
+    page.wait_for_timeout(120)
+    check(bx(page, ids["Blue"])[0] == 50 and bx(page, ids["Red"])[0] == 50, "with the active object as the reference the others join the one selected last")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    page.locator(".ds-xradio button", has_text="Selection").first.click()
+    # ---------- distribute ----------
+    select_ids(page, ids["Red"], ids["Blue"], ids["Yellow"])
+    for cmd, expect in (("distribute.left", ("Yellow", "x", 125)), ("distribute.spaceH", ("Yellow", "x", 155)), ("distribute.centerH", ("Yellow", "x", 150)), ("distribute.right", ("Yellow", "x", 175)), ("distribute.spaceV", ("Blue", "y", 65))):
+        page.locator(f".ds-xbtn[data-cmd='{cmd}']").click()
+        page.wait_for_timeout(120)
+        n, axis, v = expect
+        check(abs(nbox(page, ids[n])[axis] - v) < 1e-6, f"{cmd}: {n} {axis} is {v} (got {nbox(page, ids[n])[axis]})")
+        page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    select_ids(page, ids["Red"], ids["Blue"])
+    check(page.locator(".ds-xbtn[data-cmd='distribute.spaceH']").is_disabled(), "distribute needs three objects")
+    page.locator(".ds-xradio button", has_text="Page").nth(1).click()
+    page.locator(".ds-xbtn[data-cmd='distribute.spaceH']").click()
+    page.wait_for_timeout(120)
+    check(bx(page, ids["Red"])[0] == 0 and abs(bx(page, ids["Blue"])[0] - 320) < 1e-6, f"two objects spread over the page {bx(page, ids['Red'])} {bx(page, ids['Blue'])}")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    page.locator(".ds-xradio button", has_text="Selection").nth(1).click()
+    # ---------- combine and break apart ----------
+    select_ids(page, ids["Red"], ids["Blue"])
+    h0 = hist(page)
+    press_on_canvas(page, "Control+l")
+    items = all_items(page)
+    comb = next(i for i in items if i.get("rule") == "evenodd")
+    check(hist(page)[1] == h0[1] + 1 and len(layer_names(page, 0)) == 4 and sum(1 for c in comb["d"] if c[0] == "M") == 2 and sel_of(page) == [comb["id"]], f"Ctrl+L: two shapes became one curve with even-odd fill ({layer_names(page, 0)})")
+    press_on_canvas(page, "Control+k")
+    items = all_items(page)
+    check(len(layer_names(page, 0)) == 5 and len(sel_of(page)) == 2 and sel_of(page)[0] == comb["id"] and all(sum(1 for c in i["d"] if c[0] == "M") == 1 for i in items if i["t"] == "path" and i["id"] in sel_of(page)), "Ctrl+K: separate objects again, the first keeps its id")
+    press_on_canvas(page, "Control+z"); press_on_canvas(page, "Control+z")
+    select_ids(page, ids["Pair"], ids["Red"])
+    press_on_canvas(page, "Control+l")
+    comb = next(i for i in all_items(page) if i.get("rule") == "evenodd")
+    check(sum(1 for c in comb["d"] if c[0] == "M") == 3, "a group contributes its shapes to Combine")
+    press_on_canvas(page, "Control+z")
+    select_ids(page, ids["Red"], ids["Photo"])
+    press_on_canvas(page, "Control+l")
+    check("Pictures" in status_text(page) and layer_names(page, 0).count("Red") == 1, f"a picture cannot be combined: '{status_text(page)}'")
+    tid = ds_eval(page, "const id = ds.store.newId(); const T = await import('/packs/corel/_ds-tools-draw.js'); T.placeNodes(ds.store, [{ id, t: 'text', str: 'Hi', family: 'Inter', size: 20, bold: false, italic: false, fill: '#000000', opacity: 1, m: [1, 0, 0, 1, 20, 40], lh: 1.2, align: 'left' }], 'text'); return id")
+    select_ids(page, ids["Red"], tid)
+    press_on_canvas(page, "Control+l")
+    check("curves" in status_text(page), f"text cannot be combined: '{status_text(page)}'")
+    # ---------- lock ----------
+    select_ids(page, ids["Red"])
+    press_on_canvas(page, "Control+Shift+l")
+    n = node_of(page, ids["Red"])
+    check(n.get("locked") and sel_of(page) == [], "Ctrl+Shift+L locks the object and deselects it")
+    click_pt(page, 100, 80)
+    check(sel_of(page) == [], "a locked object cannot be picked on the canvas")
+    page.evaluate("(id) => document.querySelector('.tool-body').__ds.store.setSel([id])", ids["Red"])
+    check(page.evaluate("() => document.querySelector('.tool-body').__ds.commands.label('arrange.lock')") == "Unlock", "the lock command reads Unlock for a locked selection")
+    press_on_canvas(page, "Control+Shift+l")
+    check(not node_of(page, ids["Red"]).get("locked"), "Ctrl+Shift+L again unlocks")
+    select_ids(page, ids["Red"], ids["Blue"])
+    press_on_canvas(page, "Control+Shift+l")
+    check(node_of(page, ids["Red"]).get("locked") and node_of(page, ids["Blue"]).get("locked"), "two objects locked in one step")
+    press_on_canvas(page, "Control+Alt+Shift+l")
+    check(not node_of(page, ids["Red"]).get("locked") and not node_of(page, ids["Blue"]).get("locked"), "Ctrl+Alt+Shift+L unlocks everything on the page")
+    check(not page.evaluate("() => document.querySelector('.tool-body').__ds.commands.enabled('arrange.unlockAll')"), "Unlock all is off when nothing is locked")
+    # convert to curves: a shape keeps its path and loses its parametric description
+    select_ids(page, ids["Red"])
+    h0 = hist(page)[1]
+    press_on_canvas(page, "Control+q")
+    page.wait_for_timeout(300)
+    n = node_of(page, ids["Red"])
+    check("shape" not in n and "sm" not in n and len(n["d"]) == 5 and hist(page)[1] == h0 + 1, "Ctrl+Q turns a rectangle into a plain curve (one step)")
+    page.keyboard.press("Control+z")
+    check("shape" in node_of(page, ids["Red"]), "and one undo brings the rectangle back")
+    check(not warns, f"every command has an implementation {warns}")
+    page.close()
+
+    # ---------- shaping against analytic areas ----------
+    page, errors = mount(ctx, base)
+    new_blank(page, "Shaping")
+    snap_off(page)
+    focus_canvas(page)
+    def setup(a_d, b_d):
+        a = add_path(page, a_d); b = add_path(page, b_d)
+        select_ids(page, a, b)
+        return a, b
+    A, B = setup(sq_d(100, 100, 100), sq_d(150, 150, 100))
+    root0 = root_json(page)
+    cases = (("shape.weld", 17500, 1), ("shape.trim", None, 2), ("shape.intersect", 2500, 1), ("shape.simplify", None, 2), ("shape.frontMinusBack", 7500, 1), ("shape.backMinusFront", 7500, 1))
+    for cmd, area, n_items in cases:
+        h0 = hist(page)
+        page.evaluate("(c) => document.querySelector('.tool-body').__ds.commands.run(c)", cmd)
+        page.wait_for_function("() => !document.querySelector('.ds-st-msg').textContent.endsWith('...')", timeout=30000)
+        page.wait_for_timeout(200)
+        its = all_items(page)
+        areas = sorted(round(area_of(page, i["id"]), 0) for i in its)
+        if cmd == "shape.weld":
+            ok = areas == [17500]
+        elif cmd == "shape.trim":
+            ok = areas == [7500, 10000]
+        elif cmd == "shape.intersect":
+            ok = areas == [2500]
+        elif cmd == "shape.simplify":
+            ok = areas == [7500, 10000]
+        else:
+            ok = areas == [7500]
+        check(ok and len(its) == n_items and hist(page)[1] == h0[1] + 1 and len(sel_of(page)) >= 1, f"{cmd}: areas {areas} in {len(its)} object(s), one undo step, result selected")
+        page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+        check(root_json(page) == root0, f"{cmd}: undo restores the drawing exactly")
+        select_ids(page, A, B)
+    # target by marquee: the bottom-most object; by click: the last selected
+    c = ds_eval(page, "const ds2 = ds; return ds.store.find(arg).node.id", A)
+    page.evaluate("(ids) => document.querySelector('.tool-body').__ds.store.setSel(ids, 'marquee')", [A, B])
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('shape.trim')")
+    page.wait_for_timeout(1500)
+    areas = {i["id"]: round(area_of(page, i["id"])) for i in all_items(page)}
+    check(areas.get(A) == 7500 and areas.get(B) == 10000, f"after a marquee selection Trim shapes the bottom-most object {areas}")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    # circles: lens and union against the analytic values
+    page.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; const l = ds.store.page().layers[0]; ds.store.tx('clear', (r) => ({ ...r, pages: r.pages.map((p) => ({ ...p, layers: p.layers.map((q) => ({ ...q, items: [] })) })) })) }")
+    c1 = add_path(page, circle_d(200, 200, 50)); c2 = add_path(page, circle_d(250, 200, 50))
+    lens, union = 3070.93, 12637.03
+    select_ids(page, c1, c2)
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('shape.intersect')")
+    page.wait_for_timeout(1500)
+    a = [area_of(page, i["id"]) for i in all_items(page)]
+    check(len(a) == 1 and abs(a[0] / lens - 1) < 0.005, f"two overlapping circles: Intersect area {a} against the lens {lens}")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    select_ids(page, c1, c2)
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('shape.weld')")
+    page.wait_for_timeout(1500)
+    a = [area_of(page, i["id"]) for i in all_items(page)]
+    check(len(a) == 1 and abs(a[0] / union - 1) < 0.005, f"two overlapping circles: Weld area {a} against the union {union}")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    # the Shaping buttons of the Align and distribute docker, with Leave source and Leave target
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('win.align')")
+    select_ids(page, c1, c2)
+    page.locator(".ds-xrow", has_text="Weld").locator("input").first.check()
+    page.locator(".ds-xbtn[data-cmd='shape.weld']").click()
+    page.wait_for_timeout(1500)
+    check(len(all_items(page)) == 2, f"Weld with Leave source keeps the source ({len(all_items(page))} objects)")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    page.locator(".ds-xrow", has_text="Weld").locator("input").first.uncheck()
+    page.locator(".ds-xrow", has_text="Intersect").locator("input").nth(1).check()
+    select_ids(page, c1, c2)
+    page.locator(".ds-xbtn[data-cmd='shape.intersect']").click()
+    page.wait_for_timeout(1500)
+    check(len(all_items(page)) == 2, f"Intersect with Leave target keeps the target and adds the result ({len(all_items(page))} objects)")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    page.locator(".ds-xrow", has_text="Intersect").locator("input").nth(1).uncheck()
+    # refusals
+    tid = ds_eval(page, "const id = ds.store.newId(); const T = await import('/packs/corel/_ds-tools-draw.js'); T.placeNodes(ds.store, [{ id, t: 'text', str: 'Hi', family: 'Inter', size: 20, bold: false, italic: false, fill: '#000000', opacity: 1, m: [1, 0, 0, 1, 20, 40], lh: 1.2, align: 'left' }], 'text'); return id")
+    select_ids(page, c1, tid)
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('shape.weld')")
+    page.wait_for_timeout(300)
+    check("curves" in status_text(page), f"text is refused with a plain message: '{status_text(page)}'")
+    select_ids(page, c1)
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('shape.weld')")
+    page.wait_for_timeout(300)
+    check(not page.evaluate("() => document.querySelector('.tool-body').__ds.commands.enabled('shape.weld')"), "Weld is off for a single shape")
+    check(not errors, f"no console errors {errors[:3]}")
+    page.close()
+    # the library cannot be loaded: a readable message and an untouched drawing
+    page, errors = mount(ctx, base)
+    page.route("**/*paper*", lambda route: route.abort())
+    new_blank(page, "Offline")
+    a = add_path(page, sq_d(100, 100, 100)); b = add_path(page, sq_d(150, 150, 100))
+    select_ids(page, a, b)
+    root0 = root_json(page)
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('shape.weld')")
+    page.wait_for_function("() => document.body.innerText.includes('paper.js')", timeout=8000)
+    check(root_json(page) == root0, "offline: a readable message about the library, and the drawing is untouched")
+    page.close()
+
+    # ---------- Transform docker ----------
+    page, errors = mount(ctx, base)
+    info = load_scene(page)
+    ids = info["ids"]
+    snap_off(page)
+    select_ids(page, ids["Red"])
+    focus_canvas(page)
+    page.keyboard.press("Alt+F7")
+    page.wait_for_selector(".ds-xpanel .ds-xtabs", state="visible")
+    check(page.locator(".ds-xtabs button[data-tab='position']").get_attribute("aria-selected") == "true", "Alt+F7 opens the Transform docker on Position")
+    fx = page.locator(".ds-xpanel input[aria-label='Transform X position']"); fy = page.locator(".ds-xpanel input[aria-label='Transform Y position']")
+    check(abs(float(fx.input_value()) - 100 / MM) < 0.01 and abs(float(fy.input_value()) - (300 - 80) / MM) < 0.01, f"it shows the centre of the selection ({fx.input_value()}, {fy.input_value()})")
+    fx.fill("50"); fy.fill("100")
+    undo_redo(page, "transform position", lambda: page.get_by_role("button", name="Apply", exact=True).click())
+    b = nbox(page, ids["Red"])
+    check(abs(b["x"] + b["w"] / 2 - 50 * MM) < 0.03 and abs(b["y"] + b["h"] / 2 - (300 - 100 * MM)) < 0.03, f"the centre lands on X 50 mm, Y 100 mm {b}")
+    page.locator(".ds-xpanel input[aria-label='Transform relative position']").check()
+    page.locator(".ds-xpanel input[aria-label='Transform X position']").fill("10"); page.locator(".ds-xpanel input[aria-label='Transform Y position']").fill("5")
+    b0 = nbox(page, ids["Red"])
+    page.get_by_role("button", name="Apply", exact=True).click()
+    page.wait_for_timeout(120)
+    b1 = nbox(page, ids["Red"])
+    check(abs(b1["x"] - b0["x"] - 10 * MM) < 0.03 and abs(b1["y"] - b0["y"] + 5 * MM) < 0.03, "relative position moves right 10 mm and up 5 mm")
+    page.locator(".ds-xpanel input[aria-label='Transform relative position']").uncheck()
+    page.locator(".ds-xref[data-ref='nw']").click()
+    fx = page.locator(".ds-xpanel input[aria-label='Transform X position']")
+    check(abs(float(fx.input_value()) - b1["x"] / MM) < 0.01, "the reference point nw shows the top-left corner")
+    fx.fill("20")
+    page.get_by_role("button", name="Apply", exact=True).click()
+    page.wait_for_timeout(120)
+    check(abs(nbox(page, ids["Red"])["x"] - 20 * MM) < 0.03, "the top-left corner is placed at X 20 mm")
+    page.locator(".ds-xref[data-ref='c']").click()
+    focus_canvas(page)
+    page.keyboard.press("Alt+F8")
+    b0 = nbox(page, ids["Red"])
+    page.locator(".ds-xpanel input[aria-label='Transform rotation angle in degrees, counter-clockwise']").fill("90")
+    undo_redo(page, "transform rotate", lambda: page.get_by_role("button", name="Apply", exact=True).click())
+    b1 = nbox(page, ids["Red"])
+    check(abs(b1["w"] - b0["h"]) < 1e-6 and abs(b1["h"] - b0["w"]) < 1e-6 and abs((b1["x"] + b1["w"] / 2) - (b0["x"] + b0["w"] / 2)) < 1e-6 and abs(node_of(page, ids["Red"]).get("rot", 0) - 90) < 1e-6, f"rotate 90 about the centre swaps width and height {b0} {b1}")
+    focus_canvas(page)
+    page.keyboard.press("Alt+F9")
+    page.locator(".ds-xpanel input[aria-label='Transform horizontal scale in percent']").fill("200"); page.locator(".ds-xpanel input[aria-label='Transform vertical scale in percent']").fill("50")
+    b0 = nbox(page, ids["Red"])
+    undo_redo(page, "transform scale", lambda: page.get_by_role("button", name="Apply", exact=True).click())
+    b1 = nbox(page, ids["Red"])
+    check(abs(b1["w"] / b0["w"] - 2) < 1e-6 and abs(b1["h"] / b0["h"] - 0.5) < 1e-6, "scale 200 % wide and 50 % high")
+    focus_canvas(page)
+    page.keyboard.press("Alt+F10")
+    page.locator(".ds-xpanel input[aria-label='Transform keep proportions when sizing']").check()
+    page.locator(".ds-xpanel input[aria-label='Transform width']").fill("30")
+    page.get_by_role("button", name="Apply", exact=True).click()
+    page.wait_for_timeout(120)
+    b2 = nbox(page, ids["Red"])
+    check(abs(b2["w"] - 30 * MM) < 0.03 and abs(b2["h"] / b2["w"] - b1["h"] / b1["w"]) < 1e-6, f"size 30 mm wide keeping the proportions {b2}")
+    page.locator(".ds-xtabs button[data-tab='skew']").click()
+    page.locator(".ds-xpanel input[aria-label='Transform horizontal skew in degrees']").fill("30")
+    b0 = nbox(page, ids["Red"])
+    page.get_by_role("button", name="Apply", exact=True).click()
+    page.wait_for_timeout(120)
+    b1 = nbox(page, ids["Red"])
+    check(abs(b1["w"] - (b0["w"] + b0["h"] * 0.5773502692)) < 0.01, f"skew 30 degrees widens the box by h tan 30 {b0['w']:.3f} -> {b1['w']:.3f}")
+    # apply to duplicate
+    page.locator(".ds-xtabs button[data-tab='position']").click()
+    page.locator(".ds-xpanel input[aria-label='Transform X position']").fill("100")
+    n_before = len(all_items(page)); b0 = nbox(page, ids["Red"])
+    undo_redo(page, "apply to duplicate", lambda: page.get_by_role("button", name="Apply to duplicate").click())
+    check(len(all_items(page)) == n_before + 1 and nbox(page, ids["Red"]) == b0 and sel_of(page)[0] != ids["Red"] and abs(nbox(page, sel_of(page)[0])["x"] + nbox(page, sel_of(page)[0])["w"] / 2 - 100 * MM) < 0.03, "Apply to duplicate leaves the original and moves the copy, which is selected")
+    # the key sheet and menus list the new commands
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('help.shortcuts')")
+    txt = dialog(page).inner_text()
+    check(all(s in txt for s in ("Align left", "Combine", "Break apart", "Alt+F7", "Ctrl+Shift+A", "Ctrl+C", "Ctrl+Shift+V")), "the shortcut sheet lists align, combine, the docker keys, copy and paste")
+    page.keyboard.press("Escape")
+    check(not errors, f"no console errors {errors[:3]}")
+    page.close()
+
+    # ---------- clipboard ----------
+    page, errors = mount(ctx, base)
+    info = load_scene(page)
+    ids = info["ids"]
+    snap_off(page)
+    select_ids(page, ids["Red"])
+    n0 = len(all_items(page))
+    b0 = nbox(page, ids["Red"])
+    press_on_canvas(page, "Control+c")
+    txt = page.evaluate("() => navigator.clipboard.readText()")
+    check(txt.startswith("<svg") and "<path" in txt, f"Ctrl+C puts the selection on the system clipboard as SVG text ({txt[:40]!r})")
+    check(len(all_items(page)) == n0, "copying does not change the drawing")
+    h0 = hist(page)[1]
+    press_on_canvas(page, "Control+v")
+    its = all_items(page)
+    new = its[-1] if its[-1]["id"] not in ids.values() else None
+    pasted = [i for i in its if i["id"] not in ids.values()]
+    check(len(its) == n0 + 1 and len(pasted) == 1 and hist(page)[1] == h0 + 1 and sel_of(page) == [pasted[0]["id"]], "Ctrl+V pastes the copy, selected, in one step")
+    pb = nbox(page, pasted[0]["id"])
+    check(abs(pb["x"] - b0["x"] - 5 * MM) < 1e-6 and abs(pb["y"] - b0["y"] - 5 * MM) < 1e-6 and pasted[0].get("shape", {}).get("k") == "rect" and pasted[0]["id"] != ids["Red"], f"the copy is the same rectangle shape, offset by 5 mm {pb}")
+    press_on_canvas(page, "Control+v")
+    p2 = [i for i in all_items(page) if i["id"] not in ids.values() and i["id"] != pasted[0]["id"]]
+    check(len(p2) == 1 and abs(nbox(page, p2[0]["id"])["x"] - b0["x"] - 10 * MM) < 1e-6, "the next paste moves a further 5 mm")
+    press_on_canvas(page, "Control+Shift+v")
+    p3 = [i for i in all_items(page) if i["id"] not in ids.values() and i["id"] not in (pasted[0]["id"], p2[0]["id"])]
+    check(len(p3) == 1 and nbox(page, p3[0]["id"]) == b0, "Ctrl+Shift+V pastes in place")
+    select_ids(page, ids["Blue"])
+    press_on_canvas(page, "Control+x")
+    check(ids["Blue"] not in [i["id"] for i in all_items(page)] and sel_of(page) == [], "Ctrl+X removes the object")
+    n1 = len(all_items(page))
+    press_on_canvas(page, "Control+Shift+v")
+    check(len(all_items(page)) == n1 + 1, "and Ctrl+Shift+V brings it back where it was")
+    check(len([i for i in all_items(page) if i.get("fill") == "#0000ff"]) >= 1, "with its colour")
+    # SVG text pasted as a group
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="20mm" viewBox="0 0 40 20"><rect x="0" y="0" width="20" height="20" fill="#ff0000"/><circle cx="30" cy="10" r="8" fill="#00ff00"/><script>window.__pwn = 1</script></svg>'
+    page.evaluate("(s) => navigator.clipboard.writeText(s)", svg)
+    n1 = len(all_items(page))
+    press_on_canvas(page, "Control+v")
+    page.wait_for_timeout(500)
+    its = all_items(page)
+    g = node_of(page, sel_of(page)[0])
+    check(g["t"] == "group" and len(g["items"]) == 2 and len(its) == n1 + 1, f"SVG text pastes as a group of its two shapes ({g.get('name')}, {len(g.get('items', []))} items)")
+    gb = nbox(page, g["id"])
+    check(abs(gb["x"] + gb["w"] / 2 - 200) < 1 and abs(gb["y"] + gb["h"] / 2 - 150) < 1 and abs(gb["w"] - 38 * MM) < 0.5, f"centred on the page at its real size {gb}")
+    check(page.evaluate("() => window.__pwn") is None, "script in pasted SVG never runs")
+    # a picture
+    page.evaluate("""async () => { const c = document.createElement('canvas'); c.width = 20; c.height = 10; const g = c.getContext('2d'); g.fillStyle = '#c0f'; g.fillRect(0, 0, 20, 10)
+      const blob = await new Promise((r) => c.toBlob(r, 'image/png')); await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]) }""")
+    n1 = len(all_items(page))
+    press_on_canvas(page, "Control+v")
+    page.wait_for_timeout(500)
+    its = all_items(page)
+    im = node_of(page, sel_of(page)[0])
+    check(im["t"] == "image" and len(its) == n1 + 1 and page.evaluate("(a) => document.querySelector('.tool-body').__ds.assets.has(a)", im["asset"]) and im["w"] == 20, f"an image on the clipboard pastes as a bitmap ({im['t']})")
+    # plain text
+    page.evaluate("() => navigator.clipboard.writeText('Hello from the clipboard')")
+    press_on_canvas(page, "Control+v")
+    page.wait_for_timeout(300)
+    tx = node_of(page, sel_of(page)[0])
+    check(tx["t"] == "text" and tx["str"] == "Hello from the clipboard", f"other text becomes artistic text ({tx.get('str')!r})")
+    # the Edit menu
+    select_ids(page, ids["Red"])
+    n1 = len(all_items(page))
+    page.get_by_role("menuitem", name="Edit", exact=True).click()
+    page.locator(".ds-menu:visible [data-cmd='edit.copy']").click()
+    page.wait_for_timeout(300)
+    txt = page.evaluate("() => navigator.clipboard.readText()")
+    check(txt.startswith("<svg"), "Edit > Copy copies")
+    page.get_by_role("menuitem", name="Edit", exact=True).click()
+    page.locator(".ds-menu:visible [data-cmd='edit.paste']").click()
+    page.wait_for_timeout(600)
+    check(len(all_items(page)) == n1 + 1, "Edit > Paste pastes")
+    page.get_by_role("menuitem", name="Edit", exact=True).click()
+    labels = page.locator(".ds-menu:visible [data-cmd='edit.copy'] .ds-mi-k, .ds-menu:visible [data-cmd='edit.paste'] .ds-mi-k").all_inner_texts()
+    check(labels == ["Ctrl+C", "Ctrl+V"], f"the menu shows the keys {labels}")
+    page.keyboard.press("Escape")
+    check(not errors, f"no console errors {errors[:3]}")
+    page.close()
+
+    # ---------- clip to container ----------
+    page, errors = mount(ctx, base)
+    new_blank(page, "Clip")
+    snap_off(page)
+    content = add_path(page, sq_d(100, 100, 300, 200), fill="#ff0000")
+    cont = add_path(page, circle_d(250, 200, 50), fill="#0000ff")
+    select_ids(page, content, cont)
+    h0 = hist(page)
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('object.clip')")
+    page.wait_for_timeout(200)
+    c = node_of(page, content)
+    check(hist(page)[1] == h0[1] + 1 and c.get("clip") and node_of(page, cont).get("clip") is None, "Clip to container clips the contents to the container outline (one step)")
+    inside_ids = page.evaluate("([x, y]) => document.elementsFromPoint(x, y).map((el) => el.closest('[data-id]')?.dataset.id).filter(Boolean)", list(scr(page, 250, 170)))
+    outside_ids = page.evaluate("([x, y]) => document.elementsFromPoint(x, y).map((el) => el.closest('[data-id]')?.dataset.id).filter(Boolean)", list(scr(page, 120, 120)))
+    check(str(content) in inside_ids and str(content) not in outside_ids, f"the contents show only inside the container ({inside_ids} / {outside_ids})")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
+    select_ids(page, content, cont)
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('object.clip')")
+    select_ids(page, content)
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('object.unclip')")
+    check(node_of(page, content).get("clip") is None, "Release clip frees the contents")
+    check(not errors, f"no console errors {errors[:3]}")
+    page.close()
+
+
+def t_arrange_phone(ctx, base):
+    """E9 and E10 at 375 px: the toolbox strip, shape settings, node buttons, arrange buttons, the Panels sheet with Align and Transform, the menu."""
+    page, errors = mount(ctx, base, 375, 700)
+    ov = lambda: page_state(page)["overflow"]
+    new_blank(page, "Phone")
+    snap_off(page)
+    check(ov() <= 1, f"blank drawing: overflow {ov()}")
+    tools = page.evaluate("() => { const t = document.querySelector('.ds-tools'); return { n: t.querySelectorAll('.ds-tool').length, w: t.getBoundingClientRect().width, sw: t.scrollWidth, small: [...t.querySelectorAll('.ds-tool')].filter((b) => b.getBoundingClientRect().width < 36 || b.getBoundingClientRect().height < 36).length } }")
+    check(tools["n"] == 11 and tools["w"] <= 375 and tools["sw"] > tools["w"] and tools["small"] == 0, f"the toolbox is a scrolling strip of 36 px buttons {tools}")
+    focus_canvas(page)
+    page.keyboard.press("F6")
+    shape_bar = page.evaluate("() => { const b = document.querySelector('.ds-shapebar'); return b && !b.hidden ? [...b.querySelectorAll('input, select')].filter((e) => e.offsetParent !== null).map((e) => [Math.round(e.getBoundingClientRect().height), parseFloat(getComputedStyle(e).fontSize)]) : null }")
+    check(shape_bar and all(h >= 36 and f >= 16 for h, f in shape_bar), f"the rectangle settings are touchable {shape_bar}")
+    snap_off(page)
+    a, b = (150, 150), (400, 300)
+    drag_pt(page, a, b)
+    check(len(all_items(page)) == 1 and last_item(page)["shape"]["k"] == "rect", "a rectangle can be drawn at 375 px")
+    first_id = all_items(page)[0]["id"]
+    c1 = add_path(page, sq_d(300, 400, 60))
+    select_ids(page, first_id, c1)
+    page.wait_for_timeout(150)
+    arr = page.evaluate("() => { const b = document.querySelector('.ds-arrangebar'); return b && !b.hidden ? [...b.querySelectorAll('button')].map((e) => [Math.round(e.getBoundingClientRect().width), Math.round(e.getBoundingClientRect().height)]) : null }")
+    check(arr and len(arr) >= 9 and all(w >= 36 and h >= 36 for w, h in arr), f"the align buttons of the property bar are 36 px {arr}")
+    check(ov() <= 1, f"two objects selected: overflow {ov()}")
+    page.keyboard.press("F10")
+    page.wait_for_timeout(150)
+    nb = page.evaluate("() => { const b = document.querySelector('.ds-nodebar'); return b && !b.hidden ? [...b.querySelectorAll('button')].map((e) => [Math.round(e.getBoundingClientRect().width), Math.round(e.getBoundingClientRect().height)]) : null }")
+    check(nb and len(nb) == 11 and all(w >= 36 and h >= 36 for w, h in nb), f"the 11 node buttons are 36 px {nb}")
+    check(ov() <= 1, f"the Shape tool: overflow {ov()}")
+    page.keyboard.press("v")
+    page.get_by_role("button", name="Panels").click()
+    page.wait_for_selector(".ds-dock", state="visible")
+    for sec in ("align", "transform"):
+        page.locator(f".ds-dsec[data-section='{sec}'] .ds-dsec-head").click()
+        page.wait_for_timeout(150)
+    small = page.evaluate("""() => [...document.querySelectorAll('.ds-dock .ds-xpanel button, .ds-dock .ds-xpanel input:not([type=checkbox]), .ds-dock .ds-xcheck, .ds-dock .ds-dsec-head')].filter((e) => e.offsetParent !== null).map((e) => { const r = e.getBoundingClientRect(); return [e.getAttribute('aria-label') || e.className, Math.round(r.width), Math.round(r.height), getComputedStyle(e).fontSize] }).filter(([, w, h]) => w < 36 || h < 36)""")
+    check(not small, f"every control of the Align and Transform sections is at least 36 px {small[:5]}")
+    box = page.locator(".ds-dock").bounding_box()
+    check(box["width"] <= 375 and ov() <= 1, f"the sheet with both dockers fits {box['width']:.0f}, overflow {ov()}")
+    fs = page.evaluate("() => [...document.querySelectorAll('.ds-dock .ds-xpanel input[type=number]')].filter((e) => e.offsetParent !== null).map((e) => parseFloat(getComputedStyle(e).fontSize))")
+    check(fs and min(fs) >= 16, f"the docker inputs are 16 px or more {fs[:3]}")
+    page.get_by_role("button", name="Close panels").click()
+    page.get_by_role("button", name="Menu", exact=True).click()
+    page.get_by_role("button", name="Object", exact=True).click()
+    n_align = page.locator(".ds-msheet-body:visible [data-cmd^='align.']").count()
+    check(n_align == 7 and ov() <= 1, f"the phone menu lists the 7 align commands ({n_align}), overflow {ov()}")
+    page.get_by_role("button", name="Close menu", exact=True).click()
+    check(not errors, f"no console errors {errors[:3]}")
+    shot(page, "arrange-phone")
+    page.close()
+
+
 def shot(page, name):
     SHOTS.mkdir(parents=True, exist_ok=True)
     page.screenshot(path=str(SHOTS / f"{name}.png"))
 
 
 CHECKS = {"mount": t_mount, "inject": t_inject, "fixture": t_open_fixture, "cdr": t_open_cdr, "pixels": t_pixels, "other": t_open_other, "handoff": t_handoff, "leaks": t_leaks, "keys": t_keys_menus, "quick": t_quick, "dark": t_dark, "phone": t_phone, "truth": t_truth,
-          "pick": t_pick, "pickperf": t_pick_perf, "palette": t_palette, "objects": t_objects, "domfuzz": t_dom_fuzz, "objectsmany": t_objects_many, "objectsfiles": t_objects_files, "editphone": t_edit_phone, "pages": t_pages, "autosave": t_autosave, "text": t_text, "textpdf": t_text_pdf, "save": t_save, "savetext": t_save_text, "e2e": t_e2e, "e678phone": t_e678_phone}
+          "pick": t_pick, "pickperf": t_pick_perf, "palette": t_palette, "objects": t_objects, "domfuzz": t_dom_fuzz, "objectsmany": t_objects_many, "objectsfiles": t_objects_files, "editphone": t_edit_phone, "pages": t_pages, "autosave": t_autosave, "text": t_text, "textpdf": t_text_pdf, "save": t_save, "savetext": t_save_text, "e2e": t_e2e, "e678phone": t_e678_phone, "shapes": t_shapes, "arrange": t_arrange, "e910phone": t_arrange_phone}
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

@@ -275,13 +275,31 @@ export function createDocks({ store, app, commands, focusBack }) {
   const body = h('div', { class: 'ds-dock-body' })
   const el = h('aside', { class: 'ds-dock', 'aria-label': 'Dockers' }, h('div', { class: 'ds-dock-grip', 'aria-hidden': 'true' }), h('div', { class: 'ds-dock-head' }, h('span', { class: 'ds-dock-title' }, 'Panels'), closeBtn), body)
 
-  function addSection({ id, title, el: content, refresh }) {
-    const head = h('button', { type: 'button', class: 'ds-dsec-head', 'aria-expanded': 'true', onclick: () => { const on = sec.body.hidden; sec.body.hidden = !on; head.setAttribute('aria-expanded', String(on)); sec.open = on; if (on) { objects.refresh(); refresh?.() } sec.onToggle?.(on) } }, h('span', title), icon('chevron-down'))
-    const secBody = h('div', { class: 'ds-dsec-body' }, content)
-    const sec = { id, head, body: secBody, open: true, refresh }
-    body.append(h('section', { class: 'ds-dsec', 'data-section': id }, head, secBody))
+  function toggleSection(sec, on) {
+    sec.body.hidden = !on; sec.head.setAttribute('aria-expanded', String(on)); sec.open = on
+    sec.wrap.classList.toggle('ds-dsec-shut', !on)
+    if (on) { objects.refresh(); sec.refresh?.() }
+    sec.onToggle?.(on)
+  }
+  /** open: false starts the section collapsed (the Objects docker keeps the room until another one is opened). */
+  function addSection({ id, title, el: content, refresh, open = true }) {
+    const head = h('button', { type: 'button', class: 'ds-dsec-head', 'aria-expanded': String(open), onclick: () => toggleSection(sec, sec.body.hidden) }, h('span', title), icon('chevron-down'))
+    const secBody = h('div', { class: 'ds-dsec-body', hidden: !open }, content)
+    const wrapEl = h('section', { class: ['ds-dsec', !open && 'ds-dsec-shut'], 'data-section': id }, head, secBody)
+    const sec = { id, head, body: secBody, wrap: wrapEl, open, refresh }
+    body.append(wrapEl)
     sections.push(sec)
     return sec
+  }
+  /** Show the dock, expand one section and bring it into view. */
+  function openSection(id) {
+    const sec = sections.find((s) => s.id === id)
+    if (!sec) return false
+    set(true)
+    if (!sec.open) toggleSection(sec, true)
+    else sec.refresh?.()
+    sec.wrap.scrollIntoView?.({ block: 'nearest' })
+    return true
   }
   const obj = addSection({ id: 'objects', title: 'Objects', el: objects.el, refresh: () => objects.refresh() })
   obj.onToggle = (on) => objects.setVisible(on && isOpen())
@@ -302,7 +320,7 @@ export function createDocks({ store, app, commands, focusBack }) {
   mq.addEventListener?.('change', apply)
   el.addEventListener('keydown', (e) => { if (e.key === 'Escape' && mq.matches && phoneOpen) { e.preventDefault(); e.stopPropagation(); set(false) } })
   return {
-    el, objects, addSection, sections,
+    el, objects, addSection, openSection, sections,
     attach(w) { wrap = w; apply() },
     isOpen, toggle: () => set(!isOpen()), set,
     dispose() { mq.removeEventListener?.('change', apply) },

@@ -1,8 +1,9 @@
 // Node tests for the DOM-free Draw Studio modules.   node packs/corel/tests/ds-unit.test.mjs [samples dir with manifest.json]
 // Covers: _tree, _ds-doc (validateDoc fuzz, immutable helpers), _ds-store (undo fuzz against a deep-clone oracle), _ds-units, _ds-colors,
 // _ds-keys (command table), _ds-text-model, _ds-path, _ds-hit, _ds-open (sniff, font merge, CDR to tree), import specifiers,
-// (E3 to E5) _ds-ops, _ds-gesture, _ds-sel and the new commands, and (E6 to E8) page operations, text properties,
-// autosave (_ds-persist with a fake key-value store) and _ds-save (toWriterDoc, cropPage, formats).
+// (E3 to E5) _ds-ops, _ds-gesture, _ds-sel and the new commands, (E6 to E8) page operations, text properties,
+// autosave (_ds-persist with a fake key-value store) and _ds-save (toWriterDoc, cropPage, formats), and (E9 to E10) the node
+// primitives and parametric shapes of _ds-path, _ds-ops-arrange (align, distribute, combine, break apart, lock, clip), _ds-xform and the key table.
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -942,6 +943,274 @@ await t('keys: save, export, curves, text keys are bound and unique', () => {
   assert.equal(K.normalizeKey({ key: 'q', code: 'KeyQ', ctrlKey: true, altKey: true }), 'Ctrl+Alt+Q'); assert.equal(K.normalizeKey({ key: 'Enter' }), 'Enter')
   const layout = K.menuTree().find((m) => m.menu === 'Layout').items.filter((i) => i.id).map((i) => i.id)
   for (const id of ['page.insertAfter', 'page.insertBefore', 'page.duplicate', 'page.delete', 'page.rename', 'page.moveLeft', 'page.moveRight', 'page.setup', 'page.orientation']) assert.ok(layout.includes(id), id)
+})
+
+// ---------- E9 and E10: path primitives, shapes, arrange operations, transform maths ----------
+const OA = await imp('_ds-ops-arrange.js')
+const XF = await imp('_ds-xform.js')
+const BL = await imp('_ds-bool.js')
+const bb = (d) => M.pathBBox(d)
+/** Area of a path (curves sampled), for analytic checks. */
+const areaOf = (d) => {
+  let a = 0, cx = 0, cy = 0, sx = 0, sy = 0
+  const edge = (x0, y0, x1, y1) => { a += x0 * y1 - x1 * y0 }
+  for (const c of d) {
+    if (c[0] === 'M') { cx = sx = c[1]; cy = sy = c[2] } else if (c[0] === 'L') { edge(cx, cy, c[1], c[2]); cx = c[1]; cy = c[2] }
+    else if (c[0] === 'C') { let px = cx, py = cy; for (let i = 1; i <= 64; i++) { const t = i / 64, u = 1 - t; const x = u * u * u * cx + 3 * u * u * t * c[1] + 3 * u * t * t * c[3] + t * t * t * c[5], y = u * u * u * cy + 3 * u * u * t * c[2] + 3 * u * t * t * c[4] + t * t * t * c[6]; edge(px, py, x, y); px = x; py = y } cx = c[5]; cy = c[6] }
+    else if (c[0] === 'Z') { edge(cx, cy, sx, sy); cx = sx; cy = sy }
+  }
+  return Math.abs(a / 2)
+}
+const draft = (pts, closed = false, nt) => ({ subs: [{ closed, pts: pts.map(([x, y, ix = 0, iy = 0, ox = 0, oy = 0]) => ({ x, y, ix, iy, ox, oy })) }], nt: [nt || pts.map(() => 'c')] })
+const cross = (p) => Math.abs(p.ix * p.oy - p.iy * p.ox)
+
+await t('path: dToSubs and subsToD round trip rectangles, rounded rectangles and ellipses (a closing curve is folded and written out again)', () => {
+  const sq = M.rectPath(0, 0, 10, 20)
+  assert.deepEqual(P.subsToD(P.dToSubs(sq)), sq)
+  const rr = M.rectPath(0, 0, 100, 50, 10), el = M.ellipsePath(5, 5, 10, 6)
+  for (const d of [rr, el]) { const back = P.subsToD(P.dToSubs(d)); assert.deepEqual(bb(back), bb(d)); near(areaOf(back), areaOf(d), 1e-6) }
+  assert.equal(P.dToSubs(el)[0].pts.length, 4); assert.equal(P.dToSubs(el)[0].closed, true)
+  assert.equal(P.dToSubs([['M', 1, 1]]).length, 0, 'a lone move is dropped')
+  assert.deepEqual(P.subsToD(P.dToSubs([['M', 0, 0], ['L', 5, 5], ['M', 9, 9], ['L', 1, 9]])).map((c) => c[0]).join(''), 'MLML')
+})
+await t('path: inferType and makeDraft (stored node types are used only when they still fit the points)', () => {
+  const d = P.dToSubs(M.ellipsePath(0, 0, 10, 10))[0].pts
+  assert.equal(P.inferType(d[0]), 'y'); assert.equal(P.inferType({ x: 0, y: 0, ix: 0, iy: 0, ox: 0, oy: 0 }), 'c')
+  assert.equal(P.inferType({ x: 0, y: 0, ix: -3, iy: 0, ox: 6, oy: 0 }), 's'); assert.equal(P.inferType({ x: 0, y: 0, ix: -3, iy: 0, ox: 3, oy: 3 }), 'c')
+  const rect = { d: M.rectPath(0, 0, 10, 10) }
+  assert.deepEqual(P.makeDraft(rect).nt, [['c', 'c', 'c', 'c']])
+  assert.deepEqual(P.makeDraft({ ...rect, nt: [['s', 'y', 'c', 'c']] }).nt, [['s', 'y', 'c', 'c']])
+  assert.deepEqual(P.makeDraft({ ...rect, nt: [['s']] }).nt, [['c', 'c', 'c', 'c']], 'a stale nt is ignored')
+})
+await t('path: add, delete, to line, to curve (counts, closed state, handles)', () => {
+  let dr = draft([[0, 0], [10, 0], [10, 10]])
+  const np = P.addNodes(dr, [[0, 0], [0, 1]])
+  assert.deepEqual(np, [[0, 1]]); assert.equal(dr.subs[0].pts.length, 4); near(dr.subs[0].pts[1].x, 5); assert.equal(dr.nt[0].length, 4)
+  dr = draft([[0, 0], [10, 0], [10, 10]])
+  assert.equal(P.addNodes(dr, [[0, 2]]).length, 1, 'the last point of an open path has no segment after it, so the one before is used')
+  assert.equal(dr.subs[0].pts.length, 4)
+  dr = draft([[0, 0], [10, 0], [10, 10], [0, 10]], true)
+  P.addNodes(dr, [[0, 3]]); assert.equal(dr.subs[0].pts.length, 5); assert.equal(dr.subs[0].closed, true, 'a node on the closing segment')
+  assert.equal(P.deleteNodes(dr, [[0, 1], [0, 2]]), 2); assert.equal(dr.subs[0].pts.length, 3)
+  P.deleteNodes(dr, [[0, 0], [0, 1]]); assert.equal(dr.subs.length, 0, 'fewer than two points: the sub-path goes away')
+  const c = draft([[0, 0, 0, 0, 3, 3], [10, 0, -3, 3, 0, 0], [10, 10]])
+  assert.equal(P.toLine(c, [[0, 0], [0, 1]]), 1); assert.equal(c.subs[0].pts[0].ox, 0); assert.equal(c.subs[0].pts[1].ix, 0)
+  assert.equal(P.toLine(c, [[0, 0], [0, 1]]), 0, 'already straight')
+  assert.equal(P.toCurve(c, [[0, 1]]), 1); near(c.subs[0].pts[1].ox, 0); near(c.subs[0].pts[2].ix, 0); near(c.subs[0].pts[1].oy, 10 / 3); near(c.subs[0].pts[2].iy, -10 / 3)
+  assert.equal(P.toCurve(c, [[0, 1]]), 0)
+})
+await t('path: cusp, smooth and symmetrical (collinear, then equal length) and the handle partner rules', () => {
+  const mk = () => draft([[0, 0], [10, 5, -3, -1, 4, 0], [20, 0]])
+  let dr = mk()
+  P.setNodeType(dr, [[0, 1]], 's')
+  let p = dr.subs[0].pts[1]
+  assert.ok(cross(p) < 1e-9 && p.ix * p.ox + p.iy * p.oy < 0, 'smooth: handles on one line, opposite sides')
+  near(Math.hypot(p.ox, p.oy), 4, 1e-9); near(Math.hypot(p.ix, p.iy), Math.hypot(3, 1), 1e-9); assert.equal(dr.nt[0][1], 's')
+  P.setNodeType(dr, [[0, 1]], 'y'); p = dr.subs[0].pts[1]
+  assert.ok(cross(p) < 1e-9); near(Math.hypot(p.ox, p.oy), Math.hypot(p.ix, p.iy), 1e-9); near(Math.hypot(p.ox, p.oy), (4 + Math.hypot(3, 1)) / 2, 1e-9); assert.equal(dr.nt[0][1], 'y')
+  P.setNodeType(dr, [[0, 1]], 'c'); assert.equal(dr.nt[0][1], 'c')
+  // partner rules
+  dr = mk(); P.moveHandle(dr, 0, 1, 'out', 10 + 0, 5 + 8)
+  p = dr.subs[0].pts[1]; near(p.ox, 0); near(p.oy, 8); near(p.ix, -3); near(p.iy, -1) // cusp: only the dragged handle moves
+  dr.nt[0][1] = 's'; P.moveHandle(dr, 0, 1, 'out', 10 + 6, 5 + 8); p = dr.subs[0].pts[1]
+  near(Math.hypot(p.ix, p.iy), Math.hypot(3, 1), 1e-9); assert.ok(cross(p) < 1e-9 && p.ix * p.ox + p.iy * p.oy < 0, 'smooth keeps the other handle on the line and its length')
+  dr.nt[0][1] = 'y'; P.moveHandle(dr, 0, 1, 'in', 10 - 2, 5 - 7); p = dr.subs[0].pts[1]
+  near(p.ox, 2); near(p.oy, 7); near(p.ix, -2); near(p.iy, -7)
+  P.moveNode(dr, 0, 1, 5, -5); assert.deepEqual([dr.subs[0].pts[1].x, dr.subs[0].pts[1].y], [15, 0]); near(dr.subs[0].pts[1].ox, 2)
+})
+await t('path: break, join, close, reverse (counts, closed state)', () => {
+  let dr = draft([[0, 0], [10, 0], [20, 0], [30, 0]])
+  assert.deepEqual(P.breakAt(dr, [[0, 0]]), [], 'an end cannot be broken')
+  const out = P.breakAt(dr, [[0, 1]])
+  assert.equal(dr.subs.length, 2); assert.deepEqual(dr.subs.map((s) => s.pts.length), [2, 3]); assert.deepEqual(out, [[0, 1], [1, 0]])
+  assert.deepEqual(dr.nt.map((r) => r.length), [2, 3])
+  // join the two halves again: the two end nodes meet in the middle
+  const j = P.joinEnds(dr, [[0, 1], [1, 0]])
+  assert.equal(dr.subs.length, 1); assert.equal(dr.subs[0].pts.length, 4); assert.deepEqual(j, [0, 1])
+  // closed: break turns it into an open path with the node doubled
+  dr = draft([[0, 0], [10, 0], [10, 10], [0, 10]], true)
+  P.breakAt(dr, [[0, 2]])
+  assert.equal(dr.subs[0].closed, false); assert.equal(dr.subs[0].pts.length, 5)
+  assert.deepEqual([dr.subs[0].pts[0].x, dr.subs[0].pts[0].y], [dr.subs[0].pts[4].x, dr.subs[0].pts[4].y])
+  // joining the two ends of one open path closes it
+  dr = draft([[0, 0], [10, 0], [10, 10]])
+  assert.equal(P.joinEnds(dr, [[0, 0], [0, 2]]) != null, true); assert.equal(dr.subs[0].closed, true); assert.equal(dr.subs[0].pts.length, 2)
+  assert.equal(P.joinEnds(draft([[0, 0], [1, 1], [2, 2]]), [[0, 1], [0, 0]]), null, 'a middle node cannot be joined')
+  // close
+  dr = draft([[0, 0], [10, 0], [10, 10]])
+  assert.equal(P.closeSub(dr, [[0, 1]]), 1); assert.equal(dr.subs[0].closed, true); assert.equal(P.closeSub(dr, []), 0)
+  dr = draft([[0, 0], [10, 0], [10, 10], [0, 0]]); P.closeSub(dr); assert.equal(dr.subs[0].pts.length, 3, 'an end that already meets the start is folded')
+  // reverse
+  dr = draft([[0, 0, 0, 0, 5, 0], [10, 0, -5, 0, 0, 0], [10, 10]], false, ['c', 's', 'c'])
+  const rp = P.reverseSub(dr, [[0, 0]])
+  assert.deepEqual(dr.subs[0].pts.map((p) => [p.x, p.y]), [[10, 10], [10, 0], [0, 0]]); assert.deepEqual(rp, [[0, 2]]); assert.deepEqual(dr.nt[0], ['c', 's', 'c'])
+  near(dr.subs[0].pts[1].ox, -5); near(dr.subs[0].pts[2].ix, 5)
+})
+await t('path: simplifyFreehand turns a noisy stroke into a few smooth curves', () => {
+  const pts = Array.from({ length: 80 }, (_, i) => ({ x: i * 2, y: Math.sin(i / 12) * 20 + (i % 2) * 0.3 }))
+  const d = P.simplifyFreehand(pts, 1.5)
+  assert.ok(d.length >= 3 && d.length < 25 && d[0][0] === 'M' && d.slice(1).every((c) => c[0] === 'C' || c[0] === 'L'), `got ${d.length} commands`)
+  assert.equal(d.at(-1)[0] === 'Z', false); assert.deepEqual(P.simplifyFreehand([{ x: 0, y: 0 }], 1), [])
+  assert.equal(P.simplifyFreehand(pts, 1.5, true).at(-1)[0], 'Z')
+})
+await t('shapes: local paths, the parametric invariant after rotate, skew and scale, radius and sides edits, pie and arc', () => {
+  const rect = { k: 'rect', w: 100, h: 50, rx: 10, ry: 10 }
+  boxNear(bb(P.localPath(rect)), 0, 0, 100, 50)
+  boxNear(bb(P.localPath({ k: 'ellipse', rx: 10, ry: 6 })), -10, -6, 20, 12)
+  const hex = bb(P.localPath({ k: 'poly', n: 6, r: 10, rot: -Math.PI / 2 })); near(hex.h, 20, 1e-9); near(hex.w, 2 * 10 * Math.cos(Math.PI / 6), 1e-9)
+  assert.equal(P.localPath({ k: 'star', n: 5, r1: 10, r2: 4 }).filter((c) => c[0] === 'L').length, 9)
+  near(P.starSharpness({ r1: 10, r2: 4 }), 60, 0.5)
+  const sm0 = M.translate(30, 40), node = { id: 1, t: 'path', d: P.shapeD(rect, sm0), shape: rect, sm: sm0, fill: '#ff0000', stroke: null, strokeWidth: 0 }
+  const R = Ops.rotateAbout(Math.PI / 6, 50, 50), Sk = Ops.skewXAbout(0.4, 50), Sc = Ops.scaleAbout(1.5, 0.7, 10, 10)
+  let cur = node
+  for (const m of [R, Sk, Sc]) {
+    cur = Ops.transformItem(cur, m)
+    const want = P.shapeD(cur.shape, cur.sm)
+    assert.equal(want.length, cur.d.length)
+    cur.d.forEach((c, i) => c.slice(1).forEach((v, j) => near(v, want[i][j + 1], 1e-6)))
+  }
+  const edited = P.applyShape(cur, { ...cur.shape, rx: 0, ry: 0 })
+  assert.equal(edited.d.length, 5); assert.deepEqual(edited.d.map((c) => c[0]).join(''), 'MLLLZ')
+  const corners = [[0, 0], [100, 0], [100, 50], [0, 50]].map(([x, y]) => M.apply(cur.sm, x, y))
+  edited.d.slice(0, 4).forEach((c, i) => { near(c[1], corners[i][0], 1e-6); near(c[2], corners[i][1], 1e-6) })
+  assert.ok(!('nt' in edited)); assert.equal(P.shapeToCurves(cur).shape, undefined); assert.equal(P.shapeToCurves(cur).sm, undefined); assert.equal(P.shapeToCurves(cur).d, cur.d)
+  // sides edit
+  const poly = { k: 'poly', n: 5, r: 10, rot: -Math.PI / 2 }
+  assert.equal(P.localPath({ ...poly, n: 8 }).length, 9)
+  // pie and arc areas against the analytic values
+  const circ = { k: 'ellipse', rx: 10, ry: 10 }
+  near(areaOf(P.localPath(circ)) / (Math.PI * 100), 1, 1e-3)
+  near(areaOf(P.localPath({ ...circ, a1: 0, a2: 90, pie: true })) / (Math.PI * 100 / 4), 1, 2e-3)
+  near(areaOf(P.localPath({ ...circ, a1: 30, a2: 300, pie: true })) / (Math.PI * 100 * 270 / 360), 1, 2e-3)
+  const arc = P.localPath({ ...circ, a1: 0, a2: 90 }); assert.equal(arc.at(-1)[0], 'C'); assert.equal(arc.some((c) => c[0] === 'Z'), false)
+  near(arc[0][1], 10, 1e-9); near(arc[0][2], 0, 1e-9); near(arc.at(-1)[5], 0, 1e-6); near(arc.at(-1)[6], -10, 1e-6) // counter-clockwise on screen: from the right to the top
+})
+
+const miniRoot = (items) => { const doc = D.newDoc({ title: 't' }); return deepFreeze(D.insertAt(doc, doc.pages[0].layers[0].id, null, items)) }
+const boxOfFn = H.createBoxer(() => null)
+const nodeBox = (root, id) => boxOfFn(D.findNode(root, id).node)
+await t('arrange: align left, right, top, bottom, centres and centre on page match hand-computed boxes', () => {
+  const root = miniRoot([path(1, 0, 0, 10, 10), path(2, 30, 20, 20, 20), path(3, 100, 50, 10, 30)])
+  const ids = [1, 2, 3], ref = { x: 0, y: 0, w: 110, h: 80 }
+  const got = (mode, r = ref) => { const o = OA.align(root, ids, mode, r, boxOfFn); return ids.map((i) => { const b = nodeBox(o, i); return [b.x, b.y] }) }
+  assert.deepEqual(got('left'), [[0, 0], [0, 20], [0, 50]])
+  assert.deepEqual(got('right'), [[100, 0], [90, 20], [100, 50]])
+  assert.deepEqual(got('top'), [[0, 0], [30, 0], [100, 0]])
+  assert.deepEqual(got('bottom'), [[0, 70], [30, 60], [100, 50]])
+  assert.deepEqual(got('centerH'), [[50, 0], [45, 20], [50, 50]])
+  assert.deepEqual(got('centerV'), [[0, 35], [30, 30], [100, 25]])
+  assert.deepEqual(got('center', { x: 0, y: 0, w: 200, h: 100 }), [[45, 10], [75, 30], [145, 60]])
+  assert.equal(OA.align(root, [1], 'left', { x: 0, y: 0, w: 5, h: 5 }, boxOfFn), root, 'nothing to move returns the same root')
+})
+await t('arrange: distribute edges, centres and spacing over the selection or the page', () => {
+  const root = miniRoot([path(1, 0, 0, 10, 10), path(2, 30, 20, 20, 20), path(3, 100, 50, 10, 30)])
+  const xs = (o) => [1, 2, 3].map((i) => nodeBox(o, i).x), ys = (o) => [1, 2, 3].map((i) => nodeBox(o, i).y)
+  assert.deepEqual(xs(OA.distribute(root, [1, 2, 3], 'left', boxOfFn)), [0, 50, 100])
+  assert.deepEqual(xs(OA.distribute(root, [1, 2, 3], 'centerH', boxOfFn)), [0, 45, 100])
+  assert.deepEqual(xs(OA.distribute(root, [1, 2, 3], 'right', boxOfFn)), [0, 40, 100])
+  assert.deepEqual(xs(OA.distribute(root, [1, 2, 3], 'spaceH', boxOfFn)), [0, 45, 100])
+  assert.deepEqual(xs(OA.distribute(root, [1, 2, 3], 'spaceH', boxOfFn, { x: 0, y: 0, w: 200, h: 100 })), [0, 90, 190])
+  assert.deepEqual(ys(OA.distribute(root, [1, 2, 3], 'spaceV', boxOfFn)), [0, 20, 50])
+  assert.equal(OA.distribute(root, [1, 2], 'spaceH', boxOfFn), root, 'two objects need a page to spread over')
+  assert.notEqual(OA.distribute(root, [1, 2], 'spaceH', boxOfFn, { x: 0, y: 0, w: 100, h: 100 }), root)
+})
+await t('arrange: combine (even-odd, top-most look, group members), break apart, lock, clip', () => {
+  const g = { id: 9, t: 'group', name: 'G', items: [path(10, 40, 0, 5, 5), path(11, 50, 0, 5, 5)] }
+  const root = miniRoot([path(1, 0, 0, 10, 10, { fill: '#111111' }), path(2, 20, 0, 10, 10, { fill: '#222222', name: 'Two' }), g, { id: 20, t: 'text', str: 'x', family: 'A', size: 5, bold: false, italic: false, fill: '#000000', opacity: 1, m: [1, 0, 0, 1, 0, 0] }])
+  const out = {}; let nextId = 100
+  const r = OA.combine(root, [1, 2, 9], () => nextId++, { out })
+  const items = r.pages[0].layers[0].items
+  assert.equal(items.length, 2, 'three selected objects became one curve, the text is untouched'); assert.equal(out.id, 100)
+  const c = items[0]; assert.equal(c.rule, 'evenodd'); assert.equal(c.fill, '#ff0000', 'the look of the top-most shape')
+  assert.equal(c.d.filter((x) => x[0] === 'M').length, 4); assert.ok(!('name' in c))
+  assert.equal(OA.combine(root, [1, 20], () => nextId++), root, 'text cannot be combined'); assert.equal(OA.combine(root, [1], () => nextId++), root)
+  assert.equal(OA.combineBlocker([{ t: 'text' }]).includes('curves'), true); assert.equal(OA.combineBlocker([{ t: 'image' }]).includes('Pictures'), true); assert.equal(OA.combineBlocker([{ t: 'path' }]), '')
+  // break apart
+  const bo = { ids: [] }
+  const b = OA.breakApart(r, [100], () => nextId++, { out: bo })
+  const bitems = b.pages[0].layers[0].items
+  assert.equal(bitems.length, 5); assert.equal(bo.ids.length, 4); assert.equal(bo.ids[0], 100, 'the first piece keeps the id')
+  assert.ok(bitems.slice(0, 4).every((n) => n.d.filter((x) => x[0] === 'M').length === 1 && n.t === 'path'))
+  assert.equal(OA.breakApart(root, [1], () => nextId++), root, 'a single contour has nothing to break')
+  // unlock all
+  const locked = deepFreeze(Ops.setFlag(Ops.setFlag(root, [1], 'locked', true), [10], 'locked', true))
+  assert.equal(OA.countLocked(locked.pages[0]), 2)
+  const un = OA.unlockAll(locked, locked.pages[0].id); assert.equal(OA.countLocked(un.pages[0]), 0); assert.equal(OA.unlockAll(un, un.pages[0].id), un)
+  // clip: the contents share ONE clip object, the container stays, release removes it
+  const cont = D.findNode(root, 1).node
+  const cl = OA.clipInside(root, [1, 2, 9], cont)
+  const leaves = Ops.leavesOf(cl.pages[0].layers[0].items)
+  assert.equal(leaves.find((l) => l.id === 1).clip, undefined, 'the container itself is not clipped')
+  const clipped = leaves.filter((l) => l.clip); assert.equal(clipped.length, 3); assert.ok(clipped.every((l) => l.clip[0] === clipped[0].clip[0]), 'one shared clip object')
+  const rel = OA.releaseClip(cl, [2, 9]); assert.equal(Ops.leavesOf(rel.pages[0].layers[0].items).filter((l) => l.clip).length, 0); assert.equal(OA.hasClip([D.findNode(cl, 2).node]), true)
+  assert.equal(OA.clipInside(root, [1, 2], { t: 'text' }), root)
+})
+await t('arrange: setShape changes radius, sides and star points through sm and returns the same node when nothing changes', () => {
+  const rect = { k: 'rect', w: 100, h: 50, rx: 0, ry: 0 }, sm = M.translate(10, 10)
+  const node = { id: 1, t: 'path', d: P.shapeD(rect, sm), shape: rect, sm, fill: '#ff0000', stroke: null, strokeWidth: 0 }
+  const root = miniRoot([node])
+  const r = OA.setShape(root, [1], 'rect', { rx: 8, ry: 8 })
+  const n = r.pages[0].layers[0].items[0]; assert.equal(n.shape.rx, 8); assert.ok(n.d.some((c) => c[0] === 'C')); boxNear(bb(n.d), 10, 10, 100, 50)
+  assert.equal(OA.setShape(r, [1], 'rect', { rx: 8, ry: 8 }), r); assert.equal(OA.setShape(root, [1], 'ellipse', { rx: 3 }), root, 'a different kind is left alone')
+  const fn = OA.setShape(root, [1], 'rect', (s, m) => ({ rx: 5 / m[0], ry: 5 / m[0] })); assert.equal(fn.pages[0].layers[0].items[0].shape.rx, 5)
+  const el = miniRoot([{ id: 2, t: 'path', d: P.shapeD({ k: 'ellipse', rx: 5, ry: 5, a1: 0, a2: 90 }, sm), shape: { k: 'ellipse', rx: 5, ry: 5, a1: 0, a2: 90, pie: true }, sm, fill: null, stroke: '#000000', strokeWidth: 1 }])
+  const full = OA.setShape(el, [2], 'ellipse', { a1: undefined, a2: undefined, pie: undefined }).pages[0].layers[0].items[0]
+  assert.deepEqual(full.shape, { k: 'ellipse', rx: 5, ry: 5 }); assert.equal(full.d.filter((c) => c[0] === 'C').length, 4)
+})
+await t('doc: parametric shapes and node types survive validateDoc (autosave restore), hostile shape data is neutralised', () => {
+  const sm = M.translate(5, 6)
+  const mk = (shape, extra = {}) => ({ id: 0, t: 'path', d: P.shapeD(shape, sm), shape, sm, fill: '#ff0000', stroke: null, ...extra })
+  const raw = { pages: [{ w: 100, h: 100, layers: [{ name: 'L', items: [
+    mk({ k: 'rect', w: 10, h: 5, rx: 2, ry: 2 }), mk({ k: 'ellipse', rx: 4, ry: 3, a1: 10, a2: 80, pie: true }), mk({ k: 'poly', n: 6, r: 5, rot: -1.5 }), mk({ k: 'star', n: 7, r1: 5, r2: 2, rot: -1.5 }),
+    { id: 0, t: 'path', d: M.rectPath(0, 0, 4, 4), nt: [['s', 'y', 'c', 'x']] }, mk({ k: 'rect', w: 10, h: 5 }, { sm: 'bad' }), mk({ k: 'bogus' })] }] }] }
+  const { doc } = D.validateDoc(raw)
+  const it = doc.pages[0].layers[0].items
+  assert.deepEqual(it[0].shape, { k: 'rect', w: 10, h: 5, rx: 2, ry: 2 }); assert.deepEqual(it[0].sm, sm)
+  assert.deepEqual(it[1].shape, { k: 'ellipse', rx: 4, ry: 3, a1: 10, a2: 80, pie: true })
+  assert.equal(it[2].shape.n, 6); assert.equal(it[3].shape.r2, 2)
+  assert.deepEqual(it[4].nt, [['s', 'y', 'c', 'c']], 'an unknown node type letter becomes a cusp')
+  assert.equal(it[5].shape, undefined, 'a shape with a broken matrix is dropped'); assert.equal(it.length, 6, 'an unknown shape kind draws nothing, so no path is left')
+  assert.ok(it.every((n) => n.t === 'path' && n.d.length > 1), 'the paths themselves always survive')
+})
+await t('transform docker maths: position, rotate, scale, size and skew about the chosen reference point', () => {
+  const box = { x: 0, y: 0, w: 10, h: 20 }
+  const at = (m, x, y) => M.apply(m, x, y).map((v) => Math.round(v * 1e6) / 1e6)
+  assert.deepEqual(XF.refPoint(box, 'c'), { x: 5, y: 10 }); assert.deepEqual(XF.refPoint(box, 'nw'), { x: 0, y: 0 }); assert.deepEqual(XF.refPoint(box, 'se'), { x: 10, y: 20 })
+  assert.equal(XF.REFS.length, 9)
+  assert.deepEqual(at(XF.transformMatrix('position', { x: 50, y: 60 }, box, 'c'), 5, 10), [50, 60])
+  assert.deepEqual(at(XF.transformMatrix('position', { x: 50, y: 60 }, box, 'nw'), 0, 0), [50, 60])
+  assert.deepEqual(at(XF.transformMatrix('position', { relative: true, dx: 3, dy: -4 }, box), 5, 10), [8, 6])
+  assert.deepEqual(at(XF.transformMatrix('rotate', { angle: 90 }, box, 'c'), 10, 10), [5, 5], 'counter-clockwise on screen: the right-hand point goes to the top')
+  assert.deepEqual(at(XF.transformMatrix('scale', { sx: 2, sy: 0.5 }, box, 'nw'), 10, 20), [20, 10])
+  assert.deepEqual(at(XF.transformMatrix('scale', { sx: 2, sy: 0.5 }, box, 'c'), 5, 10), [5, 10])
+  assert.deepEqual(at(XF.transformMatrix('size', { w: 20, h: 20, prop: true, changed: 'w' }, box, 'nw'), 10, 20), [20, 40])
+  assert.deepEqual(at(XF.transformMatrix('size', { w: 20, h: 10, prop: false }, box, 'se'), 0, 0), [-10, 10])
+  assert.deepEqual(at(XF.transformMatrix('skew', { kx: 45, ky: 0 }, box, 'c'), 5, 0), [-5, 0])
+  assert.deepEqual(at(XF.transformMatrix('skew', { kx: 0, ky: 45 }, box, 'c'), 10, 10), [10, 15])
+  for (const bad of [XF.transformMatrix('rotate', { angle: 0 }, box), XF.transformMatrix('rotate', { angle: NaN }, box), XF.transformMatrix('scale', { sx: 0, sy: 1 }, box), XF.transformMatrix('size', { w: -1, h: 1 }, box), XF.transformMatrix('skew', { kx: 90, ky: 0 }, box), XF.transformMatrix('position', { x: 1, y: 1 }, null)]) assert.equal(bad, null)
+  assert.equal(XF.transformMatrix('position', { x: 5, y: 10 }, box, 'c'), null, 'moving to where it already is does nothing')
+})
+await t('shaping: limits and refusals are plain words (the engine itself runs in the browser tests)', () => {
+  const p = (n) => ({ t: 'path', d: new Array(n).fill(['L', 0, 0]) })
+  assert.ok(BL.shapeBlocker([p(2), { t: 'text' }]).includes('curves')); assert.ok(BL.shapeBlocker([p(2), { t: 'image' }]).includes('Pictures'))
+  assert.ok(BL.shapeBlocker([p(2)], 2).includes('two')); assert.equal(BL.shapeBlocker([p(2), p(2)]), '')
+  assert.ok(BL.shapeBlocker(Array.from({ length: 201 }, () => p(2))).includes('200')); assert.ok(BL.shapeBlocker([p(40000), p(30000)]).includes('too many'))
+  assert.deepEqual(BL.OPS, ['weld', 'trim', 'intersect', 'simplify', 'frontMinusBack', 'backMinusFront']); assert.equal(BL.segmentCount({ t: 'text' }), 0)
+  assert.ok(!BL.FAIL_TEXT.includes(String.fromCharCode(0x2014)))
+})
+await t('keys: align letters, order aliases, combine, lock, tools, shaping and docker keys are bound; clipboard keys are hints, not bindings', () => {
+  const { map, dupes } = K.buildKeymap()
+  assert.deepEqual(dupes, [])
+  for (const [k, id] of [['L', 'align.left'], ['R', 'align.right'], ['T', 'align.top'], ['B', 'align.bottom'], ['E', 'align.centerH'], ['C', 'align.centerV'], ['P', 'align.page'], ['Ctrl+L', 'arrange.combine'], ['Ctrl+K', 'arrange.breakApart'], ['Ctrl+Shift+L', 'arrange.lock'], ['Ctrl+Alt+Shift+L', 'arrange.unlockAll'],
+    ['F10', 'tool.shape'], ['F5', 'tool.free'], ['Shift+P', 'tool.pen'], ['Shift+F5', 'tool.pen'], ['F6', 'tool.rect'], ['F7', 'tool.ellipse'], ['Y', 'tool.polygon'], ['Shift+Y', 'tool.star'], ['Ctrl+Shift+A', 'win.align'], ['Alt+F7', 'win.transformPos'], ['Alt+F8', 'win.transformRotate'], ['Alt+F9', 'win.transformScale'], ['Alt+F10', 'win.transformSize'],
+    ['Ctrl+PageUp', 'arrange.forward'], ['Ctrl+]', 'arrange.forward'], ['Ctrl+[', 'arrange.backward'], ['Shift+PageDown', 'arrange.back']]) assert.equal(map.get(k), id, k)
+  for (const k of ['Ctrl+C', 'Ctrl+X', 'Ctrl+V', 'Ctrl+Shift+V']) assert.ok(!map.has(k), `${k} must stay unbound so the browser's own copy and paste events fire`)
+  const rows = K.shortcutRows()
+  for (const id of ['edit.cut', 'edit.copy', 'edit.paste', 'edit.pasteInPlace']) assert.ok(rows.find((r) => r.id === id)?.keys[0].startsWith('Ctrl+'), id)
+  const menus = K.menuTree().find((m) => m.menu === 'Object').items
+  const sub = (label) => menus.find((i) => i.label === label)?.items.map((i) => i.id)
+  assert.equal(sub('Align').length, 7); assert.equal(sub('Distribute').length, 8); assert.equal(sub('Shaping').length, 6); assert.equal(sub('Nodes').length, 11)
+  for (const c of K.COMMANDS) assert.ok(!(c.id.startsWith('node.') && c.keys.length), 'node commands have no keys of their own')
 })
 
 // ---------- every import specifier resolves (check.mjs only validates static imports) ----------

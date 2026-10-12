@@ -20,7 +20,7 @@ export function createMenus({ commands, focusBack }) {
     const check = !!commands.impl[c.id]?.checked
     const labelEl = h('span', { class: 'ds-mi-l' }, c.label)
     const btn = h('button', { type: 'button', role: check ? 'menuitemcheckbox' : 'menuitem', tabindex: -1, class: 'ds-mi', 'data-cmd': c.id, onclick: () => { close(); commands.run(c.id) } },
-      labelEl, c.keys?.length ? h('span', { class: 'ds-mi-k' }, c.keys[0]) : null)
+      labelEl, c.keys?.length || c.hint ? h('span', { class: 'ds-mi-k' }, c.keys?.[0] || c.hint) : null)
     if (check) btn.setAttribute('aria-checked', 'false')
     items.push({ btn, id: c.id, labelEl })
     return btn

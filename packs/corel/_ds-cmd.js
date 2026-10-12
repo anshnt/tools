@@ -4,14 +4,19 @@
 import { COMMANDS, buildKeymap, normalizeKey } from './_ds-keys.js'
 import { PASS, createEditImpl } from './_ds-cmd-edit.js'
 import { createDocImpl } from './_ds-cmd-doc.js'
+import { createObjImpl } from './_ds-cmd-obj.js'
 
 const TYPING = 'input, select, textarea, [contenteditable]:not([contenteditable="false"])'
 // While focus is in a field only these shortcuts still reach the app (the field keeps Ctrl+Z, Ctrl+A, letters, arrows and Esc).
 const ALWAYS = /^(F\d+|Ctrl\+O|Alt\+N|Ctrl\+S|Ctrl\+Shift\+S|Ctrl\+E)$/
-// these keys only belong to the canvas itself (so Tab and Enter keep working on buttons, menus and the page tabs)
-const CANVAS_ONLY = new Set(['Tab', 'Shift+Tab', 'Enter'])
+// these keys only belong to the canvas itself (so Tab and Enter keep working on buttons, menus and the page tabs; the align letters never fire from a button)
+const CANVAS_ONLY = new Set(['Tab', 'Shift+Tab', 'Enter', 'L', 'R', 'T', 'B', 'E', 'C', 'P'])
 
-/** env: {store, view, tools, boxOf, app: {openPicker, newDoc, showNotes, showShortcuts, fullscreen, gotoPage, colorDialog, toggleDock, dockOpen, noteColor}} */
+/**
+ * env: {store, view, tools, boxOf, app: {openPicker, newDoc, showNotes, showShortcuts, fullscreen, gotoPage, colorDialog, toggleDock, dockOpen, noteColor, confirm, showDock, clip}}
+ * The active tool may define key(keyString, event) -> true to take a key first (Enter and Backspace while drawing, Delete and arrows on picked nodes).
+ * A command may define keyWhen() so its KEY only works in some situations (the align letters need the Pick tool and a selection); the menu always works.
+ */
 export function createCommands({ store, view, tools, boxOf, app, fonts, renderer }) {
   const topLevelIds = () => {
     const out = []
@@ -44,6 +49,9 @@ export function createCommands({ store, view, tools, boxOf, app, fonts, renderer
   }
   const edit = createEditImpl({ store, boxOf, tools, app })
   Object.assign(impl, edit.impl)
+  const clipProxy = { copy: () => app.clip?.copy(), cut: () => app.clip?.cut(), paste: (inPlace) => app.clip?.paste(inPlace) }
+  const obj = createObjImpl({ store, boxOf, tools, app, clip: clipProxy })
+  Object.assign(impl, obj.impl)
   const doc = createDocImpl({ store, app, fonts, renderer })
   Object.assign(impl, doc.impl)
   const meta = new Map(COMMANDS.map((c) => [c.id, c]))
@@ -52,6 +60,7 @@ export function createCommands({ store, view, tools, boxOf, app, fonts, renderer
 
   const api = {
     meta, impl, paint: edit.paint, doc,
+    obj,
     has: (id) => meta.has(id) && !!impl[id],
     /** Run a command (may return a promise). Disabled commands do nothing. */
     run(id, args) { const c = impl[id]; if (!c || (c.enabled && !c.enabled())) return undefined; return c.run(args) },
@@ -65,9 +74,12 @@ export function createCommands({ store, view, tools, boxOf, app, fonts, renderer
       if (!key) return false
       const typing = !!e.target.closest?.(TYPING)
       if (typing && !ALWAYS.test(key)) return false
+      const tool = tools.current
+      if (tool?.key && tool.key(key, e)) { e.preventDefault(); e.stopPropagation(); return true }
       const id = keymap.get(key)
       if (!id || !api.has(id)) return false
       if (CANVAS_ONLY.has(key) && !e.target.classList?.contains('ds-view')) return false
+      if (impl[id].keyWhen && !impl[id].keyWhen()) return false
       if (impl[id].passWhenDisabled && impl[id].enabled && !impl[id].enabled()) return false
       const r = api.run(id, keyArgs.get(key))
       if (r === PASS) return false

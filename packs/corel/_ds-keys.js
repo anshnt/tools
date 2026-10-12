@@ -2,7 +2,8 @@
 // can assert: no two commands share a key, every command is in a menu, every menu exists. A feature that is cut is removed from this table,
 // the menus and the toolbox together (no dead buttons).
 //   {id, label, menu, path?: ['Submenu'], group?: n (a separator is drawn when it changes), keys: ['Ctrl+O'], icon?, phone?: true (shown in the phone bar),
-//    keyArgs?: {'Shift+Left': {step: 10}} (arguments passed to run when that key fires; menus run with none)}
+//    keyArgs?: {'Shift+Left': {step: 10}} (arguments passed to run when that key fires; menus run with none),
+//    hint?: 'Ctrl+C' (shown in the menu and the shortcut sheet, but NOT bound: the browser's own copy, cut and paste events do that work)}
 export const MENUS = ['File', 'Edit', 'View', 'Layout', 'Object', 'Effects', 'Bitmaps', 'Text', 'Window', 'Help']
 
 export const COMMANDS = [
@@ -19,6 +20,10 @@ export const COMMANDS = [
   // Edit
   { id: 'edit.undo', label: 'Undo', menu: 'Edit', group: 1, keys: ['Ctrl+Z'], icon: 'undo-2', phone: true },
   { id: 'edit.redo', label: 'Redo', menu: 'Edit', group: 1, keys: ['Ctrl+Shift+Z', 'Ctrl+Y'], icon: 'redo-2', phone: true },
+  { id: 'edit.cut', label: 'Cut', menu: 'Edit', group: 2, keys: [], hint: 'Ctrl+X', icon: 'scissors' },
+  { id: 'edit.copy', label: 'Copy', menu: 'Edit', group: 2, keys: [], hint: 'Ctrl+C', icon: 'copy' },
+  { id: 'edit.paste', label: 'Paste', menu: 'Edit', group: 2, keys: [], hint: 'Ctrl+V', icon: 'clipboard-paste' },
+  { id: 'edit.pasteInPlace', label: 'Paste in place', menu: 'Edit', group: 2, keys: [], hint: 'Ctrl+Shift+V', icon: 'clipboard-paste' },
   { id: 'edit.duplicate', label: 'Duplicate', menu: 'Edit', group: 2, keys: ['Ctrl+D'], icon: 'copy' },
   { id: 'edit.delete', label: 'Delete', menu: 'Edit', group: 2, keys: ['Delete', 'Backspace'], icon: 'trash-2' },
   { id: 'edit.selectAll', label: 'Select all', menu: 'Edit', group: 3, keys: ['Ctrl+A'], icon: 'box-select' },
@@ -50,6 +55,10 @@ export const COMMANDS = [
   { id: 'arrange.group', label: 'Group', menu: 'Object', group: 1, keys: ['Ctrl+G'], icon: 'group' },
   { id: 'arrange.ungroup', label: 'Ungroup', menu: 'Object', group: 1, keys: ['Ctrl+U'], icon: 'ungroup' },
   { id: 'arrange.ungroupAll', label: 'Ungroup all', menu: 'Object', group: 1, keys: ['Ctrl+Shift+U'], icon: 'ungroup' },
+  { id: 'arrange.combine', label: 'Combine', menu: 'Object', group: 1, keys: ['Ctrl+L'], icon: 'combine' },
+  { id: 'arrange.breakApart', label: 'Break apart', menu: 'Object', group: 1, keys: ['Ctrl+K'], icon: 'split' },
+  { id: 'arrange.lock', label: 'Lock', menu: 'Object', group: 1, keys: ['Ctrl+Shift+L'], icon: 'lock' },
+  { id: 'arrange.unlockAll', label: 'Unlock all objects', menu: 'Object', group: 1, keys: ['Ctrl+Alt+Shift+L'], icon: 'unlock' },
   { id: 'arrange.front', label: 'To front', menu: 'Object', path: ['Order'], keys: ['Shift+PageUp', 'Ctrl+Shift+]'], icon: 'bring-to-front' },
   { id: 'arrange.back', label: 'To back', menu: 'Object', path: ['Order'], keys: ['Shift+PageDown', 'Ctrl+Shift+['], icon: 'send-to-back' },
   { id: 'arrange.forward', label: 'Forward one', menu: 'Object', path: ['Order'], keys: ['Ctrl+PageUp', 'Ctrl+]'], icon: 'arrow-up-to-line' },
@@ -63,6 +72,40 @@ export const COMMANDS = [
   { id: 'object.nudgeRight', label: 'Nudge right', menu: 'Object', path: ['Nudge'], keys: ['Right', 'Shift+Right', 'Ctrl+Right'], keyArgs: { Right: { step: 1 }, 'Shift+Right': { step: 10 }, 'Ctrl+Right': { step: 0.1 } }, icon: 'chevron-right' },
   { id: 'object.nudgeUp', label: 'Nudge up', menu: 'Object', path: ['Nudge'], keys: ['Up', 'Shift+Up', 'Ctrl+Up'], keyArgs: { Up: { step: 1 }, 'Shift+Up': { step: 10 }, 'Ctrl+Up': { step: 0.1 } }, icon: 'chevron-up' },
   { id: 'object.nudgeDown', label: 'Nudge down', menu: 'Object', path: ['Nudge'], keys: ['Down', 'Shift+Down', 'Ctrl+Down'], keyArgs: { Down: { step: 1 }, 'Shift+Down': { step: 10 }, 'Ctrl+Down': { step: 0.1 } }, icon: 'chevron-down' },
+  { id: 'align.left', label: 'Align left', menu: 'Object', path: ['Align'], keys: ['L'], icon: 'align-start-vertical' },
+  { id: 'align.right', label: 'Align right', menu: 'Object', path: ['Align'], keys: ['R'], icon: 'align-end-vertical' },
+  { id: 'align.top', label: 'Align top', menu: 'Object', path: ['Align'], keys: ['T'], icon: 'align-start-horizontal' },
+  { id: 'align.bottom', label: 'Align bottom', menu: 'Object', path: ['Align'], keys: ['B'], icon: 'align-end-horizontal' },
+  { id: 'align.centerH', label: 'Centre horizontally', menu: 'Object', path: ['Align'], keys: ['E'], icon: 'align-center-vertical' },
+  { id: 'align.centerV', label: 'Centre vertically', menu: 'Object', path: ['Align'], keys: ['C'], icon: 'align-center-horizontal' },
+  { id: 'align.page', label: 'Centre on page', menu: 'Object', path: ['Align'], keys: ['P'], icon: 'frame' },
+  { id: 'distribute.left', label: 'Left edges', menu: 'Object', path: ['Distribute'], keys: [], icon: 'align-horizontal-distribute-start' },
+  { id: 'distribute.centerH', label: 'Centres horizontally', menu: 'Object', path: ['Distribute'], keys: [], icon: 'align-horizontal-distribute-center' },
+  { id: 'distribute.right', label: 'Right edges', menu: 'Object', path: ['Distribute'], keys: [], icon: 'align-horizontal-distribute-end' },
+  { id: 'distribute.spaceH', label: 'Spacing horizontally', menu: 'Object', path: ['Distribute'], keys: [], icon: 'align-horizontal-space-between' },
+  { id: 'distribute.top', label: 'Top edges', menu: 'Object', path: ['Distribute'], keys: [], icon: 'align-vertical-distribute-start' },
+  { id: 'distribute.centerV', label: 'Centres vertically', menu: 'Object', path: ['Distribute'], keys: [], icon: 'align-vertical-distribute-center' },
+  { id: 'distribute.bottom', label: 'Bottom edges', menu: 'Object', path: ['Distribute'], keys: [], icon: 'align-vertical-distribute-end' },
+  { id: 'distribute.spaceV', label: 'Spacing vertically', menu: 'Object', path: ['Distribute'], keys: [], icon: 'align-vertical-space-between' },
+  { id: 'shape.weld', label: 'Weld', menu: 'Object', path: ['Shaping'], keys: [], icon: 'merge' },
+  { id: 'shape.trim', label: 'Trim', menu: 'Object', path: ['Shaping'], keys: [], icon: 'scissors' },
+  { id: 'shape.intersect', label: 'Intersect', menu: 'Object', path: ['Shaping'], keys: [], icon: 'combine' },
+  { id: 'shape.simplify', label: 'Simplify', menu: 'Object', path: ['Shaping'], keys: [], icon: 'layers-2' },
+  { id: 'shape.frontMinusBack', label: 'Front minus back', menu: 'Object', path: ['Shaping'], keys: [], icon: 'square-minus' },
+  { id: 'shape.backMinusFront', label: 'Back minus front', menu: 'Object', path: ['Shaping'], keys: [], icon: 'square-minus' },
+  { id: 'node.add', label: 'Add node', menu: 'Object', path: ['Nodes'], keys: [], icon: 'plus' },
+  { id: 'node.delete', label: 'Delete nodes', menu: 'Object', path: ['Nodes'], keys: [], icon: 'minus' },
+  { id: 'node.toLine', label: 'To line', menu: 'Object', path: ['Nodes'], keys: [], icon: 'minus' },
+  { id: 'node.toCurve', label: 'To curve', menu: 'Object', path: ['Nodes'], keys: [], icon: 'spline' },
+  { id: 'node.cusp', label: 'Cusp node', menu: 'Object', path: ['Nodes'], keys: [], icon: 'square' },
+  { id: 'node.smooth', label: 'Smooth node', menu: 'Object', path: ['Nodes'], keys: [], icon: 'circle' },
+  { id: 'node.symmetrical', label: 'Symmetrical node', menu: 'Object', path: ['Nodes'], keys: [], icon: 'diamond' },
+  { id: 'node.break', label: 'Break curve', menu: 'Object', path: ['Nodes'], keys: [], icon: 'split' },
+  { id: 'node.join', label: 'Join nodes', menu: 'Object', path: ['Nodes'], keys: [], icon: 'link' },
+  { id: 'node.close', label: 'Close curve', menu: 'Object', path: ['Nodes'], keys: [], icon: 'circle-dot' },
+  { id: 'node.reverse', label: 'Reverse direction', menu: 'Object', path: ['Nodes'], keys: [], icon: 'arrow-left-right' },
+  { id: 'object.clip', label: 'Clip to container', menu: 'Object', group: 6, keys: [], icon: 'frame' },
+  { id: 'object.unclip', label: 'Release clip', menu: 'Object', group: 6, keys: [], icon: 'square-dashed' },
   { id: 'object.toCurves', label: 'Convert to curves', menu: 'Object', group: 5, keys: ['Ctrl+Q', 'Ctrl+Alt+Q'], icon: 'spline' },
   { id: 'object.newLayer', label: 'New layer', menu: 'Object', group: 4, keys: [], icon: 'plus' },
   // Effects
@@ -83,10 +126,23 @@ export const COMMANDS = [
   { id: 'text.addFont', label: 'Add font file...', menu: 'Text', group: 5, keys: [], icon: 'file-up' },
   // Window
   { id: 'win.objects', label: 'Objects', menu: 'Window', group: 1, keys: ['Ctrl+F3'], icon: 'layers' },
+  { id: 'win.align', label: 'Align and distribute', menu: 'Window', group: 1, keys: ['Ctrl+Shift+A'], icon: 'align-center' },
+  { id: 'win.transform', label: 'Transform', menu: 'Window', group: 1, keys: [], icon: 'move' },
+  { id: 'win.transformPos', label: 'Transform: position', menu: 'Window', path: ['Transform'], keys: ['Alt+F7'], icon: 'move' },
+  { id: 'win.transformRotate', label: 'Transform: rotate', menu: 'Window', path: ['Transform'], keys: ['Alt+F8'], icon: 'rotate-cw' },
+  { id: 'win.transformScale', label: 'Transform: scale', menu: 'Window', path: ['Transform'], keys: ['Alt+F9'], icon: 'scaling' },
+  { id: 'win.transformSize', label: 'Transform: size', menu: 'Window', path: ['Transform'], keys: ['Alt+F10'], icon: 'scaling' },
   // Tools (the toolbox is built from TOOL_INFO in _ds-tools.js; the keys are mirrored here so duplicates are caught)
   { id: 'tool.pick', label: 'Pick tool', menu: 'View', path: ['Tools'], keys: ['V'], icon: 'mouse-pointer-2' },
   { id: 'tool.zoom', label: 'Zoom tool', menu: 'View', path: ['Tools'], keys: ['Z', 'F2'], icon: 'zoom-in' },
+  { id: 'tool.shape', label: 'Shape tool', menu: 'View', path: ['Tools'], keys: ['F10'], icon: 'spline-pointer' },
   { id: 'tool.pan', label: 'Pan tool', menu: 'View', path: ['Tools'], keys: ['H'], icon: 'hand' },
+  { id: 'tool.free', label: 'Freehand tool', menu: 'View', path: ['Tools'], keys: ['F5'], icon: 'pencil' },
+  { id: 'tool.pen', label: 'Bezier tool', menu: 'View', path: ['Tools'], keys: ['Shift+P', 'Shift+F5'], icon: 'pen-tool' },
+  { id: 'tool.rect', label: 'Rectangle tool', menu: 'View', path: ['Tools'], keys: ['F6'], icon: 'square' },
+  { id: 'tool.ellipse', label: 'Ellipse tool', menu: 'View', path: ['Tools'], keys: ['F7'], icon: 'circle' },
+  { id: 'tool.polygon', label: 'Polygon tool', menu: 'View', path: ['Tools'], keys: ['Y'], icon: 'hexagon' },
+  { id: 'tool.star', label: 'Star tool', menu: 'View', path: ['Tools'], keys: ['Shift+Y'], icon: 'star' },
   { id: 'tool.text', label: 'Text tool', menu: 'View', path: ['Tools'], keys: ['F8'], icon: 'type' },
   // Help
   { id: 'help.shortcuts', label: 'Keyboard shortcuts', menu: 'Help', group: 1, keys: ['F1', '?'], icon: 'keyboard' },
@@ -148,4 +204,4 @@ export function buildKeymap(commands = COMMANDS) {
   return { map, dupes, args }
 }
 /** Rows for the shortcuts sheet: [{id, label, menu, keys}] for commands that have keys. */
-export const shortcutRows = (commands = COMMANDS) => commands.filter((c) => c.keys?.length).map((c) => ({ id: c.id, label: (c.path ? c.path.join(' > ') + ' > ' : '') + c.label, menu: c.menu, keys: c.keys }))
+export const shortcutRows = (commands = COMMANDS) => commands.filter((c) => c.keys?.length || c.hint).map((c) => ({ id: c.id, label: (c.path ? c.path.join(' > ') + ' > ' : '') + c.label, menu: c.menu, keys: c.keys?.length ? c.keys : [c.hint] }))

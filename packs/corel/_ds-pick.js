@@ -209,6 +209,7 @@ export function createPick({ store, view, boxOf, renderer, host, info }) {
         store.setSel(inner != null && inner !== n.id ? [inner] : [])
         store.emit('status')
       } else if (n?.t === 'text') store.emit('edittext', n.id) // double-click on text edits it in place (E7)
+      else if (n?.t === 'path') { store.setSel([n.id]); store.emit('shapetool') } // double-click on a curve or shape: edit its nodes with the Shape tool (E9)
     },
     cancel() { if (drag) { renderer.clearPreview(); drag = null; store.setStatus('') } view.requestOverlay() },
     deactivate() { host.style.cursor = info.cursor || 'default' },

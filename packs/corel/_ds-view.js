@@ -94,6 +94,8 @@ export function createView({ store, host, ov, renderer, boxOf }) {
     const { s, p } = fromClient(e)
     return { p, s, mods: { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey, meta: e.metaKey }, button: e.button, buttons: e.buttons, pointerType: e.pointerType, pressure: e.pressure, target: e.target, detail: e.detail, raw: e }
   }
+  /** A second finger (pinch) or a cancelled pointer: tools that keep a drawing in progress (Bezier, polyline) just drop the press; others cancel. */
+  const interrupt = () => (tool?.interrupt ? tool.interrupt() : tool?.cancel?.())
   const startPan = (e) => { const s = local(e); panning = { sx: s.x, sy: s.y, vx: store.view.x, vy: store.view.y, id: e.pointerId }; host.classList.add('ds-panning') }
   function pinchState() {
     const [a, b] = [...pointers.values()]
@@ -105,7 +107,7 @@ export function createView({ store, host, ov, renderer, boxOf }) {
     const s = local(e)
     pointers.set(e.pointerId, s)
     try { host.setPointerCapture(e.pointerId) } catch { /* not capturable */ }
-    if (pointers.size === 2) { tool?.cancel?.(); panning = null; const st = pinchState(); pinch = { ...st, z: store.view.z, vx: store.view.x, vy: store.view.y }; return }
+    if (pointers.size === 2) { interrupt(); panning = null; const st = pinchState(); pinch = { ...st, z: store.view.z, vx: store.view.x, vy: store.view.y }; return }
     if (pointers.size > 2) return
     const wantPan = e.button === 1 || (e.button === 0 && (spaceDown || store.tool === 'pan'))
     if (wantPan) { e.preventDefault(); startPan(e); return }
@@ -131,7 +133,7 @@ export function createView({ store, host, ov, renderer, boxOf }) {
     if (pinch) { if (pointers.size < 2) pinch = null; return }
     if (panning && e.pointerId === panning.id) { panning = null; host.classList.remove('ds-panning'); return }
     if (had && e.type === 'pointerup') tool?.pointerup?.(mkEv(e))
-    else if (had) tool?.cancel?.()
+    else if (had) interrupt()
   }
   // wheel: Ctrl or Cmd always zooms at the cursor (pinch gestures arrive that way); a mouse wheel zooms; a trackpad pans; Shift pans sideways
   const isMouseWheel = (e) => e.deltaMode === 1 || (e.deltaMode === 0 && e.deltaX === 0 && Math.abs(e.deltaY) >= 50 && Number.isInteger(e.deltaY))

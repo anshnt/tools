@@ -19,7 +19,7 @@ const CSS = `
 .t-ds .ds-topwrap { position: relative; }
 .t-ds .ds-mtop { height: 28px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; }
 .t-ds .ds-mtop:hover, .t-ds .ds-mtop[aria-expanded="true"] { background: var(--surface-3); }
-.t-ds .ds-menu { position: absolute; top: 100%; left: 0; z-index: 30; min-width: 240px; max-width: min(340px, 90vw); max-height: min(70vh, 520px); overflow-y: auto; padding: 4px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow); }
+.t-ds .ds-menu { position: absolute; top: 100%; left: 0; z-index: 30; min-width: 280px; max-width: min(360px, 90vw); max-height: min(70vh, 520px); overflow-y: auto; padding: 4px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow); }
 .t-ds .ds-mi { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 24px; min-height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; }
 .t-ds .ds-mi:hover:not(:disabled), .t-ds .ds-mi:focus-visible { background: var(--accent-soft); }
 .t-ds .ds-mi:disabled { opacity: .4; cursor: default; }
@@ -140,7 +140,7 @@ const CSS = `
 .t-ds .ds-dock { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border-left: 1px solid var(--border); background: var(--surface); }
 .t-ds .ds-dock-grip, .t-ds .ds-dock-head { display: none; }
 .t-ds .ds-dock-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
-.t-ds .ds-dsec { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; border-bottom: 1px solid var(--border); }
+.t-ds .ds-dsec { display: flex; flex-direction: column; min-height: min-content; flex: 1 1 auto; border-bottom: 1px solid var(--border); }
 .t-ds .ds-dsec-head { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 30px; padding: 0 10px; border: 0; background: var(--surface-2); font-weight: 600; cursor: pointer; flex: none; }
 .t-ds .ds-dsec-head[aria-expanded="false"] .icon { transform: rotate(-90deg); }
 .t-ds .ds-dsec-body { display: flex; flex-direction: column; min-height: 0; flex: 1; }
@@ -195,6 +195,41 @@ const CSS = `
 .t-ds .ds-restore { display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 10px 12px; text-align: left; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 12px; background: var(--accent-soft); }
 .t-ds .ds-restore p { margin: 0; font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
 
+/* drawing tools, node editing and arrange dockers */
+.t-ds .ds-draftp { fill: color-mix(in srgb, var(--accent) 14%, transparent); stroke: var(--accent); stroke-width: 1.5; }
+.t-ds .ds-draftl { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.t-ds .ds-node { fill: var(--surface); stroke: var(--accent); stroke-width: 1.5; }
+.t-ds .ds-node.ds-picked { fill: var(--accent); }
+.t-ds .ds-node.ds-first { stroke: var(--danger); }
+.t-ds .ds-hline { fill: none; stroke: var(--accent); stroke-width: 1; }
+.t-ds .ds-hdl { fill: var(--surface); stroke: var(--accent); stroke-width: 1.5; }
+.t-ds .ds-dsec-shut { flex: none; min-height: 0; }
+.t-ds .ds-dsec[data-section="align"], .t-ds .ds-dsec[data-section="transform"] { flex: none; }
+.t-ds .ds-xpanel { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px 10px; min-width: 0; }
+.t-ds .ds-xhead { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.t-ds .ds-xradio, .t-ds .ds-xtabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.t-ds .ds-xchip { height: 26px; padding: 0 10px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-2); cursor: pointer; font-size: 12px; }
+.t-ds .ds-xchip[aria-pressed="true"], .t-ds .ds-xchip[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.t-ds .ds-xgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.t-ds .ds-xbtn { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); cursor: pointer; text-align: left; min-width: 0; }
+.t-ds .ds-xbtn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.t-ds .ds-xbtn:hover:not(:disabled) { background: var(--surface-3); }
+.t-ds .ds-xbtn:disabled { opacity: .4; cursor: default; }
+.t-ds .ds-xleave { display: flex; flex-direction: column; gap: 4px; }
+.t-ds .ds-xrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.t-ds .ds-xname { width: 62px; font-weight: 600; }
+.t-ds .ds-xcheck { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-2); }
+.t-ds .ds-xnote { margin: 0; font-size: 11.5px; color: var(--muted); }
+.t-ds .ds-xmain { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.t-ds .ds-xrefs { display: grid; grid-template-columns: repeat(3, 18px); gap: 3px; flex: none; margin-top: 4px; }
+.t-ds .ds-xref { width: 18px; height: 18px; padding: 0; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface); cursor: pointer; }
+.t-ds .ds-xref[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+.t-ds .ds-xpanels { flex: 1; min-width: 0; }
+.t-ds .ds-xfields { display: flex; flex-direction: column; gap: 6px; }
+.t-ds .ds-xfields .ds-pf { justify-content: space-between; }
+.t-ds .ds-xapply { display: flex; gap: 6px; flex-wrap: wrap; }
+.t-ds .ds-nodeinfo { font-variant-numeric: tabular-nums; }
+
 /* dialogs */
 .t-ds-dlg { display: flex; flex-direction: column; gap: 12px; min-width: 0; max-width: 100%; }
 .t-ds-dlg .ds-list { margin: 0; padding-left: 18px; font-size: 13.5px; display: flex; flex-direction: column; gap: 4px; }
@@ -246,6 +281,11 @@ const CSS = `
   .t-ds .ds-btn, .t-ds .ds-tab { min-height: 36px; min-width: 36px; }
   .t-ds .ds-units, .t-ds .ds-selsm { height: 36px; min-height: 36px; }
   .t-ds .ds-dsec-head, .t-ds .ds-dock-close { min-height: 36px; }
+  .t-ds .ds-xchip, .t-ds .ds-xbtn { min-height: 36px; }
+  .t-ds .ds-xref { width: 36px; height: 36px; }
+  .t-ds .ds-xrefs { grid-template-columns: repeat(3, 36px); }
+  .t-ds .ds-xcheck { min-height: 36px; }
+  .t-ds .ds-xapply .btn { min-height: 36px; }
 }
 @media (pointer: coarse) {
   .t-ds .ds-btn, .t-ds .ds-tab { min-height: 36px; min-width: 36px; }
@@ -254,6 +294,10 @@ const CSS = `
   .t-ds .ds-eye, .t-ds .ds-lock { width: 36px; height: 36px; }
   .t-ds .ds-sw { width: 24px; height: 24px; }
   .t-ds .ds-sw-grid { grid-template-columns: repeat(2, 24px); }
+}
+@media (min-width: 861px) and (pointer: fine) {
+  .t-ds .ds-tools { gap: 2px; }
+  .t-ds .ds-tool { width: 34px; height: 32px; }
 }
 @media (prefers-reduced-motion: reduce) { .t-ds *, .t-ds *::before { transition: none !important; animation-duration: .01ms !important; } }
 `
