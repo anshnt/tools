@@ -586,7 +586,7 @@ function actions() {
   const ready = TOOLS.filter((x) => x.ready)
   return [
     { id: 'act-theme', name: dark ? 'Switch to light mode' : 'Switch to dark mode', desc: 'Change the colour theme', icon: dark ? 'sun' : 'moon', tags: 'theme dark light mode', run: () => setTheme(dark ? 'light' : 'dark') },
-    { id: 'act-ai', name: 'AI settings', desc: 'Add or change your Claude or Gemini API key', icon: 'sparkles', tags: 'ai key claude gemini settings', run: () => ai.openSettings() },
+    { id: 'act-ai', name: 'AI settings', desc: 'Use your Claude or Gemini key, or the free on-device AI', icon: 'sparkles', tags: 'ai key claude gemini free local offline on-device settings', run: () => ai.openSettings() },
     !isStandalone() && { id: 'act-install', name: 'Install as an app', desc: 'Open Tools in its own window and use it offline', icon: 'download', tags: 'install pwa offline app home screen', run: installApp },
     { id: 'act-random', name: 'Surprise me', desc: 'Open a random tool', icon: 'shuffle', tags: 'random discover surprise', run: () => { location.hash = `#/${ready[Math.floor(Math.random() * ready.length)].id}` } },
     { id: 'act-keys', name: 'Keyboard shortcuts', desc: 'All the keys that make this faster', icon: 'keyboard', tags: 'shortcuts keys help', run: showShortcuts },
