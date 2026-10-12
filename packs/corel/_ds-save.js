@@ -204,6 +204,8 @@ export async function rasterPage(page, { dpi = 96, jpg = false, transparent = fa
  * Resolves {files: [{name, blob}], notes, parts} (several parts are packed into one ZIP). Always drops the picture data URLs afterwards.
  */
 let running = false // one save or export at a time: the picture data URLs are shared and dropped when a run ends
+// anything outside Latin-1 and the Windows punctuation block: the PDF, AI and EPS writers store live text in a western encoding
+const NON_WESTERN = /[^\u0000-\u00ff\u0152\u0153\u0160\u0161\u0178\u017d\u017e\u0192\u02c6\u02dc\u2013\u2014\u2018-\u201e\u2020-\u2022\u2026\u2030\u2039\u203a\u20ac\u2122]/
 export async function exportDoc(fmt, opts = {}, env) {
   const F = FORMATS[fmt]
   if (!F) throw new Error('This format is not available.')
@@ -248,6 +250,12 @@ async function runExport(fmt, F, opts, env) {
     const count = (items) => items.reduce((n, it) => n + (it.t === 'group' ? count(it.items) : 1), 0)
     if (!doc.pages.some((p) => count(p.items || (p.layers || []).flatMap((l) => l.items)) > 0)) notes.push('The saved pages have no objects on them.')
     if (F.raster && r.liveText) notes.push('Some text could not be turned into curves and was drawn with a system font.')
+    if (!F.raster && fmt !== 'cdr') {
+      // live text a writer cannot keep faithfully: say so, instead of a silent change
+      const texts = doc.pages.flatMap((p) => (p.items || []).filter((it) => it.t === 'text'))
+      if ((fmt === 'pdf' || fmt === 'ai' || fmt === 'eps') && texts.some((t) => NON_WESTERN.test(t.str || ''))) notes.push('Letters outside the western alphabet, for example Devanagari, cannot be kept as live text in PDF, AI or EPS files and show as question marks. Turn on Convert text to curves to keep their shapes.')
+      if (fmt === 'svg' && texts.some((t) => t.font && t.glyphs)) notes.push('Text that came from a PDF keeps its exact letter shapes through the fonts stored in the SVG. Other programs may show those letters as odd characters, so turn on Convert text to curves for a file that opens everywhere.')
+    }
     if (signal?.aborted) throw abort()
     progress(0.35, `Writing ${F.label}`)
     const parts = []

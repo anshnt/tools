@@ -27,7 +27,7 @@ const CSS = `
 .t-ds .ds-mi-k { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .t-ds .ds-msep { height: 1px; margin: 4px 6px; background: var(--border); }
 .t-ds .ds-mhead { padding: 6px 10px 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
-.t-ds .ds-menubtn { display: none; align-items: center; gap: 6px; height: 34px; margin: 2px 6px; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); cursor: pointer; }
+.t-ds .ds-menubtn { display: none; align-items: center; gap: 6px; height: 36px; min-width: 36px; margin: 2px 6px; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); cursor: pointer; }
 .t-ds .ds-msheet { position: absolute; inset: 0; z-index: 40; overflow-y: auto; padding: 8px; background: var(--surface); }
 .t-ds .ds-msheet-close { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 40px; padding: 0 12px; margin-bottom: 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); cursor: pointer; font-weight: 600; }
 .t-ds .ds-msheet-head { display: flex; width: 100%; align-items: center; justify-content: space-between; min-height: 40px; padding: 0 12px; border: 0; border-bottom: 1px solid var(--border); background: transparent; font-weight: 600; cursor: pointer; }
@@ -59,7 +59,7 @@ const CSS = `
 .t-ds .ds-tool:hover { background: var(--surface-3); }
 .t-ds .ds-tool[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
 .t-ds .ds-stage { position: relative; min-width: 0; min-height: 0; }
-.t-ds .ds-view { position: absolute; inset: 0; overflow: hidden; background: var(--surface-3); touch-action: none; outline: none; user-select: none; -webkit-user-select: none; }
+.t-ds .ds-view { position: absolute; inset: 0; overflow: hidden; background: var(--surface-3); touch-action: none; outline: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 .t-ds .ds-view:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
 .t-ds .ds-view.ds-panning, .t-ds .ds-view.ds-panning * { cursor: grabbing !important; }
 .t-ds .ds-view.ds-space { cursor: grab; }
@@ -77,6 +77,7 @@ const CSS = `
 .t-ds .ds-empty-card h3 { margin: 0; font-size: 17px; }
 .t-ds .ds-empty-card p { margin: 0; color: var(--text-2); font-size: 13.5px; }
 .t-ds .ds-empty-card .icon { width: 28px; height: 28px; color: var(--accent); }
+.t-ds .ds-phone-note { display: none; }
 .t-ds .ds-empty-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .t-ds .ds-busy { position: absolute; inset: 0; z-index: 8; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--surface) 55%, transparent); }
 .t-ds .ds-busy-card { display: flex; flex-direction: column; gap: 10px; width: min(360px, 100%); padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
@@ -85,6 +86,8 @@ const CSS = `
 .t-ds .ds-busy-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
 .t-ds .ds-busy-bar.ind i { width: 35%; animation: ds-slide 1.1s ease-in-out infinite alternate; }
 @keyframes ds-slide { from { margin-left: 0; } to { margin-left: 65%; } }
+.t-ds .ds-banner { position: absolute; left: 8px; right: 8px; top: 8px; z-index: 7; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: var(--shadow); }
+.t-ds .ds-banner-t { flex: 1 1 220px; min-width: 0; color: var(--text); font-size: 13px; }
 .t-ds .ds-dropnote { position: absolute; inset: 8px; z-index: 6; display: none; place-items: center; border: 2px dashed var(--accent); border-radius: 14px; background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--accent); font-weight: 600; pointer-events: none; }
 .t-ds .ds-stage.ds-drag .ds-dropnote { display: grid; }
 
@@ -138,7 +141,7 @@ const CSS = `
 
 /* dockers */
 .t-ds .ds-dock { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; border-left: 1px solid var(--border); background: var(--surface); }
-.t-ds .ds-dock-grip, .t-ds .ds-dock-head { display: none; }
+.t-ds .ds-dock-grip, .t-ds .ds-dock-head, .t-ds .ds-seg, .t-ds .ds-sheet-bd { display: none; }
 .t-ds .ds-dock-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
 .t-ds .ds-dsec { display: flex; flex-direction: column; min-height: min-content; flex: 1 1 auto; border-bottom: 1px solid var(--border); }
 .t-ds .ds-dsec-head { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 30px; padding: 0 10px; border: 0; background: var(--surface-2); font-weight: 600; cursor: pointer; flex: none; }
@@ -161,13 +164,14 @@ const CSS = `
 .t-ds .ds-twisty-none { cursor: default; }
 .t-ds .ds-eye, .t-ds .ds-lock { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; display: grid; place-items: center; flex: none; cursor: pointer; color: var(--text-2); }
 .t-ds .ds-eye:hover, .t-ds .ds-lock:hover { background: var(--surface-3); }
-.t-ds .ds-lock[aria-pressed="false"] { opacity: .4; }
+.t-ds .ds-lock[aria-pressed="false"] { color: var(--muted); }
+.t-ds .ds-lock[aria-pressed="true"] { color: var(--text); }
 .t-ds .ds-eye .icon, .t-ds .ds-lock .icon { width: 15px; height: 15px; }
 .t-ds .ds-more-b { width: 100%; min-height: 26px; border: 1px dashed var(--border-strong); border-radius: 6px; background: transparent; color: var(--accent); cursor: pointer; }
 .t-ds .ds-drop-above { box-shadow: inset 0 2px 0 var(--accent); }
 .t-ds .ds-drop-below { box-shadow: inset 0 -2px 0 var(--accent); }
 .t-ds .ds-drop-into { outline: 2px solid var(--accent); outline-offset: -2px; }
-.t-ds .ds-panelsbtn { display: none; align-items: center; gap: 6px; height: 34px; margin: 2px 6px 2px 0; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); cursor: pointer; }
+.t-ds .ds-panelsbtn { display: none; align-items: center; gap: 6px; height: 36px; min-width: 36px; margin: 2px 6px 2px 0; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); cursor: pointer; }
 
 /* colour dialog */
 .t-ds-dlg .ds-cd-prev { display: flex; gap: 14px; }
@@ -229,6 +233,16 @@ const CSS = `
 .t-ds .ds-xfields .ds-pf { justify-content: space-between; }
 .t-ds .ds-xapply { display: flex; gap: 6px; flex-wrap: wrap; }
 .t-ds .ds-nodeinfo { font-variant-numeric: tabular-nums; }
+
+/* the nudge pad (phone only: there are no arrow keys) */
+.t-ds .ds-nudgebtn { display: none; }
+.t-ds .ds-nudge { position: absolute; z-index: 44; display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; box-shadow: var(--shadow); }
+.t-ds .ds-nudge-grid { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 4px; justify-content: center; }
+.t-ds .ds-nudge-b { width: 44px; height: 44px; border: 1px solid var(--border); background: var(--surface-2); border-radius: 10px; }
+.t-ds .ds-nudge-up { grid-area: 1 / 2; } .t-ds .ds-nudge-left { grid-area: 2 / 1; } .t-ds .ds-nudge-right { grid-area: 2 / 3; } .t-ds .ds-nudge-down { grid-area: 3 / 2; }
+.t-ds .ds-nudge-mid { grid-area: 2 / 2; display: grid; place-items: center; color: var(--muted); }
+.t-ds .ds-nudge-steps { display: flex; gap: 4px; justify-content: center; }
+.t-ds .ds-nudge-done { width: 100%; }
 
 /* rulers, guides, grid, wireframe, snap chips */
 .t-ds .ds-stage.ds-rulers .ds-view { inset: 20px 0 0 20px; }
@@ -298,6 +312,8 @@ const CSS = `
   .t-ds .ds-menubar { display: none; }
   .t-ds .ds-menubtn { display: inline-flex; }
   .t-ds .ds-panelsbtn { display: inline-flex; }
+  .t-ds .ds-nudgebtn { display: inline-flex; }
+  .t-ds .ds-nudge-step { min-height: 36px; }
   .t-ds .ds-dockbtn { display: none; }
   .t-ds .ds-mid { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto; }
   .t-ds .ds-stage { grid-column: 1; grid-row: 1; }
@@ -313,9 +329,24 @@ const CSS = `
   .t-ds .ds-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 60px; height: 36px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 18px; background: var(--surface-2); cursor: pointer; flex: none; font-weight: 600; }
   .t-ds .ds-chip[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
   .t-ds .ds-pal-more { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); cursor: pointer; flex: none; }
-  .t-ds .ds-dock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 35; height: min(62%, 420px); border-left: 0; border-top: 1px solid var(--border-strong); border-radius: 14px 14px 0 0; box-shadow: 0 -6px 24px rgba(0, 0, 0, .2); }
-  .t-ds .ds-dock-grip { display: block; width: 44px; height: 4px; margin: 6px auto 2px; border-radius: 2px; background: var(--border-strong); flex: none; }
-  .t-ds .ds-dock-head { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 4px 12px; flex: none; }
+  .t-ds .ds-dock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 35; height: var(--ds-sheet-h, min(62%, 420px)); border-left: 0; border-top: 1px solid var(--border-strong); border-radius: 14px 14px 0 0; box-shadow: 0 -6px 24px rgba(0, 0, 0, .2); }
+  .t-ds .ds-dock.ds-closing { opacity: .6; }
+  .t-ds .ds-sheet-bd { display: block; position: absolute; inset: 0; z-index: 34; background: color-mix(in srgb, var(--text) 22%, transparent); }
+  .t-ds .ds-dock-grip { display: flex; align-items: center; justify-content: center; height: 24px; flex: none; cursor: grab; touch-action: none; }
+  .t-ds .ds-dock-grip span { display: block; width: 44px; height: 5px; border-radius: 3px; background: var(--muted); }
+  .t-ds .ds-dock-head { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 4px 12px; flex: none; touch-action: none; }
+  .t-ds .ds-seg { display: flex; gap: 2px; margin: 0 8px 6px; padding: 2px; flex: none; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+  .t-ds .ds-seg-b { flex: 1 1 0; min-width: 0; height: 36px; padding: 0 4px; border: 0; border-radius: 8px; background: transparent; color: var(--text-2); font-weight: 600; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .t-ds .ds-seg-b[aria-selected="true"] { background: var(--surface); color: var(--accent); box-shadow: 0 1px 3px rgba(0, 0, 0, .18); }
+  .t-ds .ds-dsec-head { display: none; }
+  .t-ds .ds-dsec-shut { display: none; }
+  .t-ds .ds-dsec { border-bottom: 0; }
+  .t-ds .ds-mi { min-height: 40px; }
+  /* a soft shadow on the side of a strip where more is hidden (the covers scroll with the content and hide the shadows at both ends) */
+  .t-ds .ds-tools, .t-ds .ds-sw-grid, .t-ds .ds-prop, .t-ds .ds-std, .t-ds .ds-tabstrip { background-color: var(--surface);
+    background-image: linear-gradient(to right, var(--surface), var(--surface)), linear-gradient(to left, var(--surface), var(--surface)), linear-gradient(to right, color-mix(in srgb, var(--text) 18%, transparent), transparent), linear-gradient(to left, color-mix(in srgb, var(--text) 18%, transparent), transparent);
+    background-position: left center, right center, left center, right center; background-size: 20px 100%, 20px 100%, 14px 100%, 14px 100%; background-repeat: no-repeat; background-attachment: local, local, scroll, scroll; }
+  .t-ds .ds-phone-note { display: block; }
   .t-ds .ds-dock-title { font-weight: 600; }
   .t-ds .ds-docname { display: none; }
   .t-ds .ds-snapchips { display: none; }
@@ -345,6 +376,8 @@ const CSS = `
   .t-ds .ds-tool { width: 40px; height: 40px; }
   .t-ds .ds-mtop, .t-ds .ds-mi { min-height: 36px; }
   .t-ds .ds-eye, .t-ds .ds-lock { width: 36px; height: 36px; }
+}
+@media (pointer: coarse) and (min-width: 861px) {
   .t-ds .ds-sw { width: 24px; height: 24px; }
   .t-ds .ds-sw-grid { grid-template-columns: repeat(2, 24px); }
 }

@@ -30,6 +30,8 @@ def patch_catalog(src: str) -> str:
 
 
 class DsHandler(_Handler):
+    protocol_version = "HTTP/1.1"  # keep-alive: with one connection per file a page of 100 modules, reloaded many times, ran Windows out of socket buffers (ERR_NO_BUFFER_SPACE)
+
     def do_GET(self):
         if self.path.split("?")[0] == "/packs/corel/catalog.js":
             body = patch_catalog((REPO / "packs/corel/catalog.js").read_text(encoding="utf8")).encode("utf8")
@@ -47,7 +49,11 @@ def serve_ds(root=None):
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
-    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", port), functools.partial(DsHandler, directory=str(root or REPO)))
+    class Server(http.server.ThreadingHTTPServer):
+        request_queue_size = 256  # the default backlog of 5 refuses connections when a page opens 60 module files at once (seen as ERR_CONNECTION_REFUSED under load)
+        daemon_threads = True
+
+    httpd = Server(("127.0.0.1", port), functools.partial(DsHandler, directory=str(root or REPO)))
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return f"http://127.0.0.1:{port}"
 

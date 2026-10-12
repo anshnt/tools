@@ -162,7 +162,7 @@ await t('doc: limits (node count refusal, pages cap, depth flatten)', () => {
   for (let i = 0; i < 60; i++) g = { t: 'group', id: i + 2, items: [g] }
   const r = D.validateDoc(tree.treeFromFlat({ pages: [{ w: 5, h: 5, items: [g] }] }), { freshIds: true })
   let depth = 0
-  const walk = (n, d) => { depth = Math.max(depth, d); if (n.t === 'group') n.items.forEach((k) => walk(k, d + 1)) }
+  const walk = (n, d) => { depth = Math.max(depth, d); assert.ok(['group', 'path', 'text', 'image'].includes(n.t), `a flattened group left a ${n.t} node behind`); if (n.t === 'group') n.items.forEach((k) => walk(k, d + 1)) }
   r.doc.pages[0].layers[0].items.forEach((k) => walk(k, 1))
   assert.ok(depth <= 41)
 })
@@ -1370,6 +1370,16 @@ await t('import: fresh ids, fonts merged under unique keys, text without its fon
   assert.deepEqual([out[0].id, out[0].items.map((i) => i.id)], [600, [601, 602, 603]]); assert.ok(!('src' in out[0]))
   assert.equal(out[0].items[0].font, 'i1:f0_2'); assert.ok(out[0].items[0].glyphs); assert.ok(!('font' in out[0].items[1]) && !('glyphs' in out[0].items[1])); assert.equal(out[0].items[1].str, 'yo')
   assert.equal(nodes[0].items[0].font, 'f0', 'the imported document is never mutated')
+})
+
+// ---------- E14: SVG text is scrubbed before the reader sees it ----------
+await t('scrubSvgText removes stylesheet instructions and external entities, keeps the declaration and plain entities', () => {
+  const evil = '<?xml version="1.0" encoding="UTF-8"?><?xml-stylesheet href="https://evil.invalid/x.css" type="text/css"?><?pwn run?><!DOCTYPE svg [<!ENTITY ns "http://ns.example/1.0/"><!ENTITY x SYSTEM "file:///c:/windows/win.ini"><!ENTITY % p PUBLIC "-//a" "http://evil.invalid/d.dtd">]><svg xmlns="http://www.w3.org/2000/svg" xmlns:e="&ns;"></svg>'
+  const out = D.scrubSvgText(evil)
+  assert.ok(out.startsWith('<?xml version="1.0" encoding="UTF-8"?>'), 'the XML declaration stays')
+  assert.ok(!/xml-stylesheet|pwn|SYSTEM|PUBLIC|evil\.invalid/.test(out), out)
+  assert.ok(out.includes('<!ENTITY ns "http://ns.example/1.0/">') && out.includes('&ns;'), 'plain entities stay')
+  assert.equal(D.scrubSvgText('<svg/>'), '<svg/>'); assert.equal(D.scrubSvgText(5), '5')
 })
 
 // ---------- every import specifier resolves (check.mjs only validates static imports) ----------

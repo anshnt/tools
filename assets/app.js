@@ -427,8 +427,9 @@ document.addEventListener('keydown', (e) => {
 // On a tool page the file goes to that tool's file input; elsewhere we suggest tools for it and hand the file over.
 let pending = null // { id, files }: files waiting for tool `id` to mount
 const SUGGEST = {
-  pdf: ['merge-pdf', 'compress-pdf', 'pdf-to-word', 'split-pdf', 'pdf-to-image', 'sign-pdf', 'rotate-pdf', 'pdf-ocr', 'pdf-to-text', 'protect-pdf', 'pdf-summary', 'pdf-qa'],
-  image: ['compress-image', 'resize-image', 'image-to-kb', 'remove-background', 'image-to-pdf', 'image-converter', 'crop-image', 'image-to-text', 'exif-remover', 'passport-photo', 'image-upscaler', 'watermark-image'],
+  pdf: ['merge-pdf', 'compress-pdf', 'pdf-to-word', 'split-pdf', 'pdf-to-image', 'sign-pdf', 'draw-studio', 'rotate-pdf', 'pdf-ocr', 'pdf-to-text', 'protect-pdf', 'pdf-summary', 'pdf-qa'],
+  image: ['compress-image', 'resize-image', 'image-to-kb', 'remove-background', 'image-to-pdf', 'image-converter', 'crop-image', 'draw-studio', 'image-to-text', 'exif-remover', 'passport-photo', 'image-upscaler', 'watermark-image'],
+  vector: ['draw-studio', 'cdr-to-svg', 'cdr-to-pdf', 'cdr-to-png', 'cdr-to-jpg', 'cdr-to-eps', 'cdr-to-ai', 'convert-to-coreldraw'],
   heic: ['heic-to-jpg', 'compress-image', 'resize-image', 'image-to-pdf', 'exif-remover', 'image-to-kb'],
   video: ['compress-video', 'video-to-mp3', 'trim-video', 'video-to-gif', 'video-to-mp4', 'video-to-text', 'mute-video', 'change-video-resolution', 'subtitle-generator'],
   audio: ['audio-converter', 'trim-audio', 'compress-audio', 'video-to-text', 'merge-audio', 'audio-volume'],
@@ -443,6 +444,7 @@ const SUGGEST = {
 }
 function fileKind(f) {
   const t = fileType(f), n = f.name.toLowerCase()
+  if (/\.(cdr|cdt|ai|eps|ps)$/.test(n)) return 'vector'
   if (t === 'application/pdf') return 'pdf'
   if (/hei[cf]/.test(t)) return 'heic'
   if (t.startsWith('image/')) return 'image'

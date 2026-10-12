@@ -6,7 +6,7 @@
 //   env = {assets, signal, progress(text, fraction), askPassword(message) -> Promise<string|null>}
 //   OpenError carries {code, warnings, preview} so the shell can offer "Open the preview image only" for unreadable CDR files.
 import { isTree, treeFromFlat, walkTree } from './_tree.js'
-import { LIMITS, newDoc, newLayer, validateDoc, walkNodes } from './_ds-doc.js'
+import { LIMITS, newDoc, newLayer, scrubSvgText, validateDoc, walkNodes } from './_ds-doc.js'
 import { yieldToMain } from '../../lib/ui.js'
 import { baseName } from '../../lib/files.js'
 
@@ -320,7 +320,7 @@ async function openSvg(bytes, file, env, gz) {
   } else text = new TextDecoder('utf-8').decode(bytes)
   env.progress?.('Reading the SVG', null)
   const { svgToDoc } = await import('./_svgin.js')
-  const r = await svgToDoc(text)
+  const r = await svgToDoc(scrubSvgText(text))
   const { doc } = await normalizeDoc(r, { assets: env.assets, signal: env.signal, title: baseTitle(file.name), source: 'svg', name: file.name })
   return { doc, kind: 'svg' }
 }

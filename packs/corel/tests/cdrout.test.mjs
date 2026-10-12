@@ -332,6 +332,7 @@ for (const k of ['bg', 'tri', 'blob', 'curve', 'insideClip', 'hidden', 'noprint'
     const r2 = await writeCdr(d, { textToCurves: false })
     const s = strictCheck(new Uint8Array(await r2.blob.arrayBuffer()))
     ok(s.pages.length >= 2, 'an empty document still has a page')
+    await read(new Uint8Array(await r2.blob.arrayBuffer())) // and the site's reader opens it without flagging a failure
   }
   const ac = new AbortController(); ac.abort()
   await assert.rejects(() => writeCdr(scene(), { signal: ac.signal }), (e) => e.code === 'ABORT' && e.message === 'Cancelled'); checks++

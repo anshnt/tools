@@ -283,7 +283,7 @@ export function validateDoc(raw, opts = {}) {
     if (!n || typeof n !== 'object') return null
     if (++totals.nodes > LIMITS.nodes) throw new Error(`This drawing has more than ${LIMITS.nodes.toLocaleString('en-US')} objects, which is too many to open here.`)
     if (n.t === 'group') {
-      if (depth >= LIMITS.depth) { note('Groups nested more than 40 levels deep were flattened.'); return { flat: (Array.isArray(n.items) ? n.items : []).map((k) => cleanNode(k, depth)).filter(Boolean) } }
+      if (depth >= LIMITS.depth) { note('Groups nested more than 40 levels deep were flattened.'); return { flat: (Array.isArray(n.items) ? n.items : []).map((k) => cleanNode(k, depth)).filter(Boolean).flatMap((c) => (c.flat ? c.flat : [c])) } }
       const items = []
       for (const k of Array.isArray(n.items) ? n.items : []) {
         const c = cleanNode(k, depth + 1)
@@ -417,4 +417,15 @@ export function validateDoc(raw, opts = {}) {
     meta: { source: SOURCES.includes(raw.meta?.source) ? raw.meta.source : 'import', name: clean(raw.meta?.name, LIMITS.name), ...(typeof raw.meta?.ver === 'number' ? { ver: raw.meta.ver } : {}) },
   }
   return { doc, notes }
+}
+
+/**
+ * SVG text from a file or the clipboard, made safe to hand to the SVG reader: processing instructions (an xml-stylesheet one makes the browser fetch a
+ * remote file as soon as the SVG is parsed) and entity declarations that point at files or addresses are removed. The XML declaration and plain entities
+ * (some drawing programs declare their namespaces that way) stay.
+ */
+export function scrubSvgText(text) {
+  return String(text)
+    .replace(/<\?(?!xml[\s?])[\s\S]*?\?>/gi, '')
+    .replace(/<!ENTITY\s+%?\s*[^\s>]+\s+(?:SYSTEM|PUBLIC)\b[^>]*>/gi, '')
 }

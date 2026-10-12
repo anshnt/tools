@@ -42,6 +42,29 @@ function glyphPath(font, it) {
   return cmds
 }
 
+const SPACE_EM = 0.27
+
+/** Split a line at characters the font lacks (a subset font can lack the space glyph and would draw its .notdef box there). */
+function pieces(font, line) {
+  const out = []
+  let run = ''
+  for (const ch of line) { if (font.charToGlyphIndex(ch)) run += ch; else { if (run) out.push(run); run = ''; out.push(null) } }
+  if (run) out.push(run)
+  return out
+}
+const lineWidth = (font, line, size) => pieces(font, line).reduce((w, r) => w + (r ? font.getAdvanceWidth(r, size) : size * SPACE_EM), 0)
+
+/** One line at (x, y), missing spaces advanced by hand. */
+function linePath(font, line, x, y, size) {
+  const cmds = []
+  for (const r of pieces(font, line)) {
+    if (!r) { x += size * SPACE_EM; continue }
+    cmds.push(...font.getPath(r, x, y, size).commands)
+    x += font.getAdvanceWidth(r, size)
+  }
+  return cmds
+}
+
 /** Outline of a string (lines split on '\n', laid out with lh and align) in text units, or null when the font lacks a character. */
 function stringPath(font, it) {
   const cmds = []
@@ -49,9 +72,9 @@ function stringPath(font, it) {
   for (let k = 0; k < lines.length; k++) {
     const line = lines[k]
     if ([...line].some((ch) => ch.trim() && !font.charToGlyphIndex(ch))) return null
-    const w = it.align === 'center' || it.align === 'right' ? font.getAdvanceWidth(line, it.size) : 0
+    const w = it.align === 'center' || it.align === 'right' ? lineWidth(font, line, it.size) : 0
     const x = it.align === 'center' ? -w / 2 : it.align === 'right' ? -w : 0
-    cmds.push(...font.getPath(line, x, k * lh * it.size, it.size).commands)
+    cmds.push(...linePath(font, line, x, k * lh * it.size, it.size))
   }
   return cmds
 }

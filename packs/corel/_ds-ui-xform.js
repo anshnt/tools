@@ -73,7 +73,7 @@ export function createTransformSection({ store, app, boxOf }) {
     skew: h('div', { class: 'ds-xfields' }, field('Horizontal', kx), field('Vertical', ky)),
   }
   const tabBtns = Object.keys(panels).map((t) => h('button', { type: 'button', role: 'tab', class: 'ds-xchip', 'data-tab': t, 'aria-selected': String(t === tab), onclick: () => setTab(t) }, t[0].toUpperCase() + t.slice(1)))
-  const refBtns = REFS.map((r) => h('button', { type: 'button', class: 'ds-xref', 'data-ref': r, role: 'radio', 'aria-checked': String(r === ref), 'aria-label': `Reference point ${r === 'c' ? 'centre' : r}`, onclick: () => { ref = r; for (const b of refBtns) b.setAttribute('aria-checked', String(b.dataset.ref === ref)); fill(true) } }))
+  const refBtns = REFS.map((r) => h('button', { type: 'button', class: 'ds-xref', 'data-ref': r, role: 'radio', 'aria-checked': String(r === ref), 'aria-label': `Reference point ${r === 'c' ? 'centre' : r}`, title: `Reference point ${r === 'c' ? 'centre' : r}`, onclick: () => { ref = r; for (const b of refBtns) b.setAttribute('aria-checked', String(b.dataset.ref === ref)); fill(true) } }))
   const apply = h('button', { type: 'button', class: 'btn btn-primary btn-sm', onclick: () => run(false) }, 'Apply')
   const applyDup = h('button', { type: 'button', class: 'btn btn-secondary btn-sm', onclick: () => run(true) }, 'Apply to duplicate')
   const el = h('div', { class: 'ds-xpanel' }, h('div', { class: 'ds-xtabs', role: 'tablist', 'aria-label': 'Transform' }, ...tabBtns),

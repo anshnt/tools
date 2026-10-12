@@ -7,6 +7,7 @@ import { commandById } from './_ds-keys.js'
 import { selectionStyle } from './_ds-sel.js'
 import { movePage, renamePage } from './_ds-ops.js'
 import { safeHex } from './_ds-ui-palette.js'
+import { scrollInside } from './_ds-ui-docks.js'
 
 const tip = (label, keys) => (keys?.length ? `${label} (${keys[0]})` : label)
 
@@ -26,13 +27,21 @@ export function createToolbox({ store, tools }) {
     return b
   })
   el.append(...btns)
-  const refresh = () => btns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tool === store.tool)))
-  el.addEventListener('keydown', (e) => { // arrows move between tools (roving focus)
+  // roving focus: the toolbox is ONE Tab stop (the active tool, or the one last focused); the arrow keys move between tools
+  const rove = (b) => btns.forEach((x) => { x.tabIndex = x === b ? 0 : -1 })
+  const refresh = () => {
+    btns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tool === store.tool)))
+    if (!el.contains(document.activeElement)) rove(btns.find((b) => b.dataset.tool === store.tool) || btns[0])
+  }
+  el.addEventListener('focusin', (e) => { if (btns.includes(e.target)) rove(e.target) })
+  el.addEventListener('keydown', (e) => {
     const i = btns.indexOf(document.activeElement)
     const d = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key]
-    if (i < 0 || !d) return
+    if (i < 0) return
+    const to = d ? (i + d + btns.length) % btns.length : e.key === 'Home' ? 0 : e.key === 'End' ? btns.length - 1 : -1
+    if (to < 0) return
     e.preventDefault(); e.stopPropagation()
-    btns[(i + d + btns.length) % btns.length].focus()
+    btns[to].focus()
   })
   refresh()
   return { el, refresh }
@@ -80,7 +89,7 @@ export function createPageTabs({ store, app }) {
   const add = mk('page.insertAfter', 'plus', 'Add a page after this one'), del = mk('page.delete', 'trash-2', 'Delete this page')
   const left = mk('page.moveLeft', 'arrow-left-to-line', 'Move this page left'), right = mk('page.moveRight', 'arrow-right-to-line', 'Move this page right')
   const el = h('div', { class: 'ds-pages' }, prev, strip, next, h('span', { class: 'ds-sep', role: 'separator' }), add, left, right, del)
-  let key = '', renaming = false, dragId = null
+  let key = '', shown = '', renaming = false, dragId = null
   const tabFor = (p, i) => {
     const b = h('button', { type: 'button', role: 'tab', class: 'ds-tab', 'data-page': String(p.id), draggable: p.pending ? 'false' : 'true', onclick: () => app.gotoPage(i), ondblclick: () => rename(i) },
       p.pending ? h('span', { class: 'spinner', 'aria-hidden': 'true' }) : null, h('span', { class: 'ds-tab-name' }, p.name))
@@ -145,7 +154,7 @@ export function createPageTabs({ store, app }) {
       if (had) strip.children[store.pageIndex]?.focus()
     }
     [...strip.children].forEach((b, i) => { const on = i === store.pageIndex; b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1 })
-    strip.children[store.pageIndex]?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+    if (shown !== store.pageIndex + ':' + key) { shown = store.pageIndex + ':' + key; if (strip.children[store.pageIndex]) scrollInside(strip.children[store.pageIndex]) } // only when the page or the tab list changed: it measures the layout
     for (const b of [prev, next, add, del, left, right]) b.refresh()
   }
   strip.addEventListener('keydown', (e) => {

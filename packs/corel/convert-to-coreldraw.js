@@ -1,5 +1,5 @@
-// Convert to CorelDRAW format. CorelDRAW cannot be written by any free tool (the .cdr format is closed), so this writes the formats CorelDRAW
-// opens as fully editable vectors: EPS, AI (PDF-compatible), PDF and SVG. Inputs: SVG, PDF, PNG, JPG, WebP and HEIC (traced into vectors).
+// Convert to CDR. Writes a CDR file (the default, the same writer Draw Studio uses) or the formats CorelDRAW opens as editable vectors:
+// EPS, AI (PDF-compatible), PDF and SVG. Inputs: SVG, PDF, EPS, PS, AI, PNG, JPG, WebP and HEIC (pictures are traced into vectors).
 import { h, dropzone, button, busy, alert, field, select, toggle, segmented, rangeField, number, stats, progress, downloadButton, download, formatBytes, debounce, yieldToMain, onCleanup, icon, fileType, toast, errorMessage, openToolWith } from '../../lib/ui.js'
 import { loadImage } from '../../lib/image.js'
 import { pdfLib } from '../../lib/libs.js'
@@ -8,6 +8,7 @@ import { baseName, zip, readDataURL } from '../../lib/files.js'
 import { docStats, MM } from './_model.js'
 import { svgToDoc } from './_svgin.js'
 import { pdfToDoc } from './_pdfin.js'
+import { treeFromFlat } from './_tree.js'
 import { traceImage, PRESETS } from './_trace.js'
 import { outlineDoc } from './_text.js'
 import { epsBlob } from './_eps.js'
@@ -15,14 +16,15 @@ import { toPdf } from './_pdfout.js'
 import { pageToSvg } from './_svgout.js'
 
 export const FORMATS = {
+  cdr: { label: 'CDR', ext: 'cdr', desc: 'A native CDR drawing with editable curves, fills, outlines, text and pictures. Open it in Draw Studio or in CorelDRAW.' },
   eps: { label: 'EPS', ext: 'eps', desc: 'Vector PostScript. CorelDRAW opens it with editable curves, fills and outlines. The safest choice for logos.' },
   ai: { label: 'AI', ext: 'ai', desc: 'A PDF-compatible Illustrator-style file saved as .ai. CorelDRAW opens it as editable vectors.' },
   pdf: { label: 'PDF', ext: 'pdf', desc: 'Vector PDF. In CorelDRAW use File > Open: paths, colours and text come in editable.' },
   svg: { label: 'SVG', ext: 'svg', desc: 'Corel-friendly SVG: absolute size in millimetres, plain attributes, transforms flattened into the paths.' },
 }
 const ACCEPT = {
-  svg: '.svg,image/svg+xml', pdf: '.pdf,application/pdf', image: '.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,.bmp,.avif,image/*',
-  all: '.svg,image/svg+xml,.pdf,application/pdf,.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,.bmp,.avif,image/*',
+  svg: '.svg,image/svg+xml', pdf: '.pdf,application/pdf,.ai', image: '.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,.bmp,.avif,image/*',
+  all: '.svg,image/svg+xml,.pdf,application/pdf,.eps,.ps,.ai,.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,.bmp,.avif,image/*',
 }
 const CSS = `
 .t-cv [hidden] { display:none !important; }
@@ -55,34 +57,35 @@ const kindOf = (f) => {
   const t = fileType(f), n = f.name.toLowerCase()
   if (t === 'image/svg+xml' || n.endsWith('.svg')) return 'svg'
   if (t === 'application/pdf' || n.endsWith('.pdf')) return 'pdf'
+  if (/\.(eps|ps|ai)$/.test(n)) return n.endsWith('.ai') ? 'ai' : 'ps' // an .ai is a PDF (checked when it is read) or old PostScript
   if (t.startsWith('image/') || /\.(heic|heif|png|jpe?g|webp|gif|bmp|avif)$/.test(n)) return 'image'
   return null
 }
-const svgUrl = (page) => URL.createObjectURL(new Blob([pageToSvg(page, { unit: 'pt', background: '#ffffff' })], { type: 'image/svg+xml' }))
+const svgUrl = (page, fonts) => URL.createObjectURL(new Blob([pageToSvg(page, { unit: 'pt', background: '#ffffff', fonts })], { type: 'image/svg+xml' }))
 
 export function mount(root, { params, signal }) {
   injectCss()
   const from = params.from || 'all'
   const st = { file: null, kind: null, doc: null, notes: [], img: null, imgUrl: null, pdfDoc: null, pdfBytes: null, password: '', numPages: 0, trace: null, token: 0,
-    fmt: params.to || 'eps', outline: null, outlineTouched: false, mode: 'trace', preset: 'logo', opts: { ...PRESETS.logo }, widthMm: 0, keepPdf: true, pages: '', urls: [] }
+    fmt: FORMATS[params.to] ? params.to : 'cdr', outline: null, outlineTouched: false, mode: 'trace', preset: 'logo', opts: { ...PRESETS.logo }, widthMm: 0, keepPdf: true, pages: '', urls: [] }
   const toRevoke = []
   const track = (u) => { toRevoke.push(u); return u }
   onCleanup(() => { toRevoke.forEach((u) => URL.revokeObjectURL(u)); st.pdfDoc?.destroy?.() })
 
   const holder = h('div', { class: 'stack' })
   const dz = dropzone({ accept: ACCEPT[from] || ACCEPT.all, onFiles: ([f]) => load(f),
-    label: from === 'svg' ? 'Drop an SVG here or click to browse' : from === 'pdf' ? 'Drop a PDF here or click to browse' : from === 'image' ? 'Drop a PNG, JPG or WebP here or click to browse' : 'Drop an SVG, PDF, PNG or JPG here or click to browse',
+    label: from === 'svg' ? 'Drop an SVG here or click to browse' : from === 'pdf' ? 'Drop a PDF here or click to browse' : from === 'image' ? 'Drop a PNG, JPG or WebP here or click to browse' : 'Drop an SVG, PDF, EPS, AI, PNG or JPG here or click to browse',
     hint: 'Your file never leaves this device.' })
   const bar = h('div', { class: 'panel cv-bar', hidden: true })
   const grid = h('div', { class: 'cv-grid', hidden: true })
   const resultBox = h('div', { class: 'stack' })
   const help = h('div', { class: 'panel' },
-    h('h2', h('span', { class: 'row', style: 'gap:8px' }, icon('info'), 'Opening the file in CorelDRAW')),
+    h('h2', h('span', { class: 'row', style: 'gap:8px' }, icon('info'), 'Opening the file')),
     h('ol', { class: 'cv-steps' },
       h('li', 'In CorelDRAW choose ', h('strong', 'File > Open'), ' (or ', h('strong', 'File > Import'), ' to add it to a drawing) and pick the file you downloaded.'),
       h('li', 'For EPS, leave "Import PostScript text as curves" off to keep text editable, or on to keep the exact look.'),
-      h('li', 'Edit as you like, then use ', h('strong', 'File > Save As'), ' and choose ', h('strong', 'CDR'), ' to get a native CorelDRAW file.')),
-    h('p', { class: 'small muted', style: 'margin:10px 0 0' }, 'The .cdr format is closed, so no free tool can write it directly. These formats are the ones CorelDRAW reads as fully editable vector art.'))
+      h('li', 'Or press ', h('strong', 'Edit in Draw Studio'), ' on the result to keep editing it right here, then save it as CDR again.')),
+    h('p', { class: 'small muted', style: 'margin:10px 0 0' }, 'CDR files are written from the public description of the format and checked with the reader on this site, not against the desktop application. If one does not open there, use the EPS, AI or SVG output instead.'))
   root.append(h('div', { class: 't-cv stack' }, dz, bar, holder, grid, resultBox, help))
 
   // ---------- controls ----------
@@ -139,8 +142,10 @@ export function mount(root, { params, signal }) {
 
   // ---------- loading ----------
   async function load(file) {
-    const kind = kindOf(file)
-    if (!kind) return toast('Use an SVG, PDF, PNG, JPG or WebP file.', 'error')
+    let kind = kindOf(file)
+    if (!kind) return toast('Use an SVG, PDF, EPS, AI, PNG, JPG or WebP file.', 'error')
+    // an .ai file is usually a PDF inside; older ones are PostScript
+    if (kind === 'ai') kind = new TextDecoder().decode(new Uint8Array(await file.slice(0, 1024).arrayBuffer())).includes('%PDF-') ? 'pdf' : 'ps'
     if (from !== 'all' && kind !== from) return toast(`This tool takes ${from === 'image' ? 'PNG, JPG or WebP' : from.toUpperCase()} files.`, 'error')
     resultBox.replaceChildren()
     st.token++
@@ -148,11 +153,12 @@ export function mount(root, { params, signal }) {
     st.outlineTouched = false
     bar.hidden = false; grid.hidden = false
     prevHost.replaceChildren(h('div', { class: 'empty loading' }, h('span', { class: 'spinner' }), 'Reading your file...'))
-    bar.replaceChildren(icon(kind === 'pdf' ? 'file-text' : kind === 'svg' ? 'file-code' : 'image'), h('span', { class: 'name' }, file.name), h('span', { class: 'meta' }, formatBytes(file.size)),
+    bar.replaceChildren(icon(kind === 'pdf' ? 'file-text' : kind === 'svg' || kind === 'ps' ? 'file-code' : 'image'), h('span', { class: 'name' }, file.name), h('span', { class: 'meta' }, formatBytes(file.size)),
       h('span', { style: 'flex:1' }), button('Choose another', { icon: 'upload', size: 'sm', onClick: () => dz.open() }))
     try {
-      if (kind === 'svg') {
-        st.doc = await svgToDoc(await file.text())
+      if (kind === 'svg' || kind === 'ps') {
+        if (kind === 'svg') st.doc = await svgToDoc(await file.text())
+        else st.doc = await (await import('./_psin.js')).psToDoc(new Uint8Array(await file.arrayBuffer()), { signal })
         st.notes = st.doc.warnings
         const p = st.doc.pages[0]
         bar.querySelector('.meta').textContent += ` - ${(p.w / MM).toFixed(1)} x ${(p.h / MM).toFixed(1)} mm`
@@ -197,7 +203,7 @@ export function mount(root, { params, signal }) {
   }
 
   function showModel(doc) {
-    const url = track(svgUrl(doc.pages[0]))
+    const url = track(svgUrl(doc.pages[0], doc.fonts))
     prevHost.replaceChildren(h('div', { class: 'cv-cap' }, 'What will be written'), h('div', { class: 'preview' }, h('img', { src: url, alt: 'Preview of the converted drawing' })), statsBar(doc))
   }
   const statsBar = (doc) => {
@@ -274,7 +280,7 @@ export function mount(root, { params, signal }) {
         doc = await pdfToDoc(st.pdfBytes, { password: st.password, pages, onProgress: (f, t) => prog.set(f, t), signal })
         notes.push(...doc.warnings)
       }
-    } else if (st.kind === 'svg') {
+    } else if (st.kind === 'svg' || st.kind === 'ps') {
       doc = structuredClone(st.doc)
       notes.push(...doc.warnings)
     } else if (st.mode === 'embed') {
@@ -287,6 +293,7 @@ export function mount(root, { params, signal }) {
       if (st.outline && hasText(doc)) {
         prog.set(null, 'Converting text to outlines')
         const r = await outlineDoc(doc)
+        if (r.done) for (let i = notes.length - 1; i >= 0; i--) if (notes[i].startsWith('Text keeps the letter shapes')) notes.splice(i, 1) // no longer true once the text is curves
         if (r.kept) notes.push(`${r.kept} text item(s) use characters the bundled fonts do not have and stay as live text.`)
       }
       prog.set(null, 'Writing the file')
@@ -294,8 +301,13 @@ export function mount(root, { params, signal }) {
       const suffix = (i) => (multi ? `-p${i + 1}` : '')
       if (fmt === 'eps') {
         for (let i = 0; i < doc.pages.length; i++) { const r = await epsBlob(doc, i, { title: name }); notes.push(...r.notes); files.push({ name: `${name}${suffix(i)}.eps`, blob: r.blob }); await yieldToMain() }
+      } else if (fmt === 'cdr') {
+        const { writeCdr } = await import('./_cdrout.js')
+        const r = await writeCdr(treeFromFlat(doc), { title: name, textToCurves: false, compress: true, bitmapAlpha: 'rgba', signal, onProgress: (f, t) => prog.set(f, t || 'Writing the CDR file') })
+        notes.push(...r.notes)
+        files = [{ name: `${name}.cdr`, blob: r.blob }]
       } else if (fmt === 'svg') {
-        for (let i = 0; i < doc.pages.length; i++) files.push({ name: `${name}${suffix(i)}.svg`, blob: new Blob([pageToSvg(doc.pages[i], { unit: 'mm', title: name })], { type: 'image/svg+xml' }) })
+        for (let i = 0; i < doc.pages.length; i++) files.push({ name: `${name}${suffix(i)}.svg`, blob: new Blob([pageToSvg(doc.pages[i], { unit: 'mm', title: name, fonts: doc.fonts })], { type: 'image/svg+xml' }) })
       } else {
         const r = await toPdf(doc, { title: name })
         notes.push(...r.notes)
@@ -307,10 +319,11 @@ export function mount(root, { params, signal }) {
     const total = files.reduce((a, f) => a + f.blob.size, 0)
     const s = doc ? docStats(doc) : null
     resultBox.replaceChildren(h('section', { class: 'panel stack' },
-      alert('success', h('strong', files.length > 1 ? `${files.length} files are ready` : 'Your file is ready'), ` (${formatBytes(total)}). Open it in CorelDRAW with File > Open.`),
+      alert('success', h('strong', files.length > 1 ? `${files.length} files are ready` : 'Your file is ready'), ` (${formatBytes(total)}). Open it with Edit in Draw Studio, or in CorelDRAW with File > Open.`),
       s ? stats([{ label: 'Paths', value: s.paths, accent: true }, { label: 'Nodes', value: s.nodes }, { label: 'Text', value: s.texts }, { label: 'Images', value: s.images }]) : null,
       h('div', { class: 'cv-files' }, files.map((f) => h('div', { class: 'cv-file' }, icon('file'), h('span', { class: 'nm' }, f.name), h('span', { class: 'meta small muted' }, formatBytes(f.blob.size)),
         downloadButton(f.blob, f.name, 'Download', { size: 'sm' }),
+        button('Edit in Draw Studio', { icon: 'vector-square', size: 'sm', onClick: () => openToolWith('draw-studio', [new File([f.blob], f.name, { type: f.blob.type })]) }),
         fmt === 'svg' ? button('Edit in Vector Studio', { icon: 'pen-tool', size: 'sm', onClick: () => openToolWith('vector-studio', [new File([f.blob], f.name, { type: 'image/svg+xml' })]) }) : null))),
       files.length > 1 ? button('Download all as ZIP', { icon: 'download', variant: 'primary', onClick: async () => download(await zip(files.map((f) => ({ name: f.name, data: f.blob }))), `${name}-${fmt}.zip`) }) : null,
       uniq.length ? alert('info', h('strong', 'Notes'), h('ul', { class: 'cv-notes' }, uniq.map((n) => h('li', n)))) : null))

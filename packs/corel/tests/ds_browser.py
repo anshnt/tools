@@ -1078,12 +1078,13 @@ def t_pick_perf(ctx, base):
     gid = info["ids"]["BigGroup"]
     page.evaluate("(id) => { const ds = document.querySelector('.tool-body').__ds; ds.store.setSel([id]); ds.view.setView({ z: 2, x: 20, y: 20 }) }", gid)
     page.wait_for_timeout(500)
-    page.evaluate("""() => { window.__lt = []; window.__mv = []; new PerformanceObserver((l) => l.getEntries().forEach((e) => window.__lt.push(e.duration))).observe({ type: 'longtask', buffered: true })
+    page.evaluate("""() => { window.__lt = []; window.__mv = []; new PerformanceObserver((l) => l.getEntries().forEach((e) => window.__lt.push([e.startTime, e.duration]))).observe({ type: 'longtask', buffered: true })
       const host = document.querySelector('.ds-view'); let t0 = 0
       host.addEventListener('pointermove', () => { t0 = performance.now() }, true)
       document.addEventListener('pointermove', () => { window.__mv.push(performance.now() - t0) }) }""")
     # grab the group on one of its small squares
     sx, sy = scr(page, 11, 11)
+    page.evaluate("() => { window.__drag0 = performance.now() }")  # long tasks of building the scene do not count, only the drag and the commit
     page.mouse.move(sx, sy)
     page.mouse.down()
     for i in range(1, 41):
@@ -1095,7 +1096,7 @@ def t_pick_perf(ctx, base):
     worst = max(mv) if mv else 999
     check(transformed.startswith("matrix"), f"the group is previewed with a CSS transform on one element ({transformed[:40]!r})")
     check(len(mv) >= 30 and worst < 20, f"pointer handling during the drag: {len(mv)} moves, worst {worst:.2f} ms (limit 20)")
-    check(not page.evaluate("() => window.__lt.filter((d) => d > 100).length"), "no long task over 100 ms during the drag and the commit")
+    check(not page.evaluate("() => window.__lt.filter(([t, d]) => t >= window.__drag0 && d > 100).length"), "no long task over 100 ms during the drag and the commit")
     b = nbox(page, gid)
     check(abs(b["x"] - 10 - 160 / 2) < 0.5, f"the 5k group moved by the pointer distance ({b['x'] - 10:.2f} pt)")
     page.evaluate("() => document.querySelector('.tool-body').__ds.store.undo()")
@@ -3281,13 +3282,15 @@ def t_arrange_phone(ctx, base):
     page.keyboard.press("v")
     page.get_by_role("button", name="Panels").click()
     page.wait_for_selector(".ds-dock", state="visible")
-    for sec in ("align", "transform"):
-        page.locator(f".ds-dsec[data-section='{sec}'] .ds-dsec-head").click()
+    small = []
+    for sec, tab in (("align", "Align"), ("transform", "Transform")):
+        page.get_by_role("tab", name=tab, exact=True).click()
         page.wait_for_timeout(150)
-    small = page.evaluate("""() => [...document.querySelectorAll('.ds-dock .ds-xpanel button, .ds-dock .ds-xpanel input:not([type=checkbox]), .ds-dock .ds-xcheck, .ds-dock .ds-dsec-head')].filter((e) => e.offsetParent !== null).map((e) => { const r = e.getBoundingClientRect(); return [e.getAttribute('aria-label') || e.className, Math.round(r.width), Math.round(r.height), getComputedStyle(e).fontSize] }).filter(([, w, h]) => w < 36 || h < 36)""")
+        check(page.locator(f".ds-dsec[data-section='{sec}']").is_visible() and not page.locator(".ds-dsec[data-section='objects']").is_visible(), f"the {tab} tab shows only the {tab} docker")
+        small += page.evaluate("""() => [...document.querySelectorAll('.ds-dock .ds-xpanel button, .ds-dock .ds-xpanel input:not([type=checkbox]), .ds-dock .ds-xcheck, .ds-dock .ds-seg-b')].filter((e) => e.offsetParent !== null).map((e) => { const r = e.getBoundingClientRect(); return [e.getAttribute('aria-label') || e.className, Math.round(r.width), Math.round(r.height), getComputedStyle(e).fontSize] }).filter(([, w, h]) => w < 36 || h < 36)""")
     check(not small, f"every control of the Align and Transform sections is at least 36 px {small[:5]}")
     box = page.locator(".ds-dock").bounding_box()
-    check(box["width"] <= 375 and ov() <= 1, f"the sheet with both dockers fits {box['width']:.0f}, overflow {ov()}")
+    check(box["width"] <= 375 and ov() <= 1, f"the sheet with the Transform docker fits {box['width']:.0f}, overflow {ov()}")
     fs = page.evaluate("() => [...document.querySelectorAll('.ds-dock .ds-xpanel input[type=number]')].filter((e) => e.offsetParent !== null).map((e) => parseFloat(getComputedStyle(e).fontSize))")
     check(fs and min(fs) >= 16, f"the docker inputs are 16 px or more {fs[:3]}")
     page.get_by_role("button", name="Close panels").click()
@@ -4424,13 +4427,683 @@ def t_e1113_phone(ctx, base):
     page.close()
 
 
+# ---------------------------------------------------------------- E14: accessibility
+A11Y_JS = """() => {
+  const vis = (el) => { if (el.closest('[hidden],[inert]')) return false; const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || cs.display === 'none') return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 }
+  const label = (el) => {
+    const lb = el.getAttribute('aria-labelledby'); if (lb) { const t = lb.split(/\\s+/).map((id) => document.getElementById(id)?.textContent || '').join(' ').trim(); if (t) return t }
+    const al = el.getAttribute('aria-label'); if (al && al.trim()) return al.trim()
+    if (el.labels && el.labels.length) { const t = [...el.labels].map((l) => l.textContent).join(' ').trim(); if (t) return t }
+    if (el.tagName === 'INPUT' && ['button', 'submit'].includes(el.type)) return el.value
+    const t = (el.textContent || '').replace(/\\s+/g, ' ').trim(); if (t) return t
+    return (el.getAttribute('title') || '').trim()
+  }
+  const desc = (el) => el.tagName.toLowerCase() + (el.getAttribute('role') ? '[' + el.getAttribute('role') + ']' : '') + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\\s+/).slice(0, 2).join('.') : '')
+  const roots = [document.querySelector('.t-ds'), ...document.querySelectorAll('dialog[open]')].filter(Boolean)
+  const sel = 'button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [role=menuitem], [role=menuitemcheckbox], [role=treeitem], [role=checkbox], [role=switch], [role=slider], [role=radio], [role=separator][tabindex]'
+  const noName = [], hiddenFocus = [], badTab = [], noTitle = []
+  let controls = 0
+  for (const r of roots) {
+    for (const el of r.querySelectorAll(sel)) {
+      if (!vis(el)) continue
+      controls++
+      if (!label(el)) noName.push(desc(el))
+      if (el.tabIndex > 0) badTab.push(desc(el))
+      if (el.tagName === 'BUTTON' && !(el.textContent || '').trim() && !el.getAttribute('title') && !el.classList.contains('ds-sw') && !el.classList.contains('ds-st-sw')) noTitle.push(desc(el) + ':' + (el.getAttribute('aria-label') || '').slice(0, 20))
+    }
+    for (const el of r.querySelectorAll('[aria-hidden="true"]')) for (const f of el.querySelectorAll('button, input, select, textarea, a[href], [tabindex]')) { if (f.getAttribute('tabindex') !== '-1' && !f.disabled && vis(f) && !f.closest('[hidden]')) hiddenFocus.push(desc(f)) } }
+  const ids = {}; const dup = []
+  for (const el of document.querySelectorAll('[id]')) { if (ids[el.id]) dup.push(el.id); ids[el.id] = 1 }
+  const dlgNoName = [...document.querySelectorAll('dialog[open]')].filter((d) => !label(d) && !d.querySelector('h1, h2, h3, [role=heading]')).length
+  return { controls, noTitle: [...new Set(noTitle)], noName: [...new Set(noName)], hiddenFocus: [...new Set(hiddenFocus)], badTab: [...new Set(badTab)], dup: [...new Set(dup)].slice(0, 5), dlgNoName }
+}"""
+
+CONTRAST_JS = """() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 1; const cx = cv.getContext('2d', { willReadFrequently: true })
+  const rgba = (c) => { cx.clearRect(0, 0, 1, 1); cx.fillStyle = '#000'; cx.fillStyle = c; cx.fillRect(0, 0, 1, 1); const d = cx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3] / 255] }
+  const over = (f, b) => { const a = f[3] + b[3] * (1 - f[3]); return a ? [0, 1, 2].map((i) => (f[i] * f[3] + b[i] * b[3] * (1 - f[3])) / a).concat(a) : [0, 0, 0, 0] }
+  const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]) }
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05) }
+  const page = rgba(getComputedStyle(document.body).backgroundColor); const pageBg = page[3] > 0 ? page : [255, 255, 255, 1]
+  let unknown = false
+  const bgOf = (el) => { unknown = false; const chain = []; for (let e = el; e && e.nodeType === 1; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.backgroundImage !== 'none') { unknown = true; break } const c = rgba(cs.backgroundColor); if (c[3] > 0) chain.push(c); if (c[3] >= 1) break } let b = pageBg; for (const c of chain.reverse()) b = over(c, b); return b }
+  const opac = (el) => { let o = 1; for (let e = el; e && e.nodeType === 1; e = e.parentElement) o *= parseFloat(getComputedStyle(e).opacity) || 0; return o }
+  const vis = (el) => { if (el.closest('[hidden],[inert]')) return false; const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || cs.display === 'none') return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 }
+  const off = (el) => !!el.closest(':disabled, [aria-disabled="true"], .ds-fr-off')
+  const roots = [document.querySelector('.t-ds'), ...document.querySelectorAll('dialog[open]')].filter(Boolean)
+  const fails = []; let checked = 0
+  const test = (el, what, need) => {
+    if (off(el) || !vis(el)) return
+    const o = opac(el); const bg = bgOf(el); if (unknown) return; const c = rgba(getComputedStyle(el).color); const fg = over([c[0], c[1], c[2], c[3] * o], bg)
+    checked++
+    const r = ratio(fg, bg)
+    if (r < need) fails.push(what + ' ' + r.toFixed(2) + ' < ' + need + ' ' + el.tagName.toLowerCase() + '.' + String(el.className && el.className.baseVal !== undefined ? el.className.baseVal : el.className).split(' ').slice(0, 2).join('.') + ' "' + (el.textContent || el.getAttribute('aria-label') || el.closest('[aria-label]')?.getAttribute('aria-label') || '').trim().slice(0, 18) + '" in ' + (el.closest('button, [role]')?.className || el.parentElement?.className || '').toString().slice(0, 24))
+  }
+  for (const r of roots) {
+    const w = document.createTreeWalker(r, NodeFilter.SHOW_TEXT)
+    const seen = new Set()
+    for (let n = w.nextNode(); n; n = w.nextNode()) {
+      const el = n.parentElement; if (!el || seen.has(el) || !n.textContent.trim() || el.closest('.ds-sr, svg, script, style, option')) continue
+      seen.add(el)
+      const cs = getComputedStyle(el); const size = parseFloat(cs.fontSize), bold = parseInt(cs.fontWeight) >= 700
+      test(el, 'text', size >= 24 || (size >= 18.66 && bold) ? 3 : 4.5)
+    }
+    for (const ic of r.querySelectorAll('svg.icon')) test(ic, 'icon', 3)
+  }
+  return { checked, fails: [...new Set(fails)].slice(0, 25), nFails: fails.length }
+}"""
+
+FOCUS_WALK_JS = """() => { const el = document.activeElement; if (!el || el === document.body) return null
+  const cs = getComputedStyle(el); const inside = !!el.closest('.t-ds, dialog')
+  const alpha = (c) => { const m = c.match(/[\\d.]+/g); return m && m.length > 3 ? +m[3] : 1 }
+  const ring = cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) >= 1.5 && alpha(cs.outlineColor) > 0.3, shadow = cs.boxShadow !== 'none'
+  const r = el.getBoundingClientRect()
+  return { key: el.tagName.toLowerCase() + (el.getAttribute('role') ? '[' + el.getAttribute('role') + ']' : '') + '.' + String(el.className).split(' ').slice(0, 2).join('.') + ':' + (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24), inside, ring: ring || shadow, w: r.width, h: r.height, tag: el.tagName } }"""
+
+
+def tab_walk(page, limit=260):
+    """Press Tab from the first menu until focus leaves the app (or comes round to the start). Returns the list of stops. The canvas takes Tab itself
+    while objects are left to step through, so repeated stops on the canvas are counted once."""
+    page.evaluate("() => [...document.querySelectorAll('.t-ds .ds-mtop, .t-ds .ds-menubtn')].find((b) => b.offsetParent !== null).focus()")
+    stops = [page.evaluate(FOCUS_WALK_JS)]
+    seen = {stops[0]["key"]}
+    for _ in range(limit):
+        page.keyboard.press("Tab")
+        s = page.evaluate(FOCUS_WALK_JS)
+        if s is None or not s["inside"]:
+            stops.append({"key": "(left the app)", "inside": False})
+            break
+        if s["key"] == stops[-1]["key"] and "ds-view" in s["key"]:
+            continue
+        if s["key"] in seen:
+            stops.append({**s, "key": s["key"] + " (again)"})
+            break
+        seen.add(s["key"])
+        stops.append(s)
+    return stops
+
+
+def a11y_state(page, label, contrast=True):
+    a = page.evaluate(A11Y_JS)
+    check(not a["noName"], f"{label}: every one of {a['controls']} controls has an accessible name {a['noName'][:5]}")
+    check(not a["hiddenFocus"] and not a["badTab"] and not a["dup"], f"{label}: no focusable control inside aria-hidden, no positive tabindex, no duplicate ids {a['hiddenFocus'][:3]} {a['badTab'][:3]} {a['dup']}")
+    check(a["dlgNoName"] == 0, f"{label}: dialogs have a heading or a name")
+    check(not a["noTitle"], f"{label}: every icon-only button also has a tooltip {a['noTitle'][:5]}")
+    if contrast:
+        c = page.evaluate(CONTRAST_JS)
+        check(not c["fails"], f"{label}: contrast, {c['checked']} texts and icons checked, {c['nFails']} below the WCAG minimum {c['fails'][:6]}")
+
+
+def t_a11y(ctx, base):
+    """E14 accessibility: names and roles in every state, the Tab order and focus rings, keyboard routes to every control, contrast in light and dark, the live region, reduced motion."""
+    for theme in ("light", "dark"):
+        page, errors = mount(ctx, base)
+        page.emulate_media(color_scheme=theme, reduced_motion="reduce")
+        page.evaluate("(t) => { try { localStorage.setItem('tools:theme', JSON.stringify(t)) } catch (e) {} document.documentElement.dataset.theme = t }", theme)
+        page.wait_for_timeout(200)
+        print(f"-- {theme}")
+        a11y_state(page, f"{theme}: empty state")
+        info = load_scene(page, pages=2)
+        ids = info["ids"]
+        ds_eval(page, "ds.store.setPref('rulers', true)")
+        select_ids(page, ids["Red"], ids["Blue"])
+        for sec in ("properties", "align", "transform"):
+            ds_eval(page, "ds.docks.openSection(arg)", sec)
+        page.wait_for_timeout(300)
+        a11y_state(page, f"{theme}: drawing, two objects selected, every docker open")
+        for tool in ("text", "rect", "shape", "fill", "transp", "eyedrop", "zoom", "pick"):
+            ds_eval(page, "ds.tools.set(arg)", tool)
+            page.wait_for_timeout(120)
+            a11y_state(page, f"{theme}: {tool} tool", contrast=(tool in ("text", "fill", "shape")))
+        page.get_by_role("menuitem", name="Object", exact=True).click()
+        a11y_state(page, f"{theme}: Object menu open")
+        page.keyboard.press("Escape")
+        page.locator(".ds-view").click(button="right", position={"x": 300, "y": 200})
+        page.wait_for_timeout(150)
+        a11y_state(page, f"{theme}: context menu open")
+        page.keyboard.press("Escape")
+        for cmd in ("file.saveAs", "edit.options", "file.properties", "help.shortcuts", "effects.outlinePen", "page.setup", "effects.fillColor", "help.about", "file.new"):
+            select_ids(page, ids["Red"])
+            ds_eval(page, "ds.commands.run(arg)", cmd)
+            try:
+                dialog(page, 3000)
+            except Exception:
+                check(False, f"{theme}: {cmd} opened a dialog")
+                continue
+            a11y_state(page, f"{theme}: dialog {cmd}")
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(120)
+        check(not [e for e in errors if "pageerror" in e or "console" in e], f"{theme}: no console errors {errors[:2]}")
+        page.close()
+
+    # ---- keyboard: Tab order, rings, reachability
+    page, errors = mount(ctx, base)
+    page.emulate_media(reduced_motion="reduce")
+    info = load_scene(page, pages=2)
+    select_ids(page, info["ids"]["Red"])
+    page.wait_for_timeout(200)
+    stops = tab_walk(page)
+    keys = [s["key"] for s in stops]
+    print(f"   {len(stops)} Tab stops")
+    check(stops and stops[-1]["key"] == "(left the app)", f"Tab leaves the app after {len(stops)} stops (no keyboard trap)")
+    check(len(stops) <= 90, f"the Tab order is short enough to use ({len(stops)} stops; swatches, tools and tabs are one stop each)")
+    inside = [s for s in stops if s["inside"]]
+    check(all(s["ring"] for s in inside), f"every stop shows a focus ring {[s['key'] for s in inside if not s['ring']][:4]}")
+    check(all(s["w"] >= 14 and s["h"] >= 14 for s in inside), f"every stop is a real target {[s['key'] for s in inside if s['w'] < 14 or s['h'] < 14][:4]}")
+    check(any("File" in k for k in keys[:3]), f"the first stops are the menus {keys[:3]}")
+    for want in ("Pick", "Width", "No fill", "Page 1"):
+        check(any(want in k for k in keys), f"{want} can be reached with Tab {[k for k in keys if want in k][:1]}")
+    page.locator(".ds-view").focus()
+    back = []
+    for _ in range(6):
+        page.keyboard.press("Shift+Tab")
+        s = page.evaluate(FOCUS_WALK_JS)
+        if s:
+            back.append(s["key"])
+    check(len(back) == 6 and len(set(back)) == 6, f"Shift+Tab walks backwards through different controls {back[:3]}")
+    ds_eval(page, "ds.docks.openSection('objects')")
+    rest = page.evaluate("""() => { const vis = (el) => { if (el.closest('[hidden],[inert]')) return false; const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || cs.display === 'none') return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 }
+      const out = []; for (const el of document.querySelectorAll('.t-ds button, .t-ds input, .t-ds select, .t-ds [role=tab], .t-ds [role=treeitem]')) { if (!vis(el) || el.disabled || el.closest('.ds-dropnote')) continue
+        if (el.tabIndex < 0) out.push((el.className || el.getAttribute('role') || el.tagName) + '|' + (el.closest('[role]')?.getAttribute('role') || '') + '|' + (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 18)) }
+      return out }""")
+    classes = {}
+    for r in rest:
+        c = r.split("|")[0].split(" ")[0] if r.split("|")[0] else "?"
+        classes[c] = classes.get(c, 0) + 1
+    print(f"   controls outside the Tab order, by class: {classes}")
+    allowed = {"ds-tool", "ds-sw", "ds-pal-tab", "ds-tab", "ds-row", "ds-twisty", "ds-eye", "ds-lock", "ds-mi", "ds-mtop", "ds-more-b", "ds-seg-b"}
+    odd = [r for r in rest if r.split("|")[0].split(" ")[0] not in allowed]
+    check(not odd, f"every other control is a Tab stop {odd[:5]}")
+    page.locator(".ds-tool").first.focus()
+    page.keyboard.press("ArrowDown")
+    check(page.evaluate("() => document.activeElement.classList.contains('ds-tool') && document.activeElement !== document.querySelector('.ds-tool')"), "the toolbox: Arrow keys move between tools")
+    page.locator(".ds-sw-grid .ds-sw").first.focus()
+    page.keyboard.press("ArrowRight")
+    check(page.evaluate("() => document.activeElement === document.querySelectorAll('.ds-sw-grid .ds-sw')[1]"), "the palette: Arrow keys move between swatches")
+    ds_eval(page, "ds.docks.openSection('objects')")
+    page.locator(".ds-row.ds-r-node", has_text="Blue").first.focus()
+    page.keyboard.press("l")
+    page.wait_for_timeout(120)
+    check(node_of(page, info["ids"]["Blue"]).get("locked") is True, "tree row: L locks the object from the keyboard")
+    page.locator(".ds-row.ds-r-node", has_text="Blue").first.focus()
+    page.keyboard.press("l")
+    page.wait_for_timeout(120)
+    check(not node_of(page, info["ids"]["Blue"]).get("locked"), "tree row: L unlocks it again")
+    select_ids(page, info["ids"]["Red"])
+    page.wait_for_timeout(150)
+    live = page.evaluate("() => [document.querySelector('.ds-status [aria-live]').textContent, document.querySelector('.ds-st-msg').textContent]")
+    check(live[0] == live[1] and "Rectangle" in live[0], f"the live region says what the status bar says {live}")
+    select_ids(page, info["ids"]["Red"], info["ids"]["Blue"])
+    page.wait_for_timeout(150)
+    check("2 objects selected" == page.evaluate("() => document.querySelector('.ds-status [aria-live]').textContent"), "and announces a multiple selection")
+    roles = page.evaluate("""() => ({ app: document.querySelector('.ds-view').getAttribute('role'), tools: document.querySelector('.ds-tools').getAttribute('role'), tree: document.querySelector('.ds-tree')?.getAttribute('role'), bar: document.querySelector('.ds-menubar')?.getAttribute('role'),
+      tabs: document.querySelector('.ds-tabstrip').getAttribute('role'), pressed: [...document.querySelectorAll('.ds-tool')].filter((b) => b.getAttribute('aria-pressed') === 'true').length, label: document.querySelector('.ds-view').getAttribute('aria-label').length > 30 })""")
+    check(roles == {"app": "application", "tools": "toolbar", "tree": "tree", "bar": "menubar", "tabs": "tablist", "pressed": 1, "label": True}, f"roles: {roles}")
+    anim = page.evaluate("() => [...document.querySelectorAll('.t-ds *')].filter((e) => { const cs = getComputedStyle(e); return (parseFloat(cs.transitionDuration) > 0.05) || (cs.animationName !== 'none' && parseFloat(cs.animationDuration) > 0.05) }).length")
+    check(anim == 0, f"prefers-reduced-motion: nothing animates ({anim} elements still do)")
+    check(not [e for e in errors if "pageerror" in e], f"no uncaught errors {errors[:2]}")
+    page.close()
+
+
+# ---------------------------------------------------------------- E14: the phone
+def touch_cdp(ctx, page):
+    cdp = ctx.new_cdp_session(page)
+    cdp.send("Emulation.setTouchEmulationEnabled", {"enabled": True, "maxTouchPoints": 5})
+    cdp.send("Emulation.setEmulatedMedia", {"features": [{"name": "pointer", "value": "coarse"}, {"name": "hover", "value": "none"}]})
+    return cdp
+
+
+def mount_touch(ctx, base, width=375, height=700, route="draw-studio"):
+    """A page with touch input and a coarse pointer from the start (set up before the app loads). Retried once like mount()."""
+    for attempt in (1, 2):
+        page = ctx.new_page()
+        page.set_viewport_size({"width": width, "height": height})
+        page.add_init_script("try { if (!sessionStorage.getItem('ds-prefs-cleared')) { localStorage.removeItem('tools:ds-prefs'); sessionStorage.setItem('ds-prefs-cleared', '1') } } catch (e) {}")
+        page._cdp = touch_cdp(ctx, page)
+        try:
+            return page, open_tool(page, base, route)
+        except Exception:
+            page.close()
+            if attempt == 2:
+                raise
+
+
+def tpts(cdp, kind, *pts):
+    """One CDP touch event. pts are (x, y, id); touchEnd with no points lifts every finger."""
+    cdp.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": [{"x": x, "y": y, "id": i, "radiusX": 4, "radiusY": 4, "force": 1} for x, y, i in pts]})
+
+
+def tap(cdp, page, x, y):
+    tpts(cdp, "touchStart", (x, y, 1))
+    tpts(cdp, "touchEnd")
+    page.wait_for_timeout(450)  # the browser may hold the compatibility click back for a double-tap check
+
+
+def swipe(cdp, page, a, b, steps=8, hold=0):
+    tpts(cdp, "touchStart", (a[0], a[1], 1))
+    if hold:
+        page.wait_for_timeout(hold)
+    for i in range(1, steps + 1):
+        tpts(cdp, "touchMove", (a[0] + (b[0] - a[0]) * i / steps, a[1] + (b[1] - a[1]) * i / steps, 1))
+    page.wait_for_timeout(150)  # a pause before lifting: a fast lift is a fling, and the browser then swallows the next tap
+    tpts(cdp, "touchEnd")
+    page.wait_for_timeout(120)
+
+
+def t_phone14(ctx, base):
+    """E14 at 375 px with real touch events: the Panels sheet (segmented control, drag handle, backdrop, Esc), the menu sheet, strips, tap, drag, pinch, two-finger pan,
+    long press, handle reach, 36 px targets, no overflow after each step."""
+    page, errors = mount_touch(ctx, base, 375, 700)
+    cdp = page._cdp
+    ov = lambda: page_state(page)["overflow"]
+    info = load_scene(page, pages=2)
+    ids = info["ids"]
+    ds_eval(page, "ds.store.setPref('snap', false)")
+    check(ov() <= 1, f"mounted with a drawing: overflow {ov()}")
+    check(page.evaluate("() => matchMedia('(pointer: coarse)').matches"), "the page sees a coarse pointer")
+
+    # ---- the strips scroll inside their own boxes, every target is at least 36 px
+    strips = page.evaluate("""() => ['.ds-tools', '.ds-palette .ds-sw-grid', '.ds-prop', '.ds-std', '.ds-tabstrip'].map((s) => { const e = document.querySelector(s); const r = e.getBoundingClientRect(); return [s, Math.round(r.width), e.scrollWidth > e.clientWidth + 1, getComputedStyle(e).overflowX] })""")
+    check(all(w <= 375 for _, w, _, _ in strips) and all(o in ("auto", "scroll") for _, _, _, o in strips), f"strips are boxes that scroll by themselves {strips}")
+    check(strips[0][2] and strips[1][2], "the toolbox and the palette have more than fits, so they scroll")
+    small = page.evaluate("""() => [...document.querySelectorAll('.ds-tools button, .ds-palette button, .ds-std button, .ds-prop button, .ds-prop input, .ds-prop select, .ds-pages button, .ds-menubtn, .ds-panelsbtn')].filter((e) => e.offsetParent !== null).map((e) => { const r = e.getBoundingClientRect(); return [e.getAttribute('aria-label') || e.className, Math.round(r.width), Math.round(r.height)] }).filter(([, w, h]) => w < 36 || h < 36)""")
+    check(not small, f"every button, field and tab outside the sheet is at least 36 px {small[:6]}")
+    fs = page.evaluate("() => [...document.querySelectorAll('.t-ds input:not([type=checkbox]):not([type=file]), .t-ds select')].filter((e) => e.offsetParent !== null).map((e) => parseFloat(getComputedStyle(e).fontSize))")
+    check(not fs or min(fs) >= 16, f"fields are 16 px or larger {fs[:3]}")
+
+    # ---- touch on the canvas: tap selects, drag moves, pinch zooms, two fingers pan, long press opens the menu
+    page.evaluate("() => document.querySelector('.tool-body').__ds.view.zoomPage()")
+    page.wait_for_timeout(200)
+    rx, ry = scr(page, 100, 80)  # centre of Red
+    tap(cdp, page, rx, ry)
+    check(sel_of(page) == [ids["Red"]], f"a tap selects ({sel_of(page)})")
+    x0 = nbox(page, ids["Red"])["x"]
+    z = zoom_of(page)
+    swipe(cdp, page, (rx, ry), (rx + 40, ry + 20))
+    moved = nbox(page, ids["Red"])["x"] - x0
+    check(abs(moved - 40 / z) < 1.5, f"a one-finger drag moves the object by the finger distance ({moved:.1f} pt for {40 / z:.1f})")
+    ds_eval(page, "ds.store.undo()")
+    # empty canvas: a tap clears the selection
+    ex, ey = scr(page, 380, 20)
+    tap(cdp, page, ex, ey)
+    check(sel_of(page) == [], "a tap on empty paper clears the selection")
+    # pinch: two fingers apart zoom in around their centre
+    z0 = zoom_of(page)
+    steps0 = hist(page)
+    cx, cy = scr(page, 200, 150)
+    tpts(cdp, "touchStart", (cx - 40, cy, 1), (cx + 40, cy, 2))
+    for i in range(1, 9):
+        tpts(cdp, "touchMove", (cx - 40 - i * 8, cy, 1), (cx + 40 + i * 8, cy, 2))
+    tpts(cdp, "touchEnd")
+    page.wait_for_timeout(150)
+    z1 = zoom_of(page)
+    check(z1 > z0 * 1.8, f"pinching apart zooms in ({z0:.2f} -> {z1:.2f})")
+    check(sel_of(page) == [] and hist(page) == steps0, "a pinch changes nothing in the drawing")
+    # pinch together zooms out
+    tpts(cdp, "touchStart", (cx - 100, cy, 1), (cx + 100, cy, 2))
+    for i in range(1, 9):
+        tpts(cdp, "touchMove", (cx - 100 + i * 10, cy, 1), (cx + 100 - i * 10, cy, 2))
+    tpts(cdp, "touchEnd")
+    page.wait_for_timeout(150)
+    check(zoom_of(page) < z1 * 0.7, f"pinching together zooms out ({z1:.2f} -> {zoom_of(page):.2f})")
+    # two fingers moving together pan
+    v0 = view_of(page)
+    tpts(cdp, "touchStart", (cx - 30, cy, 1), (cx + 30, cy, 2))
+    for i in range(1, 9):
+        tpts(cdp, "touchMove", (cx - 30 + i * 6, cy + i * 4, 1), (cx + 30 + i * 6, cy + i * 4, 2))
+    tpts(cdp, "touchEnd")
+    page.wait_for_timeout(150)
+    v1 = view_of(page)
+    check(abs(v1["z"] - v0["z"]) / v0["z"] < 0.05 and abs((v1["x"] - v0["x"]) - 48) < 6 and abs((v1["y"] - v0["y"]) - 32) < 6, f"two fingers moving together pan ({v1['x'] - v0['x']:.0f}, {v1['y'] - v0['y']:.0f}) at the same zoom")
+    check(sel_of(page) == [], "and select nothing")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.view.zoomPage()")
+    page.wait_for_timeout(200)
+    # a pinch that starts on an object does not move it
+    select_ids(page, ids["Red"])
+    rx, ry = scr(page, 100, 80)
+    b0 = nbox(page, ids["Red"])
+    tpts(cdp, "touchStart", (rx - 10, ry, 1), (rx + 10, ry, 2))
+    for i in range(1, 7):
+        tpts(cdp, "touchMove", (rx - 10 - i * 6, ry, 1), (rx + 10 + i * 6, ry, 2))
+    tpts(cdp, "touchEnd")
+    page.wait_for_timeout(150)
+    check(abs(nbox(page, ids["Red"])["x"] - b0["x"]) < 0.01, "a pinch that starts on an object zooms and does not move the object")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.view.zoomPage()")
+    page.wait_for_timeout(200)
+    # long press opens the context menu and does not move or drop anything
+    rx, ry = scr(page, 100, 80)
+    n0 = hist(page)
+    tpts(cdp, "touchStart", (rx, ry, 1))
+    page.wait_for_timeout(900)
+    tpts(cdp, "touchEnd")
+    page.wait_for_timeout(200)
+    cm = page.locator(".ds-ctxmenu:visible")
+    check(cm.count() == 1, "a long press opens the context menu")
+    items = page.locator(".ds-ctxmenu:visible .ds-mi").count()
+    check(items >= 8, f"it lists the object commands ({items})")
+    check(sel_of(page) == [ids["Red"]], "for the object under the finger")
+    b = cm.bounding_box()
+    t = page.locator(".t-ds").bounding_box()
+    check(b["x"] >= t["x"] - 1 and b["x"] + b["width"] <= t["x"] + t["width"] + 1 and b["y"] + b["height"] <= t["y"] + t["height"] + 1, f"inside the app {({k: round(v) for k, v in b.items()})}")
+    tall = page.evaluate("() => [...document.querySelectorAll('.ds-ctxmenu .ds-mi')].filter((e) => e.offsetParent !== null && e.getBoundingClientRect().height < 36).length")
+    check(tall == 0, "every menu item is at least 36 px tall")
+    check(abs(nbox(page, ids["Red"])["x"] - b0["x"]) < 0.01 and hist(page) == n0, "the object did not move and nothing was added to the history")
+    check(ov() <= 1, f"overflow {ov()}")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(150)
+    check(page.locator(".ds-ctxmenu:visible").count() == 0, "Esc closes the menu")
+    # a long press on empty paper gives the page menu; a swipe never opens a menu
+    ex, ey = scr(page, 380, 20)
+    tpts(cdp, "touchStart", (ex, ey, 1))
+    page.wait_for_timeout(900)
+    tpts(cdp, "touchEnd")
+    page.wait_for_timeout(200)
+    check(page.locator(".ds-ctxmenu:visible").count() == 1 and page.locator('.ds-ctxmenu:visible [data-cmd="edit.paste"]').count() == 1, "a long press on empty paper opens the page menu")
+    page.keyboard.press("Escape")
+    tpts(cdp, "touchStart", (rx, ry, 1))
+    tpts(cdp, "touchMove", (rx + 30, ry, 1))
+    tpts(cdp, "touchMove", (rx + 60, ry, 1))
+    page.wait_for_timeout(900)
+    open_now = page.locator(".ds-ctxmenu:visible").count()
+    tpts(cdp, "touchEnd")
+    page.wait_for_timeout(150)
+    check(open_now == 0 and page.locator(".ds-ctxmenu:visible").count() == 0, "a press that moves is a drag, not a long press")
+    ds_eval(page, "ds.store.undo()")
+    # handles are reachable with a finger: 14 px from the corner still scales
+    select_ids(page, ids["Red"])
+    page.wait_for_timeout(150)
+    hx, hy = scr(page, 150, 110)  # bottom right corner of Red
+    w0 = nbox(page, ids["Red"])["w"]
+    swipe(cdp, page, (hx + 10, hy + 10), (hx + 10 + 30, hy + 10), steps=6)
+    w1 = nbox(page, ids["Red"])["w"]
+    check(w1 > w0 + 10, f"a finger 14 px from a handle still scales the object ({w0:.0f} -> {w1:.0f} pt)")
+    ds_eval(page, "ds.store.undo()")
+    select_ids(page)
+
+    # ---- the nudge pad: arrow buttons stand in for the arrow keys
+    select_ids(page, ids["Red"])
+    page.wait_for_timeout(150)
+    check(page.locator(".ds-nudgebtn").is_visible(), "the Nudge button shows with a selection on a phone")
+    first = page.evaluate("() => document.querySelector('.ds-prop').firstElementChild.classList.contains('ds-nudgebtn')")
+    check(first, "and it is the first thing in the property bar (no scrolling to find it)")
+    xb = nbox(page, ids["Red"])["x"]
+    tap(cdp, page, *center_of(page, ".ds-nudgebtn"))
+    check(page.locator(".ds-nudge").is_visible() and page.locator(".ds-nudgebtn").get_attribute("aria-expanded") == "true", "tapping Nudge opens the pad")
+    pb = page.locator(".ds-nudge").bounding_box()
+    tb = page.locator(".t-ds").bounding_box()
+    small = page.evaluate("() => [...document.querySelectorAll('.ds-nudge button')].filter((e) => e.offsetParent !== null && (e.getBoundingClientRect().width < 36 || e.getBoundingClientRect().height < 36)).length")
+    check(pb["x"] >= tb["x"] and pb["x"] + pb["width"] <= tb["x"] + tb["width"] and small == 0 and ov() <= 1, f"the pad fits the screen and every button is at least 36 px (overflow {ov()})")
+    tap(cdp, page, *center_of(page, '.ds-nudge [data-cmd="object.nudgeRight"]'))
+    check(abs(nbox(page, ids["Red"])["x"] - xb - 72 / 25.4) < 0.01, f"Nudge right moves the object 1 mm ({nbox(page, ids['Red'])['x'] - xb:.3f} pt)")
+    steps_before = hist(page)
+    tap(cdp, page, *page.evaluate("() => { const b = [...document.querySelectorAll('.ds-nudge-step')].find((e) => e.textContent.startsWith('10')).getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2] }"))
+    tap(cdp, page, *center_of(page, '.ds-nudge [data-cmd="object.nudgeDown"]'))
+    yb = nbox(page, ids["Red"])["y"]
+    check(abs(yb - 50 - 720 / 25.4) < 0.01, f"with the 10 mm step Nudge down moves 10 mm ({yb - 50:.3f} pt)")
+    tap(cdp, page, *center_of(page, ".ds-nudge-done"))
+    check(page.locator(".ds-nudge").is_hidden() and page.evaluate("() => document.activeElement.classList.contains('ds-nudgebtn')"), "Done closes the pad and returns to the button")
+    ds_eval(page, "ds.store.undo(); ds.store.undo()")
+    select_ids(page)
+    page.wait_for_timeout(100)
+    check(page.locator(".ds-nudgebtn").is_hidden(), "the Nudge button hides when nothing is selected")
+
+    # ---- the Panels sheet
+    check(page.locator(".ds-dock").is_hidden() and page.locator(".ds-sheet-bd").is_hidden(), "the sheet starts closed")
+    stage0 = page.locator(".ds-stage").bounding_box()
+    tap(cdp, page, *center_of(page, ".ds-panelsbtn"))
+    page.wait_for_selector(".ds-dock", state="visible")
+    check(page.get_by_role("button", name="Panels", exact=True).get_attribute("aria-expanded") == "true", "the Panels button says it is expanded")
+    tabs = page.locator(".ds-seg [role=tab]")
+    check(tabs.all_inner_texts() == ["Objects", "Props", "Align", "Transform"], f"a segmented control with four tabs {tabs.all_inner_texts()}")
+    check(page.locator(".ds-seg").get_attribute("role") == "tablist" and page.locator('.ds-seg [aria-selected="true"]').count() == 1 and page.evaluate("() => document.activeElement.classList.contains('ds-seg-b')"), "it is a tablist with one selected tab, and focus moved into it")
+    check(page.locator(".ds-dsec-head:visible").count() == 0, "the section headers give way to the tabs")
+    box = page.locator(".ds-dock").bounding_box()
+    check(box["width"] <= 375 and box["height"] <= 421 and ov() <= 1, f"the sheet fits {box['width']:.0f} x {box['height']:.0f}, overflow {ov()}")
+    check(abs(page.locator(".ds-stage").bounding_box()["height"] - stage0["height"]) < 1, "the canvas keeps its height while the sheet is open")
+    small = page.evaluate("""() => [...document.querySelectorAll('.ds-dock button, .ds-dock select, .ds-dock input:not([type=checkbox])')].filter((e) => e.offsetParent !== null && !e.classList.contains('ds-twisty-none')).map((e) => { const r = e.getBoundingClientRect(); return [e.className, Math.round(r.width), Math.round(r.height)] }).filter(([, w, h]) => w < 36 || h < 36)""")
+    check(not small, f"every control in the sheet is at least 36 px {small[:4]}")
+    for name, section in (("Props", "properties"), ("Align", "align"), ("Transform", "transform"), ("Objects", "objects")):
+        tap(cdp, page, *center_of(page, f'.ds-seg [data-seg="{section}"]'))
+        shown = page.evaluate("() => [...document.querySelectorAll('.ds-dsec')].filter((e) => e.offsetParent !== null).map((e) => e.dataset.section)")
+        check(shown == [section] and ov() <= 1, f"{name}: the sheet shows only that panel {shown}, overflow {ov()}")
+    # arrow keys on the tabs
+    page.locator('.ds-seg [data-seg="objects"]').focus()
+    page.keyboard.press("ArrowRight")
+    check(page.locator('.ds-seg [aria-selected="true"]').get_attribute("data-seg") == "properties" and page.evaluate("() => document.activeElement.dataset.seg") == "properties", "Arrow keys move between the tabs")
+    page.keyboard.press("End")
+    check(page.locator('.ds-seg [aria-selected="true"]').get_attribute("data-seg") == "transform", "End goes to the last tab")
+    tap(cdp, page, *center_of(page, '.ds-seg [data-seg="objects"]'))
+    # drag handle: up makes the sheet taller, down past the threshold closes it, the keys resize it
+    h0 = page.locator(".ds-dock").bounding_box()["height"]
+    gx, gy = center_of(page, ".ds-dock-grip")
+    swipe(cdp, page, (gx, gy), (gx, gy - 120), steps=8)
+    h1 = page.locator(".ds-dock").bounding_box()["height"]
+    check(h1 > h0 + 80, f"dragging the handle up makes the sheet taller ({h0:.0f} -> {h1:.0f})")
+    check(page.locator(".ds-dock-grip").get_attribute("aria-valuenow") is not None and int(page.locator(".ds-dock-grip").get_attribute("aria-valuenow")) > 62, "the handle reports its value")
+    gx, gy = center_of(page, ".ds-dock-grip")
+    swipe(cdp, page, (gx, gy), (gx, gy - 400), steps=8)
+    h2 = page.locator(".ds-dock").bounding_box()["height"]
+    check(h2 <= 700 * 0.9 + 1, f"it stops at 90 percent of the app ({h2:.0f})")
+    page.locator(".ds-dock-grip").focus()
+    page.keyboard.press("ArrowDown")
+    h3 = page.locator(".ds-dock").bounding_box()["height"]
+    check(h3 < h2 - 20, f"the Down arrow on the handle makes it shorter ({h2:.0f} -> {h3:.0f})")
+    gx, gy = center_of(page, ".ds-dock-grip")
+    swipe(cdp, page, (gx, gy), (gx, min(gy + 500, 690)), steps=10)
+    page.wait_for_timeout(150)
+    check(page.locator(".ds-dock").is_hidden() and page.locator(".ds-sheet-bd").is_hidden(), "dragging the handle down far enough closes the sheet")
+    check(page.get_by_role("button", name="Panels", exact=True).get_attribute("aria-expanded") == "false", "and the Panels button follows")
+    # reopened at the default height
+    tap(cdp, page, *center_of(page, ".ds-panelsbtn"))
+    page.wait_for_selector(".ds-dock", state="visible")
+    h4 = page.locator(".ds-dock").bounding_box()["height"]
+    check(h4 <= 421, f"it reopens at the default height ({h4:.0f})")
+    # backdrop tap closes, and the tap does not select anything under it
+    bd = page.locator(".ds-sheet-bd").bounding_box()
+    tap(cdp, page, bd["x"] + bd["width"] / 2, bd["y"] + 40)
+    page.wait_for_timeout(200)
+    check(page.locator(".ds-dock").is_hidden(), "a tap on the dimmed canvas closes the sheet")
+    check(sel_of(page) == [], "and does not select what was under the finger")
+    tap(cdp, page, *center_of(page, ".ds-panelsbtn"))
+    page.wait_for_selector(".ds-dock", state="visible")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(150)
+    check(page.locator(".ds-dock").is_hidden() and page.evaluate("() => document.activeElement.classList.contains('ds-view')"), "Esc closes it and gives the keyboard back to the canvas")
+    tap(cdp, page, *center_of(page, ".ds-panelsbtn"))
+    page.wait_for_selector(".ds-dock", state="visible")
+    tap(cdp, page, *center_of(page, ".ds-dock-close"))
+    check(page.locator(".ds-dock").is_hidden(), "the Close button closes it")
+    # selecting a row in the Objects tab works with a tap, and Props shows the selection
+    tap(cdp, page, *center_of(page, ".ds-panelsbtn"))
+    page.wait_for_selector(".ds-dock", state="visible")
+    row_xy = page.evaluate("""() => { const r = [...document.querySelectorAll('.ds-row.ds-r-node')].find((e) => e.textContent.includes('Blue')); const t = document.querySelector('.ds-dock-body'); t.scrollTop += r.getBoundingClientRect().top - t.getBoundingClientRect().top - 60; const b = r.querySelector('.ds-name').getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2] }""")
+    tap(cdp, page, *row_xy)
+    check(sel_of(page) == [ids["Blue"]], "a tap on an Objects row selects the object")
+    tap(cdp, page, *center_of(page, '.ds-seg [data-seg="properties"]'))
+    props_txt = page.inner_text('.ds-dsec[data-section="properties"]')
+    print("   Props text:", " ".join(props_txt.split())[:140])
+    check("fill" in props_txt.lower() and "outline" in props_txt.lower(), "the Props tab describes the selection")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(200)
+    check(page.locator(".ds-dock").is_hidden() and page.locator(".ds-sheet-bd").is_hidden(), "Esc closes the sheet from the Props tab as well")
+
+    # ---- the menu sheet: modal, focus inside, Esc, targets
+    tap(cdp, page, *center_of(page, ".ds-menubtn"))
+    page.wait_for_selector(".ds-msheet", state="visible")
+    check(page.evaluate("() => document.activeElement.classList.contains('ds-msheet-close')"), "the menu sheet takes the focus")
+    inert = page.evaluate("() => [...document.querySelector('.t-ds').children].filter((c) => !c.classList.contains('ds-msheet')).every((c) => c.inert)")
+    check(inert, "the rest of the app is inert behind the menu sheet")
+    stayed = True
+    for _ in range(40):
+        page.keyboard.press("Tab")
+        if not page.evaluate("() => !!document.activeElement.closest('.ds-msheet')"):
+            stayed = False
+    check(stayed, "Tab never leaves the menu sheet")
+    page.locator(".ds-msheet-head", has_text="Edit").click()
+    small = page.evaluate("() => [...document.querySelectorAll('.ds-msheet button')].filter((e) => e.offsetParent !== null && e.getBoundingClientRect().height < 36).length")
+    check(small == 0 and ov() <= 1, f"menu rows are at least 36 px tall, overflow {ov()}")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(120)
+    check(page.locator(".ds-msheet").is_hidden() and page.evaluate("() => document.querySelector('.t-ds').querySelectorAll('[inert]').length") == 0, "Esc closes the sheet and nothing stays inert")
+    check(page.evaluate("() => document.activeElement.classList.contains('ds-menubtn')"), "focus returns to the Menu button")
+
+    # ---- dialogs at 375
+    for cmd in ("file.saveAs", "edit.options", "page.setup"):
+        ds_eval(page, "ds.commands.run(arg)", cmd)
+        d = dialog(page)
+        b = d.bounding_box()
+        check(b["width"] <= 375 and ov() <= 1, f"{cmd} fits at 375 px ({b['width']:.0f}, overflow {ov()})")
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(120)
+    page.locator(".ds-view").focus()
+    check(not [e for e in errors if "pageerror" in e or "console" in e], f"no console errors {errors[:3]}")
+    shot(page, "phone14")
+    page.close()
+
+
+# ---------------------------------------------------------------- E14: no dead controls
+DEAD_COLLECT_JS = """() => {
+  const vis = (el) => { if (el.closest('[hidden],[inert]')) return false; const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || cs.display === 'none') return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 }
+  const roots = [document.querySelector('.t-ds'), ...document.querySelectorAll('dialog[open]')].filter(Boolean)
+  const ctl = [], all = new Set()
+  for (const r of roots) for (const el of r.querySelectorAll('button, input:not([type=hidden]), select, textarea, [role=tab], [role=menuitem], [role=menuitemcheckbox], [role=treeitem], [role=separator][tabindex]')) {
+    if (!vis(el) || el.disabled || el.getAttribute('aria-disabled') === 'true') continue
+    if (el.tagName === 'INPUT' && el.type === 'file') continue
+    ctl.push(el)
+    for (let p = el; p && p !== document.body; p = p.parentElement) all.add(p)
+  }
+  window.__dc = { ctl, nodes: [...all] }
+  return { controls: ctl.length, nodes: all.size }
+}"""
+
+
+def dead_controls(page, cdp, label):
+    """Every visible, enabled control has a listener of its own or on an ancestor (delegated). A control with none does nothing when used."""
+    info = page.evaluate(DEAD_COLLECT_JS)
+    nodes = cdp.send("Runtime.evaluate", {"expression": "window.__dc.nodes"})["result"]["objectId"]
+    props = cdp.send("Runtime.getProperties", {"objectId": nodes, "ownProperties": True})["result"]
+    idx_of = {}
+    kinds = {}
+    for p in props:
+        if not p["name"].isdigit() or "value" not in p or "objectId" not in p["value"]:
+            continue
+        i = int(p["name"])
+        ls = cdp.send("DOMDebugger.getEventListeners", {"objectId": p["value"]["objectId"]})["listeners"]
+        kinds[i] = {l["type"] for l in ls}
+    page.evaluate("() => { const d = window.__dc; d.idx = new Map(d.nodes.map((n, i) => [n, i])); }")
+    chains = page.evaluate("""() => { const d = window.__dc; return d.ctl.map((el) => { const chain = []; for (let p = el; p && p !== document.body && !p.classList.contains('t-ds') && p.tagName !== 'DIALOG'; p = p.parentElement) chain.push(d.idx.get(p)); return { chain, dlg: !!el.closest('dialog'), tag: el.tagName.toLowerCase(), type: el.type || '', role: el.getAttribute('role') || '', name: (el.getAttribute('aria-label') || el.textContent || el.className || '').trim().slice(0, 30) } }) }""")
+    dead = []
+    for c in chains:
+        have = set().union(*[kinds.get(i, set()) for i in c["chain"]])
+        need = {"click", "pointerdown", "mousedown", "pointerup", "mouseup", "dblclick", "contextmenu"}
+        if c["tag"] in ("input", "select", "textarea"):
+            need = {"input", "change", "keydown", "blur", "keyup", "click", "pointerdown"} if c["type"] not in ("checkbox", "radio") else need | {"input", "change"}
+        if c["tag"] in ("input", "select", "textarea") and c["dlg"]:
+            continue  # a dialog field is read by the dialog's own buttons when they are pressed
+        if not (have & need):
+            dead.append(f"{c['tag']}[{c['role'] or c['type']}] {c['name']}")
+    check(not dead, f"{label}: all {info['controls']} controls do something (a listener on them or on a parent) {sorted(set(dead))[:6]}")
+
+
+def t_dead(ctx, base):
+    """E14: no dead controls. Walks the bars, dockers, menus and dialogs in each state and finds controls that have no event listener anywhere up the tree."""
+    page, errors = mount(ctx, base)
+    cdp = ctx.new_cdp_session(page)
+    cdp.send("DOM.enable")
+    cdp.send("Runtime.enable")
+    dead_controls(page, cdp, "empty state")
+    info = load_scene(page, pages=2)
+    ids = info["ids"]
+    for sec in ("properties", "align", "transform", "objects"):
+        ds_eval(page, "ds.docks.openSection(arg)", sec)
+    select_ids(page, ids["Red"], ids["Blue"])
+    page.wait_for_timeout(250)
+    dead_controls(page, cdp, "two objects selected, dockers open")
+    for tool in ("text", "rect", "ellipse", "polygon", "star", "free", "pen", "shape", "fill", "transp", "eyedrop", "zoom", "pan", "pick"):
+        ds_eval(page, "ds.tools.set(arg)", tool)
+        if tool == "shape":
+            select_ids(page, ids["Blue"])
+        page.wait_for_timeout(120)
+        dead_controls(page, cdp, f"{tool} tool")
+    # every top level menu, opened
+    for menu in ("File", "Edit", "View", "Layout", "Object", "Effects", "Bitmaps", "Text", "Window", "Help"):
+        page.get_by_role("menuitem", name=menu, exact=True).click()
+        dead_controls(page, cdp, f"{menu} menu")
+        page.keyboard.press("Escape")
+    # dialogs
+    for cmd in ("file.new", "file.saveAs", "edit.options", "file.properties", "help.shortcuts", "effects.outlinePen", "page.setup", "effects.fillColor", "help.about", "help.conversions", "help.formats", "layout.guideV"):
+        select_ids(page, ids["Red"])
+        ds_eval(page, "ds.commands.run(arg)", cmd)
+        try:
+            dialog(page, 3000)
+        except Exception:
+            check(False, f"{cmd} opened a dialog")
+            continue
+        dead_controls(page, cdp, f"dialog {cmd}")
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(120)
+    # context menus
+    page.locator(".ds-view").click(button="right", position={"x": 300, "y": 200})
+    page.wait_for_timeout(150)
+    dead_controls(page, cdp, "context menu")
+    page.keyboard.press("Escape")
+    check(not [e for e in errors if "pageerror" in e or "console" in e], f"no console errors {errors[:2]}")
+    page.close()
+    # phone
+    page, errors = mount(ctx, base, 375, 700)
+    cdp = ctx.new_cdp_session(page)
+    cdp.send("DOM.enable")
+    cdp.send("Runtime.enable")
+    info = load_scene(page, pages=2)
+    select_ids(page, info["ids"]["Red"])
+    dead_controls(page, cdp, "phone, one object selected")
+    page.get_by_role("button", name="Panels", exact=True).click()
+    for seg in ("objects", "properties", "align", "transform"):
+        page.locator(f'.ds-seg [data-seg="{seg}"]').click()
+        page.wait_for_timeout(120)
+        dead_controls(page, cdp, f"phone, Panels sheet, {seg}")
+    page.keyboard.press("Escape")
+    page.get_by_role("button", name="Menu", exact=True).click()
+    dead_controls(page, cdp, "phone, menu sheet")
+    check(not [e for e in errors if "pageerror" in e or "console" in e], f"phone: no console errors {errors[:2]}")
+    page.close()
+
+
+# ---------------------------------------------------------------- E14: a very full page
+def t_bigpage(ctx, base):
+    """PLAN 8.5: above 40,000 objects on a page a banner offers Draft view; below it nothing is shown. Draft view and Not now both hide it."""
+    page, errors = mount(ctx, base)
+    load_scene(page)
+    check(page.locator(".ds-banner").is_hidden(), "a normal page shows no banner")
+    t0 = time.time()
+    info = load_scene(page, many=45000)
+    print(f"   45,000 objects loaded in {time.time() - t0:.1f}s")
+    page.wait_for_selector(".ds-banner", state="visible", timeout=20000)
+    txt = page.inner_text(".ds-banner")
+    check("45,0" in txt.replace(",", ",") and "Draft view" in txt and "slow" in txt, f"the banner says how many objects and offers Draft view ({txt[:80]!r})")
+    check(page.locator("dialog[open]").count() == 0 and page.locator(".ds-banner button").count() == 2, "it has two buttons")
+    page.get_by_role("button", name="Draft view").click()
+    page.wait_for_timeout(300)
+    check(page.evaluate("() => document.querySelector('.tool-body').__ds.store.prefs.wire") is True and page.locator(".ds-banner").is_hidden(), "Draft view switches to the wireframe and hides the banner")
+    ds_eval(page, "ds.commands.run('view.wireframe')")
+    t0 = time.time()
+    load_scene(page, many=45000)
+    page.wait_for_selector(".ds-banner", state="visible", timeout=20000)
+    page.get_by_role("button", name="Not now").click()
+    check(page.locator(".ds-banner").is_hidden(), "Not now hides it")
+    new_blank(page, "Small")
+    check(page.locator(".ds-banner").is_hidden(), "a new drawing starts without it")
+    check(not [e for e in errors if "pageerror" in e], f"no uncaught errors {errors[:2]}")
+    page.close()
+
+
 def shot(page, name):
     SHOTS.mkdir(parents=True, exist_ok=True)
     page.screenshot(path=str(SHOTS / f"{name}.png"))
 
 
 CHECKS = {"mount": t_mount, "inject": t_inject, "fixture": t_open_fixture, "cdr": t_open_cdr, "pixels": t_pixels, "other": t_open_other, "handoff": t_handoff, "leaks": t_leaks, "keys": t_keys_menus, "quick": t_quick, "dark": t_dark, "phone": t_phone, "truth": t_truth,
-          "pick": t_pick, "pickperf": t_pick_perf, "palette": t_palette, "objects": t_objects, "domfuzz": t_dom_fuzz, "objectsmany": t_objects_many, "objectsfiles": t_objects_files, "editphone": t_edit_phone, "pages": t_pages, "autosave": t_autosave, "text": t_text, "textpdf": t_text_pdf, "save": t_save, "savetext": t_save_text, "e2e": t_e2e, "e678phone": t_e678_phone, "shapes": t_shapes, "arrange": t_arrange, "e910phone": t_arrange_phone, "rulers": t_rulers, "fx": t_fx, "menus13": t_menus13, "e1113phone": t_e1113_phone}
+          "pick": t_pick, "pickperf": t_pick_perf, "palette": t_palette, "objects": t_objects, "domfuzz": t_dom_fuzz, "objectsmany": t_objects_many, "objectsfiles": t_objects_files, "editphone": t_edit_phone, "pages": t_pages, "autosave": t_autosave, "text": t_text, "textpdf": t_text_pdf, "save": t_save, "savetext": t_save_text, "e2e": t_e2e, "e678phone": t_e678_phone, "shapes": t_shapes, "arrange": t_arrange, "e910phone": t_arrange_phone, "rulers": t_rulers, "fx": t_fx, "menus13": t_menus13, "e1113phone": t_e1113_phone, "a11y": t_a11y, "phone14": t_phone14, "dead": t_dead, "bigpage": t_bigpage}
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

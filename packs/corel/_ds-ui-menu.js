@@ -98,8 +98,15 @@ export function createMenus({ commands, focusBack }) {
   document.addEventListener('pointerdown', onDocDown, true)
 
   // ---------- phone sheet (accordion) ----------
-  const sheet = h('div', { class: 'ds-msheet', role: 'dialog', 'aria-label': 'Menu', hidden: true })
-  const closeSheet = () => { sheet.hidden = true; menuButton.setAttribute('aria-expanded', 'false') }
+  const sheet = h('div', { class: 'ds-msheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Menu', hidden: true })
+  // while the sheet covers the app, the rest of the app is inert: Tab stays in the sheet and a screen reader does not wander behind it
+  const setSheet = (open) => {
+    sheet.hidden = !open
+    menuButton.setAttribute('aria-expanded', String(open))
+    for (const c of sheet.parentElement?.children || []) if (c !== sheet) c.toggleAttribute('inert', open)
+    if (open) { refresh(); sheet.querySelector('.ds-msheet-close')?.focus({ preventScroll: true }) }
+  }
+  const closeSheet = () => setSheet(false)
   sheet.append(h('button', { type: 'button', class: 'ds-msheet-close', onclick: () => { closeSheet(); focusBack?.() } }, icon('x'), h('span', 'Close menu')))
   tree.forEach((m) => {
     const body = h('div', { class: 'ds-msheet-body', hidden: true })
@@ -114,8 +121,16 @@ export function createMenus({ commands, focusBack }) {
     } }, h('span', m.menu), icon('chevron-down'))
     sheet.append(head, body)
   })
-  sheet.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeSheet(); menuButton.focus() } })
-  const menuButton = h('button', { type: 'button', class: 'ds-menubtn', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', onclick: () => { sheet.hidden = !sheet.hidden; menuButton.setAttribute('aria-expanded', String(!sheet.hidden)); if (!sheet.hidden) refresh() } }, icon('menu'), h('span', 'Menu'))
+  sheet.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); closeSheet(); menuButton.focus(); return }
+    if (e.key !== 'Tab') return
+    // a focus trap: Tab wraps inside the sheet (the page behind it, outside the app, is not inert)
+    const list = [...sheet.querySelectorAll('button:not(:disabled)')].filter((b) => b.offsetParent !== null)
+    if (!list.length) return
+    const first = list[0], last = list[list.length - 1]
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+  })
+  const menuButton = h('button', { type: 'button', class: 'ds-menubtn', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', onclick: () => setSheet(sheet.hidden) }, icon('menu'), h('span', 'Menu'))
 
   return { bar, menuButton, sheet, close, closeSheet, refresh, dispose() { document.removeEventListener('pointerdown', onDocDown, true) } }
 }

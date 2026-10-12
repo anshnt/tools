@@ -8,7 +8,7 @@ import { pageToSvg } from './_svgout.js'
 import { cloneNode, collect, deleteIds, leavesOf, transformItem } from './_ds-ops.js'
 import { topIds, editableIds } from './_ds-sel.js'
 import { placeNodes } from './_ds-tools-draw.js'
-import { LIMITS } from './_ds-doc.js'
+import { LIMITS, scrubSvgText } from './_ds-doc.js'
 import { TEXT_DEFAULTS, docFontKey } from './_ds-text-edit.js'
 import { fromUnit } from './_ds-units.js'
 import { boxUnion } from './_ds-hit.js'
@@ -118,7 +118,7 @@ export function createClipboard({ store, boxOf, assets, fonts, view, wrap, host 
     if (text.length > MAX_SVG) throw new Error('That SVG is too large to paste here.')
     const { svgToDoc } = await import('./_svgin.js')
     const { normalizeDoc } = await import('./_ds-open.js')
-    const raw = await svgToDoc(text)
+    const raw = await svgToDoc(scrubSvgText(text))
     const { doc } = await normalizeDoc(raw, { assets, title: 'Pasted', source: 'svg', name: 'Pasted SVG', freshIds: () => store.newId() })
     const strip = (n) => {
       if (n.t === 'group') return { ...n, items: n.items.map(strip) }

@@ -94,7 +94,7 @@ export function createPropBar({ store, boxOf, commands }) {
   }
   return {
     el, refresh,
-    /** Add a context section: {el, refresh(sel)}. Called with {ids, box, angle} or null when nothing is selected. */
-    add(section) { sections.push(section); extra.append(section.el); refresh(true) },
+    /** Add a context section: {el, refresh(sel)}. Called with {ids, box, angle} or null when nothing is selected. {first: true} puts it at the start of the bar. */
+    add(section, { first = false } = {}) { sections.push(section); if (first) el.prepend(section.el); else extra.append(section.el); refresh(true) },
   }
 }

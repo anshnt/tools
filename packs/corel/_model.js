@@ -1,15 +1,21 @@
-// Shared vector model for the CorelDRAW tools (converter and CDR viewer). Plain objects, no DOM needed.
+// Shared vector model for the CorelDRAW tools (the converter and Draw Studio). Plain objects, no DOM needed.
 // Units are points (1/72 inch), y grows downward, origin is the top-left corner of the page.
 //
-//   Doc   { pages: [Page], warnings: [string] }
+//   Doc   { pages: [Page], warnings: [string], fonts?: { [key]: { name, family, bold, italic, data: Uint8Array | null } } }
+//         fonts holds the font files a reader found (PDF); data is null for fonts a browser cannot load. Keys are unique inside one Doc.
 //   Page  { w, h, name?, items: [Item] }
-//   Item  Path | Image | Text. Every item may carry clip: [{d, rule}] (all clips apply) and name.
+//         Tree docs (Draw Studio, see _tree.js) hold Page.layers: [{ name, hidden, locked, printable, items }] instead of items, and items may be
+//         groups { t:'group', name, items }. Page.guides: [{ axis:'h'|'v', pos }] (points from the top-left) is optional. flattenDoc and treeFromFlat convert.
+//   Item  Path | Image | Text. Every item may carry clip: [{d, rule}] (all clips apply), and id, name, hidden, locked (id unique inside one Doc).
 //   Path  { t:'path', d, fill, fillOpacity, rule, stroke, strokeWidth, strokeOpacity, cap, join, miter, dash, dashOffset }
 //         d is a list of absolute commands ['M',x,y] ['L',x,y] ['C',x1,y1,x2,y2,x,y] ['Z'] (transforms are already flattened).
 //         fill/stroke: '#rrggbb' | null. fill may also be a Gradient. rule 'nonzero'|'evenodd'. cap/join 0|1|2 (butt/round/square, miter/round/bevel).
 //   Gradient { g:'linear'|'radial', x1,y1,x2,y2 | cx,cy,r,fx,fy, m:[a,b,c,d,e,f] (gradient space to page), stops:[{o,c,a}], spread:'pad'|'reflect'|'repeat' }
 //   Image { t:'image', href:'data:...', w, h (pixels), m:[a,b,c,d,e,f] (unit square, top-left origin, to page), opacity }
 //   Text  { t:'text', str, family, size, bold, italic, fill, opacity, m }  (m maps the baseline-left origin, in text units, to the page)
+//         optional: font (key into Doc.fonts), glyphs [{c, x}] (characters in that font's own mapping with x offsets in text units, drawn exactly
+//         until the text is edited), str may hold a newline for several lines with lh (line height multiple, default 1.2) and align 'left'|'center'|'right'
+//         (the origin is then the start, centre or end of each line). Writers that cannot do lines may be given single-line, left-aligned text only.
 
 export const I = [1, 0, 0, 1, 0, 0]
 /** m * n: apply n first, then m. */

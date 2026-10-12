@@ -29,7 +29,7 @@ export function createPalette({ store, app }) {
   const none = h('button', { type: 'button', class: 'ds-sw ds-sw-x', 'aria-label': 'No fill (left click), no outline (right click)', title: 'No colour  left click: no fill, right click: no outline' })
   const chip = h('button', { type: 'button', class: 'ds-chip', 'aria-pressed': 'false', 'aria-label': 'Colour target: fill. Switch to outline', onclick: () => { target = target === 'fill' ? 'stroke' : 'fill'; syncChip() } }, h('span', 'Fill'))
   const more = h('button', { type: 'button', class: 'ds-pal-more', 'aria-label': 'Open the colour dialog', title: 'More colours...', onclick: () => app.colorDialog(target) }, icon('sliders-horizontal'))
-  const grid = h('div', { class: 'ds-sw-grid', role: 'group', 'aria-label': 'Colours' })
+  const grid = h('div', { class: 'ds-sw-grid', role: 'group', 'aria-label': 'Colours', tabindex: -1 }) // a scrolling box is focusable by default: the swatches are the one Tab stop
   const tabs = TABS.map(([id, label]) => h('button', { type: 'button', role: 'tab', class: 'ds-pal-tab', 'data-tab': id, 'aria-selected': String(id === tab), title: `${label} colours`, 'aria-label': `${label} colours`, onclick: () => { tab = phone() && id === tab ? TABS[(TABS.findIndex(([x]) => x === id) + 1) % TABS.length][0] : id; renderGrid(true) } }, label.slice(0, 3)))
   const tabbar = h('div', { class: 'ds-pal-tabs', role: 'tablist', 'aria-label': 'Palette' }, tabs)
   const el = h('div', { class: 'ds-palette', role: 'group', 'aria-label': 'Colour palette' }, h('div', { class: 'ds-pal-head' }, none, chip, more), grid, tabbar)
@@ -48,12 +48,16 @@ export function createPalette({ store, app }) {
   grid.addEventListener('contextmenu', (e) => { e.preventDefault(); const sw = e.target.closest('.ds-sw[data-hex]'); if (sw) apply('stroke', sw.dataset.hex) })
   none.addEventListener('click', (e) => apply(kindFor(e), null))
   none.addEventListener('contextmenu', (e) => { e.preventDefault(); apply('stroke', null) })
-  // the arrow keys belong to the swatches here, never to nudging the selection
+  // the arrow keys belong to the swatches here, never to nudging the selection. The X swatch and the grid are ONE Tab stop (roving focus: the swatch last focused).
+  const swatches = () => [...el.querySelectorAll('.ds-sw')]
+  let rover = none
+  const setRover = (b) => { rover = b; for (const x of swatches()) x.tabIndex = x === b ? 0 : -1 }
+  el.addEventListener('focusin', (e) => { const sw = e.target.closest?.('.ds-sw'); if (sw && sw !== rover) setRover(sw) })
   el.addEventListener('keydown', (e) => {
-    if (e.key.startsWith('Arrow')) {
-      const list = [...el.querySelectorAll('.ds-sw')]
+    if (e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End') {
+      const list = swatches()
       const i = list.indexOf(document.activeElement)
-      if (i >= 0) { e.preventDefault(); list[Math.max(0, Math.min(list.length - 1, i + (e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1)))].focus() }
+      if (i >= 0) { e.preventDefault(); list[e.key === 'Home' ? 0 : e.key === 'End' ? list.length - 1 : Math.max(0, Math.min(list.length - 1, i + (e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1)))].focus() }
       e.stopPropagation()
     }
   })
@@ -75,6 +79,7 @@ export function createPalette({ store, app }) {
     lastRoot = store.root; lastPage = store.page()?.id
     const list = colorsFor(tab)
     grid.replaceChildren(...list.map(({ hex, note }) => mkSwatch(hex, note ? `${hex} (${note})` : hex)).filter(Boolean))
+    setRover(swatches().includes(rover) ? rover : none)
     if (!list.length) grid.append(h('span', { class: 'ds-pal-empty' }, tab === 'recent' ? 'Colours you use appear here.' : 'No colours yet.'))
   }
   renderGrid(true)

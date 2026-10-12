@@ -1,7 +1,8 @@
 // Model -> EPS (Encapsulated PostScript level 2, DSC 3.0). Paths, solid fills and strokes, dashes, caps, joins, even-odd fills, clips,
-// embedded images (colorimage, ASCII85) and standard-font text. Gradients are written as stepped bands (clipped), the usual way
+// embedded images (colorimage, ASCII85; a JPEG goes in untouched with DCTDecode, other pictures are Flate compressed) and standard-font text. Gradients are written as stepped bands (clipped), the usual way
 // PostScript from other tools carries them. Opacity is blended toward white because EPS has no transparency.
-import { n4, rgbOf, pathBBox, invert, apply, imagePixels, baseFont, winAnsi, onWhite } from './_model.js'
+import { n4, rgbOf, pathBBox, invert, apply, imagePixels, dataUrlBytes, baseFont, winAnsi, onWhite } from './_model.js'
+import { jpegInfo } from './_pdfout.js'
 
 const rgbPS = (c) => rgbOf(c).map((v) => n4(v / 255)).join(' ')
 const mix = (c, a) => { const [r, g, b] = rgbOf(c); const k = Math.max(0, Math.min(1, a ?? 1)); return '#' + [r, g, b].map((v) => Math.round(v * k + 255 * (1 - k)).toString(16).padStart(2, '0')).join('') }
@@ -30,6 +31,15 @@ function a85(bytes) {
   }
   if (line) out.push(line)
   return out.join('\n') + '~>'
+}
+
+/** zlib (Flate) compressed copy of the bytes, or null when this runtime has no CompressionStream. */
+async function deflate(bytes) {
+  if (typeof CompressionStream === 'undefined') return null
+  const cs = new CompressionStream('deflate')
+  const w = cs.writable.getWriter()
+  w.write(bytes); w.close()
+  return new Uint8Array(await new Response(cs.readable).arrayBuffer())
 }
 
 export function colorAt(stops, t) {
@@ -81,7 +91,7 @@ export async function toEps(doc, pageIndex = 0, { title = 'Drawing', creator = '
   const W = page.w, H = page.h
   const fontsUsed = new Set(), notes = new Set()
   const body = []
-  let imgCount = 0
+  let imgCount = 0, level = 2
   for (const it of page.items) {
     const clips = it.clip || []
     body.push('gsave')
@@ -105,17 +115,28 @@ export async function toEps(doc, pageIndex = 0, { title = 'Drawing', creator = '
         body.push(path, 'S')
       }
     } else if (it.t === 'image') {
-      const px = await imagePixels(it, 3000)
-      const rgb = new Uint8Array(px.w * px.h * 3)
-      let alpha = false
-      for (let i = 0, j = 0; i < px.data.length; i += 4, j += 3) {
-        const a = px.data[i + 3] / 255
-        if (a < 1) alpha = true
-        rgb[j] = px.data[i] * a + 255 * (1 - a); rgb[j + 1] = px.data[i + 1] * a + 255 * (1 - a); rgb[j + 2] = px.data[i + 2] * a + 255 * (1 - a)
-      }
-      if (alpha) notes.add('EPS has no transparency, so see-through image areas were blended with white.')
       imgCount++
-      body.push(`gsave [${it.m.map(n4).join(' ')}] concat`, `${px.w} ${px.h} 8 [${px.w} 0 0 ${px.h} 0 0]`, 'currentfile /ASCII85Decode filter false 3 colorimage', a85(rgb), 'grestore')
+      let jpeg = null
+      if (typeof it.href === 'string' && it.href.startsWith('data:image/jpeg')) {
+        const bytes = dataUrlBytes(it.href).bytes, info = jpegInfo(bytes)
+        if (info && (info.comps === 3 || info.comps === 1)) jpeg = { bytes, ...info }
+      }
+      if (jpeg) {
+        body.push(`gsave [${it.m.map(n4).join(' ')}] concat`, `${jpeg.w} ${jpeg.h} 8 [${jpeg.w} 0 0 ${jpeg.h} 0 0]`, 'currentfile /ASCII85Decode filter /DCTDecode filter false ' + jpeg.comps + ' colorimage', a85(jpeg.bytes), 'grestore')
+      } else {
+        const px = await imagePixels(it, 3000)
+        const rgb = new Uint8Array(px.w * px.h * 3)
+        let alpha = false
+        for (let i = 0, j = 0; i < px.data.length; i += 4, j += 3) {
+          const a = px.data[i + 3] / 255
+          if (a < 1) alpha = true
+          rgb[j] = px.data[i] * a + 255 * (1 - a); rgb[j + 1] = px.data[i + 1] * a + 255 * (1 - a); rgb[j + 2] = px.data[i + 2] * a + 255 * (1 - a)
+        }
+        if (alpha) notes.add('EPS has no transparency, so see-through image areas were blended with white.')
+        const z = await deflate(rgb)
+        if (z) level = 3
+        body.push(`gsave [${it.m.map(n4).join(' ')}] concat`, `${px.w} ${px.h} 8 [${px.w} 0 0 ${px.h} 0 0]`, `currentfile /ASCII85Decode filter${z ? ' /FlateDecode filter' : ''} false 3 colorimage`, a85(z || rgb), 'grestore')
+      }
     } else if (it.t === 'text') {
       const font = baseFont(it.family, it.bold, it.italic)
       fontsUsed.add(font)
@@ -133,7 +154,7 @@ export async function toEps(doc, pageIndex = 0, { title = 'Drawing', creator = '
     `%%BoundingBox: ${bb.join(' ')}`,
     `%%HiResBoundingBox: 0.0000 0.0000 ${W.toFixed(4)} ${H.toFixed(4)}`,
     '%%DocumentData: Clean7Bit',
-    '%%LanguageLevel: 2',
+    `%%LanguageLevel: ${level}`,
     '%%Pages: 1',
     '%%EndComments',
     '%%BeginProlog',

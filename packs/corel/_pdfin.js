@@ -10,6 +10,7 @@ import { I, mul, translate, meanScale, pathBBox, rectPath, mapPath, apply, inver
 
 const FLIP = [1, 0, 0, -1, 0, 0]
 const UNIT_FLIP = [1, 0, 0, -1, 0, 1]
+const sameClips = (a, b) => a === b || (a.length === b.length && a.every((c, i) => c === b[i] || (c.rule === b[i].rule && JSON.stringify(c.d) === JSON.stringify(b[i].d))))
 const clone = (s) => ({ ...s, clips: [...s.clips] })
 const abort = () => Object.assign(new Error('Cancelled'), { code: 'ABORT' })
 const r3 = (v) => Math.round(v * 1000) / 1000
@@ -242,7 +243,7 @@ async function convert(lib, OPS, doc, bytes, dct, { password, pages, onProgress,
       const r = run
       run = null
       if (!r || !r.str.trim()) return
-      const it = { t: 'text', str: r.str, family: r.family, fontName: r.name, size: r.size, bold: r.bold, italic: r.italic, fill: r.fill, opacity: r.opacity, m: r.m, font: r.key }
+      const it = { t: 'text', str: r.str.trimEnd(), family: r.family, fontName: r.name, size: r.size, bold: r.bold, italic: r.italic, fill: r.fill, opacity: r.opacity, m: r.m, font: r.key }
       if (r.glyphs.length && fontsOut[r.key].data) it.glyphs = r.glyphs
       items.push(withClip(it, r.clips))
     }
@@ -260,7 +261,7 @@ async function convert(lib, OPS, doc, bytes, dct, { password, pages, onProgress,
         adv += (g.width || 0) * fm0 * st.fs + st.tc + (g.isSpace ? st.tw : 0)
       }
       const th = st.th
-      const visible = st.render !== 3 && st.render !== 7 && !(st.render === 0 && st.fill === null) && str.trim()
+      const visible = st.render !== 3 && st.render !== 7 && !(st.render === 0 && st.fill === null) && (str.trim() || run) // a lone space is a word gap: it joins the run (a run of only spaces is dropped by flush)
       if (visible) {
         const base = mul(V, mul(st.ctm, mul(st.tm, translate(0, st.rise))))
         const m = mul(mul(base, [th, 0, 0, 1, 0, 0]), FLIP)
@@ -271,7 +272,7 @@ async function convert(lib, OPS, doc, bytes, dct, { password, pages, onProgress,
         if (stroked) note('Outlined (stroke only) text was drawn filled.')
         if (st.render >= 4) note('Text used as a clipping shape was drawn as ordinary text.')
         let ox = 0, join = false
-        if (run && run.key === key && run.size === st.fs && run.fill === fill && run.opacity === st.fillA && run.clips === st.clips) {
+        if (run && run.key === key && run.size === st.fs && run.fill === fill && run.opacity === st.fillA && sameClips(run.clips, st.clips)) {
           const rm = run.m
           const same = [0, 1, 2, 3].every((i) => Math.abs(rm[i] - m[i]) <= 1e-4 * Math.max(1, Math.abs(rm[i])))
           const inv = same && invert(rm)
@@ -347,9 +348,9 @@ async function convert(lib, OPS, doc, bytes, dct, { password, pages, onProgress,
     for (let i = 0; i < ol.fnArray.length; i++) {
       const fn = ol.fnArray[i], a = ol.argsArray[i]
       switch (fn) {
-        case OPS.save: flush(); stack.push(clone(st)); break
-        case OPS.restore: flush(); if (stack.length) st = stack.pop(); break
-        case OPS.transform: flush(); st.ctm = mul(st.ctm, a); break
+        case OPS.save: stack.push(clone(st)); break
+        case OPS.restore: if (stack.length) st = stack.pop(); break
+        case OPS.transform: st.ctm = mul(st.ctm, a); break
         case OPS.paintFormXObjectBegin:
           flush(); stack.push(clone(st)); formStack.push(stack.length)
           if (a[0]) st.ctm = mul(st.ctm, a[0])
@@ -428,8 +429,8 @@ async function convert(lib, OPS, doc, bytes, dct, { password, pages, onProgress,
           for (let k = 0; k + 1 < a[5].length; k += 2) { const c = maskColor(); addImage(null, async () => a[0], mul(M(), mul([a[1], a[2] || 0, a[3] || 0, a[4], a[5][k], a[5][k + 1]], UNIT_FLIP)), st.fillA, st.clips, c.join(',')) }
           break
         // text
-        case OPS.beginText: flush(); st.tm = I; st.tlm = I; break
-        case OPS.endText: flush(); break
+        case OPS.beginText: st.tm = I; st.tlm = I; break
+        case OPS.endText: break // a design tool puts every word in its own q, BT, ET block: only painting something else ends a run
         case OPS.setFont: st.fontId = a[0]; st.fs = a[1]; break
         case OPS.setCharSpacing: st.tc = a[0]; break
         case OPS.setWordSpacing: st.tw = a[0]; break

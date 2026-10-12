@@ -24,6 +24,7 @@ import { createArrangeSection, createNodeSection, createShapeSection } from './_
 import { createAlignSection, createTransformSection } from './_ds-ui-xform.js'
 import { createClipboard } from './_ds-clip.js'
 import { createPageSection, createTextSection } from './_ds-ui-ctx.js'
+import { createNudge } from './_ds-ui-nudge.js'
 import { createDialogs } from './_ds-ui-dialogs.js'
 import { createMoreDialogs } from './_ds-ui-dlg.js'
 import { createBitmapSection, createEyedropSection, createFillSection, createPropertiesSection, createTranspSection } from './_ds-ui-fx.js'
@@ -55,7 +56,11 @@ export async function mount(root, ctx = {}) {
   const emptyCard = h('div', { class: 'ds-empty-card' })
   const empty = h('div', { class: 'ds-empty' }, emptyCard)
   const busy = h('div', { class: 'ds-busy', hidden: true })
-  const stage = h('div', { class: 'ds-stage' }, host, empty, busy, h('div', { class: 'ds-dropnote', 'aria-hidden': 'true' }, 'Drop to open'))
+  const bannerText = h('span', { class: 'ds-banner-t' })
+  const banner = h('div', { class: 'ds-banner', role: 'status', hidden: true }, bannerText,
+    button('Draft view', { variant: 'secondary', size: 'sm', onClick: () => { if (!store.prefs.wire) commands.run('view.wireframe'); banner.hidden = true } }),
+    button('Not now', { variant: 'ghost', size: 'sm', onClick: () => { dismissed.add(store.page()?.id); banner.hidden = true } }))
+  const stage = h('div', { class: 'ds-stage' }, host, empty, banner, busy, h('div', { class: 'ds-dropnote', 'aria-hidden': 'true' }, 'Drop to open'))
   const input = h('input', { type: 'file', accept: ACCEPT, multiple: true, tabindex: -1, 'aria-hidden': 'true', hidden: true, onchange: (e) => { const f = [...e.target.files]; e.target.value = ''; if (f.length) openFiles(f) } })
   const zone = h('div', { class: 'dropzone', hidden: true, 'aria-hidden': 'true' }, input)
   zone._accept = ACCEPT
@@ -152,7 +157,8 @@ export async function mount(root, ctx = {}) {
   const xform = createTransformSection({ store, app, boxOf })
   docks.addSection({ id: 'transform', title: 'Transform', el: xform.el, refresh: xform.refresh, open: false })
 
-  const panelsBtn = h('button', { type: 'button', class: 'ds-panelsbtn', 'aria-label': 'Panels', 'aria-haspopup': 'dialog', onclick: () => docks.toggle() }, icon('panel-bottom'), h('span', 'Panels'))
+  const panelsBtn = h('button', { type: 'button', class: 'ds-panelsbtn', 'aria-label': 'Panels', 'aria-expanded': 'false', onclick: () => docks.toggle() }, icon('panel-bottom'), h('span', 'Panels'))
+  docks.onChange((open) => panelsBtn.setAttribute('aria-expanded', String(open)))
   const wrap = h('div', { class: 't-ds', 'aria-label': 'Draw Studio editor' },
     h('div', { class: 'ds-top' }, h('div', { class: 'ds-toprow' }, menus.menuButton, menus.bar, panelsBtn), std.el, prop.el),
     h('div', { class: 'ds-mid' }, toolbox.el, stage, docks.el, palette.el),
@@ -162,7 +168,20 @@ export async function mount(root, ctx = {}) {
   docks.attach(wrap)
   app.clip = createClipboard({ store, boxOf, assets, fonts, view, wrap, host })
   const ctxMenu = createContextMenu({ commands, wrap, focusBack: () => host.focus({ preventScroll: true }) })
+  const nudge = createNudge({ store, commands, wrap, focusBack: () => host.focus({ preventScroll: true }) })
+  prop.add({ el: nudge.el, refresh: nudge.refresh }, { first: true })
   const importer = createImporter({ store, assets, fonts, boxOf, dialogs: dlg2 })
+
+  // ---------- a very full page: offer the faster draft view (PLAN 8.5) ----------
+  const dismissed = new Set() // page ids the user said "not now" to
+  const countPage = (p) => { let n = 0; const rec = (items) => { for (const it of items) { n++; if (it.t === 'group') rec(it.items) } }; for (const l of p.layers) rec(l.items); return n }
+  function checkFull() {
+    const p = store.page()
+    const n = p && !p.pending ? countPage(p) : 0
+    const show = n > LIMITS.nodesWarn && !dismissed.has(p.id) && !store.prefs.wire
+    banner.hidden = !show
+    if (show) bannerText.textContent = `This page has about ${n.toLocaleString('en-US')} objects, so editing may feel slow. Draft view draws only outlines and is much faster.`
+  }
 
   // ---------- refresh ----------
   const refreshAll = () => { std.refresh(); prop.refresh(); pageTabs.refresh(); status.refresh(); toolbox.refresh(); palette.refresh() }
@@ -177,14 +196,15 @@ export async function mount(root, ctx = {}) {
       h('h3', quick ? `Drop a CDR, AI, PDF or SVG file to save it as ${CONVERSIONS[quick]}` : 'Open a drawing'),
       h('p', quick ? 'Your file is opened here in the browser and never uploaded.' : 'Drop a CDR, AI, PDF, EPS, SVG or picture file here, or start a new drawing. Your files stay on this device.'),
       h('div', { class: 'ds-empty-row' }, button('Choose a file', { icon: 'folder-open', variant: 'primary', onClick: () => input.click() }), quick ? null : button('New drawing', { icon: 'file-plus', variant: 'secondary', onClick: () => newDrawing() })),
+      h('p', { class: 'ds-phone-note' }, 'Best on a larger screen when you need precise drawing and node editing. Opening, viewing, moving and saving work well here.'),
       restoreInfo && !quick ? h('div', { class: 'ds-restore', role: 'region', 'aria-label': 'Restore your last drawing' },
         h('p', h('strong', 'Restore your last drawing?'), ` "${restoreInfo.title}" (${restoreInfo.pages} page${restoreInfo.pages === 1 ? '' : 's'}) was saved automatically ${ago(restoreInfo.savedAt)}.`),
         h('div', { class: 'ds-empty-row' }, button('Restore', { icon: 'history', variant: 'primary', onClick: () => restoreDrawing() }), button('Discard', { variant: 'secondary', onClick: () => { restoreInfo = null; persist.clear(); drawEmpty() } }))) : null)
   }
   drawEmpty()
   const offs = [
-    store.on('doc', (e) => { if (e?.load && !hasDoc) { hasDoc = true; wrap.classList.remove('ds-dim'); drawEmpty() } refreshAll() }), store.on('sel', () => { status.clearTransient(); refreshAll() }), store.on('page', refreshAll), store.on('tool', refreshAll), store.on('fonts', refreshAll),
-    store.on('prefs', () => { renderer.setWire(!!store.prefs.wire); refreshAll() }), store.on('fillsel', refreshAll), store.on('guides', refreshAll),
+    store.on('doc', (e) => { if (e?.load && !hasDoc) { hasDoc = true; wrap.classList.remove('ds-dim'); drawEmpty() } if (e?.load) { dismissed.clear(); checkFull() } refreshAll() }), store.on('sel', () => { status.clearTransient(); refreshAll() }), store.on('page', () => { refreshAll(); checkFull() }), store.on('tool', refreshAll), store.on('fonts', refreshAll),
+    store.on('prefs', () => { renderer.setWire(!!store.prefs.wire); if (store.prefs.wire) banner.hidden = true; refreshAll() }), store.on('fillsel', refreshAll), store.on('guides', refreshAll),
     store.on('status', (t) => { status.say(typeof t === 'string' ? t : ''); if (typeof t !== 'string') std.refresh() }), store.on('view', () => { std.refresh(); status.refresh() }), store.on('cursor', status.cursor),
   ]
   cleanups.push(...offs)
@@ -297,7 +317,7 @@ export async function mount(root, ctx = {}) {
     if (rest) {
       const ctl = openCtl
       const pending = doc.pages.filter((p) => p.pending)
-      store.track(rest({ store, fonts, signal: ctl?.signal, onPage: (p) => { releasePages([p]); refreshAll() } }).catch((e) => {
+      store.track(rest({ store, fonts, signal: ctl?.signal, onPage: (p) => { releasePages([p]); refreshAll(); if (p === store.page()) checkFull() } }).catch((e) => {
         if (isAbort(e)) return
         console.error(e)
         for (const p of pending) { delete p.pending }
@@ -461,11 +481,49 @@ export async function mount(root, ctx = {}) {
 
   // ---------- context menu ----------
   const NODE_IDS = ['node.add', 'node.delete', 'node.toLine', 'node.toCurve', 'node.cusp', 'node.smooth', 'node.symmetrical', 'node.break', 'node.join', 'node.close', 'node.reverse']
+  let ctxAt = 0 // when a context menu last opened (a long press and the browser's own contextmenu event must not open it twice)
   on(host, 'contextmenu', (e) => {
     e.preventDefault()
+    cancelLongPress()
+    if (e.pointerType === 'touch') {
+      if (Date.now() - ctxAt < 900) return // the browser's own long-press event, after ours already opened the menu
+      lpFired = true; swallowUntil = Date.now() + 1500 // the menu opens under a finger that may still be down
+    }
+    openContext(e)
+  })
+  // a long press with a finger opens the same menu (iOS sends no contextmenu event, Android sends one that arrives about when ours does)
+  const LONG_MS = 550, LONG_MOVE = 10
+  let longPress = null
+  function cancelLongPress() { if (longPress) { clearTimeout(longPress.timer); longPress = null } }
+  on(host, 'pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return
+    if (!e.isPrimary) { cancelLongPress(); return }
+    cancelLongPress()
+    const at = { clientX: e.clientX, clientY: e.clientY, target: e.target, pointerType: 'touch' }
+    longPress = { id: e.pointerId, x: e.clientX, y: e.clientY, timer: setTimeout(() => {
+      longPress = null
+      if (view.pinching || Date.now() - ctxAt < 900) return
+      tools.cancelGesture()
+      lpFired = true
+      swallowUntil = Date.now() + 10000
+      openContext(at)
+    }, LONG_MS) }
+  })
+  on(host, 'pointermove', (e) => { if (longPress && e.pointerId === longPress.id && Math.hypot(e.clientX - longPress.x, e.clientY - longPress.y) > LONG_MOVE) cancelLongPress() })
+  // the browser sends a compatibility mouse click when the finger lifts, and the menu has just opened under it: swallow that click, or the first menu item would run
+  let swallowUntil = 0, lpFired = false
+  const swallow = (e) => { if (Date.now() < swallowUntil) { e.preventDefault(); e.stopPropagation() } }
+  for (const t of ['mousedown', 'mouseup', 'click']) { document.addEventListener(t, swallow, true); cleanups.push(() => document.removeEventListener(t, swallow, true)) }
+  const lift = (e) => { cancelLongPress(); if (lpFired && e.pointerType === 'touch') { lpFired = false; swallowUntil = Date.now() + 500 } }
+  on(host, 'pointerup', lift)
+  on(host, 'pointercancel', lift)
+  cleanups.push(cancelLongPress)
+  /** Open the context menu for a pointer position: e = {clientX, clientY, target}. */
+  function openContext(e) {
     if (!hasDoc || !['pick', 'shape', 'fill', 'transp', 'eyedrop'].includes(store.tool)) return
+    ctxAt = Date.now()
     const { s, p } = view.fromClient(e)
-    const gd = rulers.hit(s)
+    const gd = rulers.hit(s, e.pointerType === 'touch')
     let ids
     if (gd) { store.setSel([]); store.guideSel = gd.id; store.emit('guides'); ids = ['layout.editGuide', 'layout.deleteGuide', 'layout.clearGuides', '-', 'layout.lockGuides', 'view.guides'] } else {
       const id = pickFromTarget(e.target, store) ?? hitByDistance(store, boxOf, p, 6 / store.view.z)
@@ -479,7 +537,7 @@ export async function mount(root, ctx = {}) {
       }
     }
     ctxMenu.open(e.clientX, e.clientY, ids)
-  })
+  }
 
   // ---------- test hook (no globals): root.__ds drives the editor from the harness ----------
   const api = { store, commands, assets, fonts, renderer, view, tools, docks, palette, prop, persist, dialogs, dlg2, rulers, ctxMenu, importer, textEditor, pageTabs, clip: app.clip, xform, openFile: (file) => openFiles([file]), openFiles, importFiles, whenReady: () => store.whenReady() }
@@ -500,7 +558,7 @@ export async function mount(root, ctx = {}) {
     openCtl?.abort()
     clearTimeout(busyTimer)
     cleanups.forEach((fn) => fn())
-    app.clip.dispose(); ctxMenu.dispose(); rulers.dispose(); textEditor.dispose(); persist.dispose(); menus.dispose(); docks.dispose(); view.dispose(); renderer.dispose(); fonts.dispose(); assets.dispose()
+    app.clip.dispose(); ctxMenu.dispose(); nudge.dispose(); rulers.dispose(); textEditor.dispose(); persist.dispose(); menus.dispose(); docks.dispose(); view.dispose(); renderer.dispose(); fonts.dispose(); assets.dispose()
     delete root.__ds
     wrap.remove()
   }
