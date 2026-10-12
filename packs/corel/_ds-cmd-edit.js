@@ -3,6 +3,7 @@
 import { fromUnit } from './_ds-units.js'
 import { addLayer, arrange, deleteIds, duplicate, group, leavesOf, mirror, moveNodes, rotate90, setStyle, transformIds, ungroup } from './_ds-ops.js'
 import { editableIds, selectionBox, tabOrder, topIds } from './_ds-sel.js'
+import { deleteGuide } from './_ds-guides.js'
 import { translate } from './_model.js'
 
 /** A command that returns PASS did not use the key: the dispatcher leaves the event alone (Tab leaves the canvas after the last object). */
@@ -33,7 +34,7 @@ export function createEditImpl({ store, boxOf, tools, app }) {
     run: (a) => {
       const ids = targets('moved')
       if (!ids.length) return
-      const d = fromUnit(a?.step ?? 1, 'mm')
+      const d = fromUnit((a?.step ?? 1) * (store.prefs.nudge ?? 1), 'mm')
       store.tx('Nudge', (r) => transformIds(r, ids, translate(dx * d, dy * d)), { merge: 'nudge' })
     },
     enabled: hasSel,
@@ -41,6 +42,7 @@ export function createEditImpl({ store, boxOf, tools, app }) {
 
   /** Apply a colour (hex) or none (null) as the fill or outline of the selection, groups included. K is the CMYK hint the dialog shows again. */
   function paint(kind, hex, K) {
+    if (kind === 'fill' && hex && tools.current?.paintStop?.(hex)) { app.noteColor?.(hex); return true } // the Interactive fill tool with a colour stop selected recolours that stop
     if (!sel().length) { say('Select an object first.'); return false }
     const ids = live()
     if (!ids.length) { say('Locked objects cannot be recoloured.'); return false }
@@ -64,7 +66,14 @@ export function createEditImpl({ store, boxOf, tools, app }) {
   }
 
   const impl = {
-    'edit.delete': { run: () => { const ids = targets('deleted'); if (ids.length) store.tx('Delete', (r) => deleteIds(r, ids), { sel: [] }) }, enabled: hasSel },
+    'edit.delete': {
+      run: () => {
+        if (!sel().length && store.guideSel != null) { const p = store.page(), id = store.guideSel; store.tx('Delete guide', (r) => deleteGuide(r, p.id, id)); store.guideSel = null; store.emit('guides'); return }
+        const ids = targets('deleted')
+        if (ids.length) store.tx('Delete', (r) => deleteIds(r, ids), { sel: [] })
+      },
+      enabled: () => hasSel() || store.guideSel != null,
+    },
     'edit.duplicate': {
       run: () => {
         const ids = targets('duplicated')
@@ -103,12 +112,16 @@ export function createEditImpl({ store, boxOf, tools, app }) {
       },
     },
     'object.moveToLayer': {
-      run: (a) => { const ids = targets('moved'); if (ids.length && a?.layerId != null) store.tx('Move to layer', (r) => moveNodes(r, ids, { into: a.layerId })) },
+      run: (a) => {
+        if (a?.layerId == null) { if (hasSel()) app.moveToLayerDialog?.(); else say('Select an object first.'); return }
+        const ids = targets('moved')
+        if (ids.length) store.tx('Move to layer', (r) => moveNodes(r, ids, { into: a.layerId }))
+      },
       enabled: hasSel,
     },
     'edit.selectNext': { run: () => select(1) },
     'edit.selectPrev': { run: () => select(-1) },
-    'view.snap': { run: () => { store.setPref('snap', store.prefs.snap === false); say(store.prefs.snap === false ? 'Snapping is off' : 'Snapping is on') }, checked: () => store.prefs.snap !== false },
+    'view.snap': { run: () => { app.keepPref('snap', store.prefs.snap === false); say(store.prefs.snap === false ? 'Snapping is off' : 'Snapping is on') }, checked: () => store.prefs.snap !== false },
     'win.objects': { run: () => app.toggleDock(), checked: () => app.dockOpen() },
     'effects.fillColor': { run: () => app.colorDialog('fill'), enabled: hasSel },
     'effects.outlineColor': { run: () => app.colorDialog('stroke'), enabled: hasSel },

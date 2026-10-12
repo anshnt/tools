@@ -50,12 +50,18 @@ export function createStandardBar({ commands, store, app, focusBack }) {
   const sep = () => h('span', { class: 'ds-sep', role: 'separator' })
   const all = [...bs, undo, redo, zo, zi, fit, fs, dockBtn]
   const name = h('span', { class: 'ds-docname', title: '' }, 'Untitled')
-  const el = h('div', { class: 'ds-std', role: 'toolbar', 'aria-label': 'Standard' }, ...bs, sep(), undo, redo, sep(), zo, zoomBtn, zi, fit, h('span', { class: 'ds-grow' }), name, dockBtn, fs)
+  // snap chips: guides, objects, page and grid each switch on their own (Alt+Z switches all snapping off and on)
+  const SNAP = [['view.snapGuides', 'Guides'], ['view.snapObjects', 'Objects'], ['view.snapPage', 'Page'], ['view.snapGrid', 'Grid']]
+  const chips = SNAP.map(([id, label]) => h('button', { type: 'button', class: 'ds-schip', 'data-cmd': id, 'aria-pressed': 'false', title: `Snap to ${label.toLowerCase()}`, 'aria-label': `Snap to ${label.toLowerCase()}`, onclick: (e) => { commands.run(id); if (e.detail > 0) focusBack?.() } }, label))
+  const snapBox = h('span', { class: 'ds-snapchips', role: 'group', 'aria-label': 'Snap to' }, icon('magnet'), ...chips)
+  const el = h('div', { class: 'ds-std', role: 'toolbar', 'aria-label': 'Standard' }, ...bs, sep(), undo, redo, sep(), zo, zoomBtn, zi, fit, sep(), snapBox, h('span', { class: 'ds-grow' }), name, dockBtn, fs)
   const refresh = () => {
     all.forEach((b) => b.refresh())
     undo.title = tip(commands.label('edit.undo'), commandById('edit.undo').keys)
     redo.title = tip(commands.label('edit.redo'), commandById('edit.redo').keys)
     zoomBtn.textContent = `${zoomPercent(store.view.z)}%`
+    for (const c of chips) c.setAttribute('aria-pressed', String(commands.checked(c.dataset.cmd)))
+    snapBox.classList.toggle('ds-snap-off', store.prefs.snap === false)
     dockBtn.setAttribute('aria-pressed', String(commands.checked('win.objects')))
     name.textContent = store.root.title + (store.dirty ? ' *' : '')
     name.title = store.root.meta?.name || ''

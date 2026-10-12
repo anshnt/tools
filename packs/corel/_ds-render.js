@@ -52,17 +52,20 @@ export function createRenderer({ store, svgRoot, assets, faces }) {
   const addDef = (el) => { defs.append(el); return el }
 
   // ---------- paint ----------
+  function gradientEl(g, id) {
+    const stops = [...g.stops].sort((a, b) => a.o - b.o).map((s) => mk('stop', { offset: r3(s.o), 'stop-color': s.c, ...(s.a < 1 ? { 'stop-opacity': r3(s.a) } : {}) }))
+    const base = { id, gradientUnits: 'userSpaceOnUse', gradientTransform: mstr(g.m || [1, 0, 0, 1, 0, 0]), ...(g.spread && g.spread !== 'pad' ? { spreadMethod: g.spread } : {}) }
+    const el = g.g === 'radial'
+      ? mk('radialGradient', { ...base, cx: r3(g.cx), cy: r3(g.cy), r: r3(g.r), fx: r3(g.fx ?? g.cx), fy: r3(g.fy ?? g.cy) })
+      : mk('linearGradient', { ...base, x1: r3(g.x1), y1: r3(g.y1), x2: r3(g.x2), y2: r3(g.y2) })
+    el.append(...stops)
+    return el
+  }
   function gradientRef(g) {
     let rec = gradients.get(g)
     if (!rec) {
       const id = defId('g')
-      const stops = [...g.stops].sort((a, b) => a.o - b.o).map((s) => mk('stop', { offset: r3(s.o), 'stop-color': s.c, ...(s.a < 1 ? { 'stop-opacity': r3(s.a) } : {}) }))
-      const base = { id, gradientUnits: 'userSpaceOnUse', gradientTransform: mstr(g.m || [1, 0, 0, 1, 0, 0]), ...(g.spread && g.spread !== 'pad' ? { spreadMethod: g.spread } : {}) }
-      const el = g.g === 'radial'
-        ? mk('radialGradient', { ...base, cx: r3(g.cx), cy: r3(g.cy), r: r3(g.r), fx: r3(g.fx ?? g.cx), fy: r3(g.fy ?? g.cy) })
-        : mk('linearGradient', { ...base, x1: r3(g.x1), y1: r3(g.y1), x2: r3(g.x2), y2: r3(g.y2) })
-      el.append(...stops)
-      rec = { id, el }
+      rec = { id, el: gradientEl(g, id) }
       gradients.set(g, rec)
     }
     if (!rec.el.isConnected) defs.append(rec.el)
@@ -316,6 +319,24 @@ export function createRenderer({ store, svgRoot, assets, faces }) {
     const p = el && (el.localName === 'path' ? el : el.querySelector('path'))
     p?.setAttribute('d', typeof d === 'string' ? d : dStr(d))
   }
+  /** Show a draft gradient on a path (Interactive fill handle drag) without touching the store; previewFill(id, null) puts the real fill back. */
+  let fillPrev = null
+  function previewFill(id, g) {
+    if (fillPrev) {
+      fillPrev.def.remove()
+      const node = store.find(fillPrev.id)?.node, p = fillPrev.path
+      if (p && node?.t === 'path') p.setAttribute('fill', node.fill ? (typeof node.fill === 'object' ? gradientRef(node.fill) : node.fill) : 'none')
+      fillPrev = null
+    }
+    if (!g) return
+    const el = elOf(id)
+    const p = el && (el.localName === 'path' ? el : el.querySelector('path'))
+    if (!p) return
+    const gid = defId('p')
+    const def = addDef(gradientEl(g, gid))
+    p.setAttribute('fill', `url(#${gid})`)
+    fillPrev = { id, path: p, def }
+  }
   const applyView = (v) => world.setAttribute('transform', `matrix(${v.z} 0 0 ${v.z} ${v.x} ${v.y})`)
   const setWire = (on) => world.classList.toggle('ds-wire', !!on)
   const resetBoxes = () => { /* WeakMap entries cannot be cleared; replace by clearing live ones */ for (const n of textNodes()) boxes.delete(n) }
@@ -331,7 +352,7 @@ export function createRenderer({ store, svgRoot, assets, faces }) {
   })
 
   return {
-    world, defs, paper, patch, renderPage, elOf, textBox, textWidth, textEl, fillText, nodeBox: (n) => boxer(n), preview, clearPreview, previewPath, applyView, setWire, resetBoxes, dStr,
+    world, defs, paper, patch, renderPage, elOf, textBox, textWidth, textEl, fillText, nodeBox: (n) => boxer(n), preview, clearPreview, previewPath, previewFill, applyView, setWire, resetBoxes, dStr,
     dispose() { offDoc(); offPage(); offFonts(); world.remove(); defs.remove() },
   }
 }

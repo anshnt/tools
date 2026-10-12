@@ -41,6 +41,8 @@ def mount(ctx, base, width=1280, height=800, route="draw-studio"):
     for attempt in (1, 2):  # the site pulls icons from a CDN, so one slow load is retried on a fresh page
         page = ctx.new_page()
         page.set_viewport_size({"width": width, "height": height})
+        # remembered view preferences (rulers, guides, snapping) must not leak from one check into the next: clear them once per page, not on a reload
+        page.add_init_script("try { if (!sessionStorage.getItem('ds-prefs-cleared')) { localStorage.removeItem('tools:ds-prefs'); sessionStorage.setItem('ds-prefs-cleared', '1') } } catch (e) {}")
         try:
             return page, open_tool(page, base, route)
         except Exception:
@@ -370,9 +372,13 @@ def t_handoff(ctx, base):
     drop_js = """(args) => { const bin = Uint8Array.from(atob(args.b64), (c) => c.charCodeAt(0)); const dt = new DataTransfer(); dt.items.add(new File([bin], args.name))
       document.querySelector(args.sel).dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true })) }"""
     page.evaluate(drop_js, {"b64": small, "name": "dropped.cdr", "sel": ".ds-stage"})
+    d = dialog(page)
+    check("Open or import into this page?" in d.inner_text(), "a drop onto a drawing that has content asks open or import")
+    d.get_by_role("button", name="Open", exact=True).click()
     page.wait_for_function("() => document.querySelector('.tool-body').__ds.store.root.meta.name === 'dropped.cdr'", timeout=20000)
     check(page.evaluate(STATE_JS)["source"] == "cdr", "drop on the canvas opens the file")
     page.evaluate(drop_js, {"b64": small, "name": "chrome-drop.cdr", "sel": ".page-head"})
+    dialog(page).get_by_role("button", name="Open", exact=True).click()
     page.wait_for_function("() => document.querySelector('.tool-body').__ds.store.root.meta.name === 'chrome-drop.cdr'", timeout=20000)
     check(True, "a drop on the page outside the canvas is routed to the editor by the site")
     with page.expect_file_chooser(timeout=5000) as fc:
@@ -3251,7 +3257,7 @@ def t_arrange_phone(ctx, base):
     snap_off(page)
     check(ov() <= 1, f"blank drawing: overflow {ov()}")
     tools = page.evaluate("() => { const t = document.querySelector('.ds-tools'); return { n: t.querySelectorAll('.ds-tool').length, w: t.getBoundingClientRect().width, sw: t.scrollWidth, small: [...t.querySelectorAll('.ds-tool')].filter((b) => b.getBoundingClientRect().width < 36 || b.getBoundingClientRect().height < 36).length } }")
-    check(tools["n"] == 11 and tools["w"] <= 375 and tools["sw"] > tools["w"] and tools["small"] == 0, f"the toolbox is a scrolling strip of 36 px buttons {tools}")
+    check(tools["n"] == 14 and tools["w"] <= 375 and tools["sw"] > tools["w"] and tools["small"] == 0, f"the toolbox is a scrolling strip of 36 px buttons {tools}")
     focus_canvas(page)
     page.keyboard.press("F6")
     shape_bar = page.evaluate("() => { const b = document.querySelector('.ds-shapebar'); return b && !b.hidden ? [...b.querySelectorAll('input, select')].filter((e) => e.offsetParent !== null).map((e) => [Math.round(e.getBoundingClientRect().height), parseFloat(getComputedStyle(e).fontSize)]) : null }")
@@ -3295,13 +3301,1136 @@ def t_arrange_phone(ctx, base):
     page.close()
 
 
+# ---------------------------------------------------------------- E11 to E13
+def guides_of(page):
+    return page.evaluate("() => JSON.parse(JSON.stringify(document.querySelector('.tool-body').__ds.store.page().guides))")
+
+
+def pref_of(page, key):
+    return page.evaluate("(k) => document.querySelector('.tool-body').__ds.store.prefs[k]", key)
+
+
+def run_menu(page, menu, cmd):
+    """Open a menu of the menubar and click the item of a command (real mouse events)."""
+    page.get_by_role("menuitem", name=menu, exact=True).click()
+    page.locator(f'.ds-menu:visible [data-cmd="{cmd}"]').first.click()
+    page.wait_for_timeout(120)
+
+
+def key_on_canvas(page, key):
+    page.locator(".ds-view").focus()
+    page.keyboard.press(key)
+    page.wait_for_timeout(150)
+
+
+def view_of(page):
+    return page.evaluate("() => { const ds = document.querySelector('.tool-body').__ds; const r = document.querySelector('.ds-view').getBoundingClientRect(); const v = ds.store.view; return { x: v.x, y: v.y, z: v.z, w: r.width, h: r.height } }")
+
+
+def visible_rect(page):
+    v = view_of(page)
+    return {"x": -v["x"] / v["z"], "y": -v["y"] / v["z"], "w": v["w"] / v["z"], "h": v["h"] / v["z"]}
+
+
+def contains(r, b, tol=0.01):
+    return r["x"] <= b["x"] + tol and r["y"] <= b["y"] + tol and r["x"] + r["w"] >= b["x"] + b["w"] - tol and r["y"] + r["h"] >= b["y"] + b["h"] - tol
+
+
+def fills(r, b, frac=0.78):
+    """The box b fills at least `frac` of the view in one direction."""
+    return b["w"] / r["w"] >= frac or b["h"] / r["h"] >= frac
+
+
+def t_rulers(ctx, base):
+    """E11: rulers in the chosen units with the origin at the page bottom-left, drag-out guides that snap, move and delete with undo, the four snap
+    switches, the grid, every zoom command, wireframe, remembered view choices (real mouse and keyboard events)."""
+    page, errors = mount(ctx, base)
+    info = load_scene(page)
+    ids = info["ids"]
+    pg = ds_eval(page, "return { w: ds.store.page().w, h: ds.store.page().h, id: ds.store.page().id }")
+    wait_ov(page)
+    # ---- rulers: units, origin at the bottom-left, y up ----
+    check(page.locator(".ds-ruler-h").is_visible() and page.locator(".ds-ruler-v").is_visible() and page.locator(".ds-corner").inner_text() == "mm", "both rulers and the unit corner are shown at 1280")
+    m = ds_eval(page, "return ds.rulers.marks()")
+    v = view_of(page)
+    h0 = next((t for t in m["h"] if t["v"] == 0), None)
+    v0 = next((t for t in m["v"] if t["v"] == 0), None)
+    check(h0 and abs(h0["x"] - v["x"]) < 0.01, f"the top ruler's 0 is at the page's left edge ({h0 and h0['x']:.2f} vs {v['x']:.2f})")
+    check(v0 and abs(v0["y"] - (pg["h"] * v["z"] + v["y"])) < 0.01, f"the left ruler's 0 is at the page's bottom edge ({v0 and v0['y']:.2f})")
+    ys = [t["y"] for t in sorted(m["v"], key=lambda t: t["v"])]
+    check(all(a > b for a, b in zip(ys, ys[1:])) and m["unit"] == "mm", "left ruler values grow upward")
+    xs = [t["x"] for t in m["h"]]
+    check(all(b - a >= 50 for a, b in zip(xs, xs[1:])), f"labelled ticks are at least 50 px apart ({[round(b - a) for a, b in zip(xs, xs[1:])][:4]})")
+    t40 = next(t for t in m["h"] if t["v"] == 40)
+    check(abs(t40["x"] - (v["x"] + 40 * 72 / 25.4 * v["z"])) < 0.01, "40 on the top ruler is 40 mm from the page's left edge")
+    ink = page.evaluate("() => ['.ds-ruler-h', '.ds-ruler-v'].map((s) => { const c = document.querySelector(s); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; const bg = [d[0], d[1], d[2]]; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]) > 60) n++; return n })")
+    check(all(n > 80 for n in ink), f"both rulers are drawn (ink pixels {ink})")
+    ds_eval(page, "ds.store.tx('units', (r) => ({ ...r, units: 'in' }))")
+    page.wait_for_timeout(250)
+    m = ds_eval(page, "return ds.rulers.marks()")
+    one = next((t for t in m["h"] if t["v"] == 1), None)
+    check(m["unit"] == "in" and one and abs(one["x"] - (v["x"] + 72 * v["z"])) < 0.01 and page.locator(".ds-corner").inner_text() == "in", f"in inches, 1 is 72 pt from the left edge ({m['unit']}, step {m['step']})")
+    ds_eval(page, "ds.store.tx('units', (r) => ({ ...r, units: 'mm' }))")
+    page.wait_for_timeout(150)
+    ds_eval(page, "ds.store.setPref('snap', true)")
+
+    # ---- drag out a guide from each ruler; it snaps; Alt does not; a release over the ruler cancels ----
+    rh, rv = page.locator(".ds-ruler-h").bounding_box(), page.locator(".ds-ruler-v").bounding_box()
+    z = zoom_of(page)
+
+    def out_h(y, mods=(), end_on_ruler=False):
+        tx_, ty_ = scr(page, 100, y)
+        for k in mods:
+            page.keyboard.down(k)
+        page.mouse.move(rh["x"] + 250, rh["y"] + 8); page.mouse.down()
+        page.mouse.move(tx_, ty_, steps=8)
+        if end_on_ruler:
+            page.mouse.move(rh["x"] + 300, rh["y"] + 8, steps=4)
+        page.mouse.up()
+        for k in reversed(mods):
+            page.keyboard.up(k)
+        page.wait_for_timeout(150)
+
+    def out_v(x, mods=(), end_on_ruler=False):
+        tx_, ty_ = scr(page, x, 100)
+        for k in mods:
+            page.keyboard.down(k)
+        page.mouse.move(rv["x"] + 8, rv["y"] + 250); page.mouse.down()
+        page.mouse.move(tx_, ty_, steps=8)
+        if end_on_ruler:
+            page.mouse.move(rv["x"] + 8, rv["y"] + 300, steps=4)
+        page.mouse.up()
+        for k in reversed(mods):
+            page.keyboard.up(k)
+        page.wait_for_timeout(150)
+
+    undo_redo(page, "drag from the top ruler", lambda: out_h(265))
+    g = guides_of(page)
+    check(len(g) == 1 and g[0]["axis"] == "h" and abs(g[0]["pos"] - 265) < 1.6, f"a horizontal guide at about y 265 {g}")
+    check(page.locator(".ds-ov line.ds-guide").count() == 1, "the guide line is in the overlay")
+    ds_eval(page, "ds.store.undo()")
+    undo_redo(page, "drag from the left ruler", lambda: out_v(340))
+    g = guides_of(page)
+    check(len(g) == 1 and g[0]["axis"] == "v" and abs(g[0]["pos"] - 340) < 1.6, f"a vertical guide at about x 340 {g}")
+    ds_eval(page, "ds.store.undo()")
+    out_v(167)
+    g = guides_of(page)
+    check(len(g) == 1 and g[0]["pos"] == 170, f"a guide dragged near an object edge snaps to it (the yellow square's left edge is 170) {g}")
+    ds_eval(page, "ds.store.undo()")
+    out_v(167, mods=("Alt",))
+    g = guides_of(page)
+    check(len(g) == 1 and abs(g[0]["pos"] - 167) < 1.2 and g[0]["pos"] != 170, f"Alt drags without snapping {g}")
+    ds_eval(page, "ds.store.undo()")
+    h0_ = hist(page)
+    out_h(265, end_on_ruler=True)
+    check(guides_of(page) == [] and hist(page) == h0_, "releasing over the ruler cancels the new guide (no history step)")
+    out_h(265)
+    esc_h = hist(page)
+    tx_, ty_ = scr(page, 100, 200)
+    page.mouse.move(rh["x"] + 250, rh["y"] + 8); page.mouse.down(); page.mouse.move(tx_, ty_, steps=5); page.keyboard.press("Escape"); page.mouse.up()
+    page.wait_for_timeout(120)
+    check(len(guides_of(page)) == 1 and hist(page) == esc_h, "Esc while dragging out cancels")
+    ds_eval(page, "ds.store.undo()")
+
+    # ---- objects snap to a guide; the switches turn it off ----
+    ds_eval(page, "const G = await import('/packs/corel/_ds-guides.js'); ds.store.tx('Add guide', (r) => G.addGuide(r, ds.store.page().id, 'v', 33.3, ds.store.newId))")
+    page.wait_for_timeout(150)
+    red = ids["Red"]
+    select_ids(page, red)
+    drag_pt(page, (100, 80), (81, 80))
+    page.wait_for_timeout(150)
+    check(abs(nbox(page, red)["x"] - 33.3) < 0.01, f"the dragged object snaps to the guide ({nbox(page, red)['x']:.3f})")
+    check(page.locator(".ds-ov .ds-snap").count() == 0, "the snap line goes away after the drop")
+    ds_eval(page, "ds.store.undo()")
+    page.locator('.ds-schip[data-cmd="view.snapGuides"]').click()
+    check(pref_of(page, "snapGuides") is False and page.locator('.ds-schip[data-cmd="view.snapGuides"]').get_attribute("aria-pressed") == "false", "the Guides chip switches guide snapping off")
+    select_ids(page, red)
+    drag_pt(page, (100, 80), (81, 80))
+    page.wait_for_timeout(150)
+    check(abs(nbox(page, red)["x"] - 31) < 0.4, f"with guide snapping off the object stays where it was dropped ({nbox(page, red)['x']:.3f})")
+    ds_eval(page, "ds.store.undo()")
+    page.locator('.ds-schip[data-cmd="view.snapGuides"]').click()
+    check(pref_of(page, "snapGuides") is True, "the chip switches it on again")
+    for cmd, pref in (("view.snapObjects", "snapObjects"), ("view.snapPage", "snapPage")):
+        run_menu(page, "View", cmd)
+        check(pref_of(page, pref) is False, f"View > Snap to switches {pref} off")
+        page.locator(f'.ds-schip[data-cmd="{cmd}"]').click()
+        check(pref_of(page, pref) is True, f"the chip switches {pref} back on")
+    page.get_by_role("menuitem", name="View", exact=True).click()
+    check(page.locator('.ds-menu:visible [data-cmd="view.snapPage"]').get_attribute("aria-checked") == "true" and page.locator('.ds-menu:visible [data-cmd="view.snapGrid"]').get_attribute("aria-checked") == "false", "the View menu shows which snap switches are on")
+    page.keyboard.press("Escape"); page.keyboard.press("Escape")
+    # objects snapping off: the red box no longer snaps to the yellow square's edge, the page switch controls the page edge
+    ds_eval(page, "ds.store.setPref('snapGuides', false); ds.store.setPref('snapObjects', false)")
+    select_ids(page, red)
+    drag_pt(page, (100, 80), (57, 80))  # left edge 7 pt, near nothing but the page edge 0 (7 > 5.2 pt away)
+    page.wait_for_timeout(120)
+    drag_pt(page, (57, 80), (53, 80))   # left edge 3 pt from the page edge: page snapping pulls it to 0
+    page.wait_for_timeout(120)
+    check(abs(nbox(page, red)["x"]) < 0.01, f"page snapping pulls the edge to the page edge ({nbox(page, red)['x']:.3f})")
+    ds_eval(page, "ds.store.setPref('snapPage', false)")
+    drag_pt(page, (53, 80), (45, 80))
+    page.wait_for_timeout(120)
+    check(abs(nbox(page, red)["x"] + 8) < 0.05, f"with page snapping off it does not ({nbox(page, red)['x']:.3f})")
+    ds_eval(page, "ds.store.setPref('snapPage', true); ds.store.setPref('snapGuides', true); ds.store.setPref('snapObjects', true); ds.store.undo(); ds.store.undo(); ds.store.undo()")
+    page.wait_for_timeout(120)
+    # Alt+Z switches everything off and the chips dim
+    key_on_canvas(page, "Alt+z")
+    check(pref_of(page, "snap") is False and "ds-snap-off" in page.locator(".ds-snapchips").get_attribute("class"), "Alt+Z switches snapping off, the chips dim")
+    key_on_canvas(page, "Alt+z")
+    check(pref_of(page, "snap") is True, "and on again")
+
+    # ---- move, delete and edit a guide with the Pick tool ----
+    select_ids(page)
+    sx, sy = scr(page, 33.3, 270)
+    g0 = hist(page)
+    page.mouse.move(sx, sy); page.mouse.down(); page.mouse.move(scr(page, 300, 270)[0], sy, steps=8); page.mouse.up()
+    page.wait_for_timeout(150)
+    g = guides_of(page)
+    check(len(g) == 1 and g[0]["pos"] == 300 and hist(page)[1] == g0[1] + 1, f"dragging the guide moves it (and snaps to the gradient square's left edge) {g}")
+    ds_eval(page, "ds.store.undo()")
+    check(guides_of(page)[0]["pos"] == 33.3, "Move guide undoes")
+    ds_eval(page, "ds.store.redo()")
+    ds_eval(page, "ds.store.undo()")
+    # a click selects the guide; Delete removes it, one step
+    page.mouse.click(sx, sy)
+    page.wait_for_timeout(100)
+    check(ds_eval(page, "return ds.store.guideSel") == guides_of(page)[0]["id"] and page.locator(".ds-ov .ds-guide-sel").count() == 1, "a click selects the guide (drawn thicker)")
+    n0 = hist(page)
+    key_on_canvas(page, "Delete")
+    check(guides_of(page) == [] and hist(page)[1] == n0[1] + 1, "Delete removes the selected guide in one step")
+    ds_eval(page, "ds.store.undo()")
+    check(len(guides_of(page)) == 1, "and Undo brings it back")
+    # drag it onto the ruler to delete it
+    page.mouse.move(sx, sy); page.mouse.down(); page.mouse.move(rv["x"] + 8, sy, steps=8); page.mouse.up()
+    page.wait_for_timeout(150)
+    check(guides_of(page) == [], "dragging a guide back onto its ruler deletes it")
+    ds_eval(page, "ds.store.undo()")
+    check(len(guides_of(page)) == 1, "which undoes too")
+    # double-click opens the position field
+    page.mouse.dblclick(sx, sy)
+    d = dialog(page)
+    check("Guide position" in d.inner_text() and d.locator("input[type=number]").input_value() == "11.747", f"double-click opens the position dialog in mm ({d.locator('input[type=number]').input_value()})")
+    d.locator("input[type=number]").fill("50")
+    d.get_by_role("button", name="Apply").click()
+    page.wait_for_timeout(150)
+    check(abs(guides_of(page)[0]["pos"] - 50 * 72 / 25.4) < 0.01, f"the guide moved to 50 mm ({guides_of(page)[0]['pos']:.3f} pt)")
+    ds_eval(page, "ds.store.undo()")
+    # lock guides: the press goes to the tool (a marquee), the guide stays
+    run_menu(page, "Layout", "layout.lockGuides")
+    check(pref_of(page, "lockGuides") is True, "Layout > Lock guides locks them")
+    before = guides_of(page)
+    page.mouse.move(sx, sy); page.mouse.down(); page.mouse.move(scr(page, 200, 270)[0], sy, steps=6); page.mouse.up()
+    page.wait_for_timeout(120)
+    check(guides_of(page) == before, "a locked guide does not move")
+    run_menu(page, "Layout", "layout.lockGuides")
+    check(pref_of(page, "lockGuides") is False, "and unlocks")
+    # add through the dialogs, clear
+    run_menu(page, "Layout", "layout.guideH")
+    d = dialog(page)
+    d.locator("input[type=number]").fill("30")
+    d.get_by_role("button", name="Add guide").click()
+    page.wait_for_timeout(150)
+    gs = guides_of(page)
+    check(len(gs) == 2 and gs[1]["axis"] == "h" and abs(gs[1]["pos"] - (pg["h"] - 30 * 72 / 25.4)) < 0.01, f"Add horizontal guide puts a guide 30 mm up from the page bottom ({gs[-1]})")
+    run_menu(page, "Layout", "layout.guideV")
+    d = dialog(page)
+    d.locator("input[type=number]").fill("20")
+    d.get_by_role("button", name="Add guide").click()
+    page.wait_for_timeout(150)
+    check(len(guides_of(page)) == 3 and guides_of(page)[2]["axis"] == "v" and abs(guides_of(page)[2]["pos"] - 20 * 72 / 25.4) < 0.01, "Add vertical guide measures from the left edge")
+    undo_redo(page, "Clear guides", lambda: run_menu(page, "Layout", "layout.clearGuides"))
+    check(guides_of(page) == [], "Clear guides removes them all")
+    ds_eval(page, "ds.store.undo()")
+    check(len(guides_of(page)) == 3, "Undo brings all three back")
+    run_menu(page, "View", "view.guides")
+    check(pref_of(page, "showGuides") is False and page.locator(".ds-ov line.ds-guide").count() == 0, "View > Guides hides them")
+    ds_eval(page, "ds.store.setPref('snapObjects', false)")
+    select_ids(page, red)
+    drag_pt(page, (100, 80), (81, 80))
+    page.wait_for_timeout(120)
+    check(abs(nbox(page, red)["x"] - 33.3) < 0.01, f"hidden guides still snap ({nbox(page, red)['x']:.3f})")
+    ds_eval(page, "ds.store.undo(); ds.store.setPref('snapObjects', true)")
+    run_menu(page, "View", "view.guides")
+    check(page.locator(".ds-ov line.ds-guide").count() == 3, "and show again")
+    # guides belong to their page
+    page.close()
+    page, errors = mount(ctx, base)
+    info = load_scene(page, pages=2)
+    ds_eval(page, "const G = await import('/packs/corel/_ds-guides.js'); ds.store.tx('Add guide', (r) => G.addGuide(r, ds.store.page().id, 'h', 100, ds.store.newId))")
+    page.wait_for_timeout(120)
+    page.get_by_role("tab", name="Second").click()
+    page.wait_for_timeout(300)
+    check(guides_of(page) == [] and page.locator(".ds-ov line.ds-guide").count() == 0, "another page has no guides")
+    page.get_by_role("tab", name="Page 1").click()
+    page.wait_for_timeout(300)
+    check(len(guides_of(page)) == 1 and page.locator(".ds-ov line.ds-guide").count() == 1, "the first page keeps its guide")
+
+    # ---- the grid ----
+    info = load_scene(page)
+    ids = info["ids"]
+    run_menu(page, "View", "view.grid")
+    check(pref_of(page, "showGrid") is True and page.locator(".ds-ov path.ds-grid").count() == 1, "View > Grid shows the grid")
+    ds_eval(page, "ds.store.setPref('snapObjects', false); ds.store.setPref('snapPage', false)")
+    page.locator('.ds-schip[data-cmd="view.snapGrid"]').click()
+    check(pref_of(page, "snapGrid") is True, "the Grid chip switches grid snapping on")
+    blue = ids["Blue"]
+    select_ids(page, blue)
+    drag_pt(page, (240, 90), (265, 90))
+    page.wait_for_timeout(150)
+    step = 10 * 72 / 25.4
+    b = nbox(page, blue)
+    check(abs(b["x"] / step - round(b["x"] / step)) < 1e-3, f"the left edge lands on a grid line ({b['x']:.3f} is {b['x'] / step:.4f} steps)")
+    check(abs((300 - (b["y"] + b["h"])) / step - round((300 - (b["y"] + b["h"])) / step)) < 1e-3, f"the grid counts up from the page bottom ({300 - (b['y'] + b['h']):.3f})")
+    ds_eval(page, "ds.store.undo(); ds.store.setPref('snapGrid', false)")
+    # ---- zoom commands ----
+    ds_eval(page, "ds.store.setPref('snapObjects', true); ds.store.setPref('snapPage', true); ds.store.setPref('showGrid', false)")
+    select_ids(page)
+    key_on_canvas(page, "Shift+F4")
+    r = visible_rect(page)
+    check(contains(r, {"x": 0, "y": 0, "w": 400, "h": 300}) and fills(r, {"x": 0, "y": 0, "w": 400, "h": 300}), f"Shift+F4 fits the page {r}")
+    zpage = zoom_of(page)
+    content = {"x": 50, "y": 50, "w": 310, "h": 190}
+    key_on_canvas(page, "F4")
+    r = visible_rect(page)
+    zall = zoom_of(page)
+    check(contains(r, content) and fills(r, content) and zall > zpage, f"F4 zooms to all objects ({zall:.3f} > {zpage:.3f})")
+    select_ids(page, blue)
+    key_on_canvas(page, "Shift+F2")
+    r = visible_rect(page)
+    bb = nbox(page, blue)
+    check(contains(r, bb) and fills(r, bb) and zoom_of(page) > zall, f"Shift+F2 zooms to the selection {r}")
+    select_ids(page)
+    z1 = zoom_of(page)
+    key_on_canvas(page, "Shift+F2")
+    check(abs(zoom_of(page) - z1) < 1e-9, "Shift+F2 with nothing selected leaves the view alone (the menu item is disabled)")
+    key_on_canvas(page, "F3")
+    check(abs(zoom_of(page) - z1 / 1.25) < 1e-6, f"F3 zooms out by a quarter ({z1:.3f} to {zoom_of(page):.3f})")
+    key_on_canvas(page, "Control+1")
+    check(abs(zoom_of(page) - 96 / 72) < 1e-6 and page.inner_text(".ds-zoomval") == "100%", f"Ctrl+1 is 100 percent ({page.inner_text('.ds-zoomval')})")
+    key_on_canvas(page, "F2")
+    check(tool_of(page) == "zoom", "F2 picks the Zoom tool")
+    z2 = zoom_of(page)
+    page.mouse.click(*scr(page, 200, 150))
+    check(zoom_of(page) > z2 * 1.4, "a click with the Zoom tool zooms in")
+    z3 = zoom_of(page)
+    page.keyboard.down("Alt"); page.mouse.click(*scr(page, 200, 150)); page.keyboard.up("Alt")
+    check(zoom_of(page) < z3 * 0.8, "Alt+click zooms out")
+    key_on_canvas(page, "Shift+F4")
+    a_, b_ = scr(page, 60, 60), scr(page, 160, 120)
+    page.mouse.move(*a_); page.mouse.down(); page.mouse.move(*b_, steps=6); page.mouse.up()
+    page.wait_for_timeout(120)
+    r = visible_rect(page)
+    check(contains(r, {"x": 60, "y": 60, "w": 100, "h": 60}) and fills(r, {"x": 60, "y": 60, "w": 100, "h": 60}, 0.6), f"dragging a rectangle zooms to it {r}")
+    key_on_canvas(page, "v")
+    key_on_canvas(page, "Shift+F4")
+
+    # ---- wireframe ----
+    key_on_canvas(page, "Shift+F9")
+    wire = page.evaluate("(id) => { const w = document.querySelector('.ds-world'); const p = w.querySelector(`[data-id=\"${id}\"]`); const path = p.localName === 'path' ? p : p.querySelector('path'); const cs = getComputedStyle(path); return [w.classList.contains('ds-wire'), cs.fill, cs.stroke, getComputedStyle(w.querySelector('image')).opacity] }", ids["Red"])
+    check(wire[0] and wire[1] == "none" and wire[2] != "none" and float(wire[3]) < 0.5, f"Shift+F9 shows outlines only {wire}")
+    page.get_by_role("menuitem", name="View", exact=True).click()
+    check(page.locator('.ds-menu:visible [data-cmd="view.wireframe"]').get_attribute("aria-checked") == "true", "the View menu shows Wireframe checked")
+    page.keyboard.press("Escape"); page.keyboard.press("Escape")
+    click_pt(page, 50, 80)
+    check(sel_of(page) == [ids["Red"]], "objects can still be picked in wireframe view (on the outline)")
+    select_ids(page)
+    key_on_canvas(page, "Shift+F9")
+    check(not page.evaluate("() => document.querySelector('.ds-world').classList.contains('ds-wire')"), "Shift+F9 again shows the normal view")
+
+    # ---- rulers on and off, remembered ----
+    key_on_canvas(page, "Control+Alt+r")
+    check(not page.locator(".ds-ruler-h").is_visible() and pref_of(page, "rulers") is False, "Ctrl+Alt+R hides the rulers")
+    check(page.evaluate("() => { const h = document.querySelector('.ds-view').getBoundingClientRect(), s = document.querySelector('.ds-stage').getBoundingClientRect(); return Math.abs(h.left - s.left) < 0.5 && Math.abs(h.top - s.top) < 0.5 }"), "the canvas takes the room")
+    page.get_by_role("menuitem", name="Window", exact=True).click()
+    page.locator('.ds-menu:visible [data-cmd="view.rulers"]').first.click()
+    page.wait_for_timeout(150)
+    check(page.locator(".ds-ruler-h").is_visible() and pref_of(page, "rulers") is True, "Window > Rulers brings them back")
+    run_menu(page, "View", "view.grid")
+    page.keyboard.press("Control+Shift+y")
+    page.wait_for_timeout(150)
+    check(pref_of(page, "snapGrid") is True, "Ctrl+Shift+Y switches grid snapping")
+    page.keyboard.press("Control+Shift+y")
+    saved = page.evaluate("() => localStorage.getItem('tools:ds-prefs')")
+    check(saved and '"showGrid":true' in saved and '"rulers":true' in saved, f"view choices are remembered on this device {saved}")
+    page.reload()
+    wait_ds(page)
+    page.wait_for_timeout(300)
+    check(pref_of(page, "showGrid") is True and pref_of(page, "rulers") is True, "after a reload the grid and rulers are still on")
+    page.evaluate("() => localStorage.setItem('tools:ds-prefs', '{\"rulers\": \"yes\", \"nudge\": 1e99, \"junk\": 1, \"__proto__\": {\"x\": 1}}')")
+    page.reload()
+    wait_ds(page)
+    page.wait_for_timeout(300)
+    check(pref_of(page, "rulers") is None and pref_of(page, "nudge") == 100 and pref_of(page, "junk") is None, "a damaged preference record is cleaned, not trusted")
+    check(not [e for e in errors if "pageerror" in e], f"no uncaught errors {errors[:2]}")
+    shot(page, "rulers")
+    page.close()
+
+
+def center_of(page, selector):
+    r = page.evaluate("(s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2] }", selector)
+    return r
+
+
+def fill_of(page, nid):
+    return node_of(page, nid)["fill"]
+
+
+def make_bitmap(page, w=64, h=64, kind="circle"):
+    """A known picture asset: a black disc on white (kind circle) or a two-colour split. Returns the asset id."""
+    return ds_eval(page, """const c = document.createElement('canvas'); c.width = arg.w; c.height = arg.h; const g = c.getContext('2d')
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, arg.w, arg.h)
+      if (arg.kind === 'circle') { g.fillStyle = '#000000'; g.beginPath(); g.arc(arg.w / 2, arg.h / 2, arg.w * 0.31, 0, Math.PI * 2); g.fill() }
+      else { g.fillStyle = '#d02020'; g.fillRect(0, 0, arg.w / 2, arg.h); g.fillStyle = '#2040d0'; g.fillRect(arg.w / 2, 0, arg.w / 2, arg.h) }
+      const blob = await new Promise((r) => c.toBlob(r, 'image/png'))
+      return (await ds.assets.addBlob(blob, 'test.png')).id""", {"w": w, "h": h, "kind": kind})
+
+
+def place_image(page, asset, x, y, w, h, name="Pic"):
+    return ds_eval(page, """const T = await import('/packs/corel/_ds-tools-draw.js'); const id = ds.store.newId()
+      const d = ds.assets.dims(arg.asset)
+      T.placeNodes(ds.store, [{ id, t: 'image', name: arg.name, asset: arg.asset, w: d.w, h: d.h, m: [arg.w, 0, 0, arg.h, arg.x, arg.y], opacity: 1 }], 'add picture'); return id""", {"asset": asset, "x": x, "y": y, "w": w, "h": h, "name": name})
+
+
+def t_fx(ctx, base):
+    """E12: Interactive fill (uniform, linear, radial, handles, stop markers), Outline pen dialog, Transparency, Eyedropper, Trace bitmap."""
+    page, errors = mount(ctx, base)
+    info = load_scene(page)
+    ids = info["ids"]
+    red, blue, grad = ids["Red"], ids["Blue"], ids["Gradient"]
+    ds_eval(page, "ds.store.setPref('snap', false)")
+    select_ids(page, red)
+    key_on_canvas(page, "g")
+    check(tool_of(page) == "fill" and page.locator(".ds-fillbar").is_visible(), "G picks the Interactive fill tool and its property bar shows")
+    kinds = page.evaluate("() => [...document.querySelectorAll('.ds-fillbar .ds-kindbtn')].map((b) => [b.dataset.kind, b.getAttribute('aria-pressed')])")
+    check(kinds == [["none", "false"], ["uniform", "true"], ["linear", "false"], ["radial", "false"]], f"the type buttons show a uniform fill {kinds}")
+    check(page.locator(".ds-ov .ds-fillh").count() == 0, "a uniform fill has no handles")
+
+    # ---- uniform to linear, undoable ----
+    undo_redo(page, "Linear fill", lambda: page.locator('.ds-fillbar .ds-kindbtn[data-kind="linear"]').click())
+    f = fill_of(page, red)
+    check(f["g"] == "linear" and len(f["stops"]) == 2 and f["stops"][0]["c"] == "#ff0000" and f["stops"][1]["c"] == "#ffffff", f"Linear makes a two-stop gradient from the colour to white {f['stops']}")
+    check([f["x1"], f["y1"], f["x2"], f["y2"]] == [50, 80, 150, 80], f"over the shape's own box, left to right {[f['x1'], f['y1'], f['x2'], f['y2']]}")
+    wait_ov(page)
+    check(page.locator(".ds-ov .ds-fillh").count() == 2, "two handles show")
+    sx, sy = center_of(page, '.ds-ov [data-h="fill-start"]')
+    ex, ey = center_of(page, '.ds-ov [data-h="fill-end"]')
+    a_s, b_s = scr(page, 50, 80), scr(page, 150, 80)
+    check(abs(sx - a_s[0]) < 1 and abs(sy - a_s[1]) < 1 and abs(ex - b_s[0]) < 1 and abs(ey - b_s[1]) < 1, "the handles sit on the start and the end of the gradient")
+
+    # ---- drag the end handle: a live preview, then one step ----
+    h0 = hist(page)
+    page.mouse.move(ex, ey); page.mouse.down()
+    page.mouse.move(*scr(page, 150, 100), steps=6)
+    mid = page.evaluate("(id) => { const el = document.querySelector(`[data-id=\"${id}\"]`); const p = el.localName === 'path' ? el : el.querySelector('path'); const m = /url\\(#([^)]+)\\)/.exec(p.getAttribute('fill')); const g = m && document.getElementById(m[1]); return g ? [+g.getAttribute('x2'), +g.getAttribute('y2')] : null }", red)
+    check(mid and abs(mid[0] - 150) < 1.5 and abs(mid[1] - 100) < 1.5, f"the gradient shows the new end while dragging {mid}")
+    check(hist(page) == h0, "nothing is committed during the drag")
+    page.mouse.up()
+    page.wait_for_timeout(150)
+    f = fill_of(page, red)
+    check(abs(f["x2"] - 150) < 1.5 and abs(f["y2"] - 100) < 1.5 and hist(page)[1] == h0[1] + 1, f"releasing commits one step {f['x2']:.2f}, {f['y2']:.2f}")
+    ds_eval(page, "ds.store.undo()")
+    check(fill_of(page, red)["y2"] == 80, "Undo restores the end point")
+    ds_eval(page, "ds.store.redo()"); ds_eval(page, "ds.store.undo()")
+    # Esc cancels a drag
+    page.mouse.move(ex, ey); page.mouse.down(); page.mouse.move(*scr(page, 120, 60), steps=4); page.keyboard.press("Escape"); page.mouse.up()
+    page.wait_for_timeout(120)
+    check(fill_of(page, red)["y2"] == 80 and hist(page)[1] == h0[1], "Esc cancels the handle drag")
+    # drag the start handle
+    page.mouse.move(sx, sy); page.mouse.down(); page.mouse.move(*scr(page, 70, 80), steps=5); page.mouse.up()
+    page.wait_for_timeout(120)
+    check(abs(fill_of(page, red)["x1"] - 70) < 1.5, f"the start handle moves the start ({fill_of(page, red)['x1']:.2f})")
+    ds_eval(page, "ds.store.undo()")
+
+    # ---- stop markers: click the line to add, drag, select, recolour, delete ----
+    nstops = lambda: len(fill_of(page, red)["stops"])
+    undo_redo(page, "Add colour stop", lambda: page.mouse.click(*scr(page, 100, 80)))
+    f = fill_of(page, red)
+    check(len(f["stops"]) == 3 and abs(f["stops"][1]["o"] - 0.5) < 0.02, f"clicking the line adds a colour stop there {[round(s['o'], 3) for s in f['stops']]}")
+    check(f["stops"][1]["c"] in ("#ff8080", "#ff7f7f", "#ff8080".upper()), f"with the colour the gradient has at that point {f['stops'][1]['c']}")
+    wait_ov(page)
+    check(page.locator(".ds-ov .ds-stopm").count() >= 1 and page.locator(".ds-ov .ds-stopm.ds-picked").count() == 1, "the new stop is drawn and selected")
+    px, py = center_of(page, ".ds-ov .ds-stopm.ds-picked")
+    page.mouse.move(px, py); page.mouse.down(); page.mouse.move(*scr(page, 75, 80), steps=6); page.mouse.up()
+    page.wait_for_timeout(120)
+    f = fill_of(page, red)
+    check(len(f["stops"]) == 3 and abs(f["stops"][1]["o"] - 0.25) < 0.02, f"dragging a stop marker along the line moves it {[round(s['o'], 3) for s in f['stops']]}")
+    # recolour the selected stop from the property bar
+    col = page.locator(".ds-fillbar input[type=color]")
+    check(col.is_enabled() and col.input_value() == f["stops"][1]["c"], f"the colour box shows the selected stop's colour {col.input_value()}")
+    col.fill("#00aa00")
+    page.wait_for_timeout(150)
+    f = fill_of(page, red)
+    check(f["stops"][1]["c"] == "#00aa00" and f["stops"][0]["c"] == "#ff0000", "the colour box recolours that stop only")
+    pos = page.locator('.ds-fillbar input[aria-label^="Position of the selected"]')
+    pos.fill("60"); pos.press("Enter")
+    page.wait_for_timeout(150)
+    check(abs(fill_of(page, red)["stops"][1]["o"] - 0.6) < 1e-6, "the position field moves the stop to 60 percent")
+    # a palette click recolours the selected stop instead of the whole fill
+    page.locator(".ds-palette .ds-sw[data-hex]").nth(30).click()
+    page.wait_for_timeout(120)
+    f = fill_of(page, red)
+    check(isinstance(f, dict) and len(f["stops"]) == 3 and f["stops"][1]["c"] != "#00aa00" and f["stops"][0]["c"] == "#ff0000", "a palette swatch colours the selected stop and keeps the gradient")
+    # Delete removes the selected stop (not the object)
+    key_on_canvas(page, "Delete")
+    check(nstops() == 2 and node_of(page, red) is not None, "Delete removes the selected stop, not the object")
+    page.mouse.click(*scr(page, 100, 80))
+    page.wait_for_timeout(100)
+    page.locator('.ds-fillbar [aria-label="Remove the selected colour stop"]').click()
+    page.wait_for_timeout(100)
+    check(nstops() == 2, "the Remove button does the same")
+    page.locator('.ds-fillbar [aria-label="Add a colour stop"]').click()
+    check(nstops() == 3, "Add colour puts a stop in the widest gap")
+    page.locator('.ds-fillbar [aria-label="Reverse the colours"]').click()
+    check(fill_of(page, red)["stops"][0]["c"] != "#ff0000", "Reverse swaps the colours")
+
+    # ---- radial ----
+    page.locator('.ds-fillbar .ds-kindbtn[data-kind="radial"]').click()
+    f = fill_of(page, red)
+    check(f["g"] == "radial" and [f["cx"], f["cy"], f["r"]] == [100, 80, 50] and len(f["stops"]) == 3, f"Radial keeps the colours and centres on the shape {[f.get('cx'), f.get('cy'), f.get('r')]}")
+    wait_ov(page)
+    ex, ey = center_of(page, '.ds-ov [data-h="fill-end"]')
+    check(abs(ex - scr(page, 150, 80)[0]) < 1, "the edge handle sits on the circle")
+    page.mouse.move(ex, ey); page.mouse.down(); page.mouse.move(*scr(page, 180, 80), steps=5); page.mouse.up()
+    page.wait_for_timeout(120)
+    check(abs(fill_of(page, red)["r"] - 80) < 1.5, f"dragging the edge handle sets the radius ({fill_of(page, red)['r']:.2f})")
+    sx, sy = center_of(page, '.ds-ov [data-h="fill-start"]')
+    page.mouse.move(sx, sy); page.mouse.down(); page.mouse.move(*scr(page, 90, 70), steps=5); page.mouse.up()
+    page.wait_for_timeout(120)
+    f = fill_of(page, red)
+    check(abs(f["cx"] - 90) < 1.5 and abs(f["cy"] - 70) < 1.5 and abs(f["r"] - 80) < 1.5, "the centre handle moves the whole circle")
+    # a rotated object keeps its handles on the gradient (m carries the rotation)
+    select_ids(page, red)
+    ds_eval(page, "const O = await import('/packs/corel/_ds-ops.js'); const b = ds.renderer.nodeBox(ds.store.find(arg).node); ds.store.tx('Rotate', (r) => O.transformIds(r, [arg], O.rotateAbout(Math.PI / 6, b.x + b.w / 2, b.y + b.h / 2)))", red)
+    wait_ov(page)
+    want = ds_eval(page, "const F = await import('/packs/corel/_ds-fill.js'); const h = F.gradientHandles(ds.store.find(arg).node.fill); return [h.a, h.b]", red)
+    sx, sy = center_of(page, '.ds-ov [data-h="fill-start"]'); ex, ey = center_of(page, '.ds-ov [data-h="fill-end"]')
+    wa, wb = scr(page, want[0]["x"], want[0]["y"]), scr(page, want[1]["x"], want[1]["y"])
+    check(abs(sx - wa[0]) < 1 and abs(sy - wa[1]) < 1 and abs(ex - wb[0]) < 1 and abs(ey - wb[1]) < 1, "after rotating the shape the handles are still on the gradient")
+    ds_eval(page, "ds.store.undo()")
+    # uniform and none
+    first = fill_of(page, red)["stops"][0]["c"]
+    page.locator('.ds-fillbar .ds-kindbtn[data-kind="uniform"]').click()
+    check(fill_of(page, red) == first, f"Uniform keeps the first colour {fill_of(page, red)}")
+    page.locator('.ds-fillbar .ds-kindbtn[data-kind="none"]').click()
+    check(fill_of(page, red) is None, "None clears the fill")
+    ds_eval(page, "ds.store.undo()")
+    # several shapes at once
+    select_ids(page, red, blue)
+    page.locator('.ds-fillbar .ds-kindbtn[data-kind="linear"]').click()
+    check(fill_of(page, red)["g"] == "linear" and fill_of(page, blue)["g"] == "linear" and fill_of(page, blue)["x1"] == 200, "the type applies to every selected shape, each over its own box")
+    ds_eval(page, "ds.store.undo()")
+    select_ids(page, ids["Photo"])
+    check(page.locator(".ds-fillbar .ds-kindbtn").first.is_disabled(), "a picture has no fill type to change")
+    key_on_canvas(page, "v")
+
+    # ---- Transparency ----
+    select_ids(page, blue)
+    key_on_canvas(page, "Shift+T")
+    check(tool_of(page) == "transp" and page.locator(".ds-transpbar").is_visible(), "Shift+T picks the Transparency tool and shows its slider")
+    sl = page.locator('.ds-transpbar input[type=range]')
+    h0 = hist(page)
+    sl.evaluate("(e) => { e.value = '40'; e.dispatchEvent(new Event('input', { bubbles: true })) }")
+    sl.evaluate("(e) => { e.value = '60'; e.dispatchEvent(new Event('input', { bubbles: true })) }")
+    page.wait_for_timeout(120)
+    n = node_of(page, blue)
+    check(abs(n["fillOpacity"] - 0.4) < 1e-6 and abs(n["strokeOpacity"] - 0.4) < 1e-6 and hist(page)[1] == h0[1] + 1, f"the slider sets fill and outline opacity together, one step for a drag ({n['fillOpacity']}, {n['strokeOpacity']})")
+    check(page.evaluate("(id) => { const el = document.querySelector(`[data-id=\"${id}\"]`); const p = el.localName === 'path' ? el : el.querySelector('path'); return [p.getAttribute('fill-opacity'), p.getAttribute('stroke-opacity')] }", blue) == ["0.4", "0.4"], "and the picture on screen follows")
+    ds_eval(page, "ds.store.undo()")
+    check(node_of(page, blue)["fillOpacity"] == 1, "one Undo clears it")
+    select_ids(page, ids["Photo"], ids["Pair"])
+    sl.evaluate("(e) => { e.value = '25'; e.dispatchEvent(new Event('input', { bubbles: true })) }")
+    page.wait_for_timeout(120)
+    pn = node_of(page, ids["Photo"]); pair = node_of(page, ids["Pair"])
+    check(abs(pn["opacity"] - 0.75) < 1e-6 and all(abs(k["fillOpacity"] - 0.75) < 1e-6 for k in pair["items"]), "pictures and every shape inside a group take the same value")
+    page.locator('.ds-transpbar [aria-label="Clear transparency"]').click()
+    page.wait_for_timeout(120)
+    check(node_of(page, ids["Photo"])["opacity"] == 1 and node_of(page, ids["Pair"])["items"][0]["fillOpacity"] == 1, "Clear puts everything back to solid")
+    run_menu(page, "Effects", "effects.clearTransp")
+    key_on_canvas(page, "v")
+
+    # ---- Eyedropper ----
+    ds_eval(page, "const O = await import('/packs/corel/_ds-ops.js'); ds.store.tx('red', (r) => O.setStyle(r, [arg], { fill: '#ff0000' }))", red)
+    select_ids(page, red)
+    key_on_canvas(page, "i")
+    check(tool_of(page) == "eyedrop", "I picks the Eyedropper")
+    click_pt(page, 240, 90)  # the blue square (fill blue, black outline 2 pt)
+    page.wait_for_timeout(120)
+    r = node_of(page, red)
+    check(r["fill"] == "#0000ff" and r["stroke"] == "#000000" and r["strokeWidth"] == 2, f"with a selection, clicking another object copies its fill and outline onto it {r['fill']} {r['stroke']} {r['strokeWidth']}")
+    check("pixel" in status_text(page) or "look" in status_text(page).lower() or "Copied" in status_text(page), f"the status says it copies the shape's look, not a pixel ({status_text(page)!r})")
+    ds_eval(page, "ds.store.undo()")
+    check(node_of(page, red)["fill"] == "#ff0000", "one Undo")
+    select_ids(page)
+    click_pt(page, 330, 180)  # the gradient square
+    check(sel_of(page) == [] and node_of(page, red)["fill"] == "#ff0000", "with nothing selected the first click only samples")
+    click_pt(page, 100, 80)
+    page.wait_for_timeout(120)
+    f = node_of(page, red)["fill"]
+    check(isinstance(f, dict) and f["g"] == "linear" and sel_of(page) == [red], "the next click applies the sampled gradient to the clicked object")
+    ds_eval(page, "ds.store.undo()")
+    key_on_canvas(page, "v")
+
+    # ---- Outline pen ----
+    select_ids(page, blue)
+    key_on_canvas(page, "F12")
+    d = dialog(page)
+    check("Outline pen" in d.inner_text(), "F12 opens the Outline pen dialog")
+    width = d.locator('input[aria-label="Outline width"]')
+    check(width.input_value() == str(round(2 / (72 / 25.4), 3)), f"it shows the current width in mm ({width.input_value()})")
+    d.locator('select[aria-label="Width preset"]').select_option("0.1")
+    check(float(width.input_value()) < 0.05, "the Hairline preset fills the width")
+    width.fill("1.5")
+    d.locator('input[aria-label="Outline colour"]').fill("#ff0000")
+    d.locator('select[aria-label="Line style"]').select_option("dashed")
+    d.get_by_role("group", name="Line ends").get_by_role("button", name="Round").click()
+    d.get_by_role("group", name="Corners").get_by_role("button", name="Bevel").click()
+    check(d.locator('input[aria-label="Miter limit"]').is_disabled(), "the miter limit is for mitered corners only")
+    d.get_by_role("group", name="Corners").get_by_role("button", name="Miter").click()
+    d.locator('input[aria-label="Miter limit"]').fill("7")
+    d.get_by_role("group", name="Corners").get_by_role("button", name="Round").click()
+    h0 = hist(page)
+    d.get_by_role("button", name="Apply").click()
+    page.wait_for_timeout(150)
+    n = node_of(page, blue)
+    w = 1.5 * 72 / 25.4
+    check(abs(n["strokeWidth"] - w) < 1e-6 and n["stroke"] == "#ff0000" and n["cap"] == 1 and n["join"] == 1 and n["miter"] == 7 and n["dash"] == [4 * w, 3 * w] and hist(page)[1] == h0[1] + 1, f"Apply sets width, colour, dash, caps and joins in one step {n['strokeWidth']:.3f} {n['stroke']} {n['cap']} {n['join']} {n['dash']}")
+    check(page.evaluate("(id) => { const el = document.querySelector(`[data-id=\"${id}\"]`); const p = el.localName === 'path' ? el : el.querySelector('path'); return [p.getAttribute('stroke-linecap'), p.getAttribute('stroke-linejoin'), p.getAttribute('stroke-dasharray')] }", blue)[0:2] == ["round", "round"], "the drawing follows")
+    ds_eval(page, "ds.store.undo()")
+    check(node_of(page, blue)["strokeWidth"] == 2 and node_of(page, blue)["dash"] is None, "Undo restores the outline")
+    ds_eval(page, "ds.store.redo()")
+    page.keyboard.press("Shift+F12")
+    d = dialog(page)
+    check("Outline colour" in d.inner_text() or "colour" in d.inner_text().lower(), "Shift+F12 still opens the colour dialog")
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(150)
+    select_ids(page, red, blue)
+    key_on_canvas(page, "F12")
+    d = dialog(page)
+    d.get_by_label("No outline").check()
+    d.get_by_role("button", name="Apply").click()
+    page.wait_for_timeout(150)
+    check(node_of(page, red)["stroke"] is None and node_of(page, blue)["stroke"] is None and node_of(page, blue)["strokeWidth"] == 0, "No outline clears every selected outline")
+    ds_eval(page, "ds.store.undo()")
+    select_ids(page, ids["Photo"])
+    check(not page.evaluate("() => document.querySelector('.tool-body').__ds.commands.enabled('effects.outlinePen')"), "pictures have no outline pen")
+
+    # ---- Trace bitmap ----
+    asset = make_bitmap(page, 64, 64, "circle")
+    pic = place_image(page, asset, 40, 20, 100, 100, "Disc")
+    check(page.locator(".ds-bitmapbar").is_visible(), "a selected picture shows the Bitmap bar")
+    top_before = ds_eval(page, "return ds.store.find(arg).layer.items.length", pic)
+    run_menu(page, "Bitmaps", "bitmap.traceLine")
+    d = dialog(page)
+    check("Trace bitmap" in d.inner_text() and d.locator('select[aria-label="Trace preset"]').input_value() == "lineart", "Bitmaps > Trace bitmap > Line art opens the dialog with that preset")
+    check(d.locator('input[aria-label="Number of colours"]').is_disabled(), "line art is two colours, so the colour count is fixed")
+    d.locator('select[aria-label="Trace preset"]').select_option("poster")
+    check(d.locator('input[aria-label="Number of colours"]').is_enabled() and d.locator('input[aria-label="Number of colours"]').input_value() == "24", "the Poster preset has 24 colours")
+    d.locator('select[aria-label="Trace preset"]').select_option("lineart")
+    h0 = hist(page)
+    d.get_by_role("button", name="Trace", exact=True).click()
+    page.wait_for_function("() => !document.querySelector('dialog[open]')", timeout=30000)
+    page.wait_for_timeout(300)
+    check(hist(page)[1] == h0[1] + 1, "tracing is one undo step")
+    sel = sel_of(page)
+    grp = node_of(page, sel[0]) if sel else None
+    check(grp and grp["t"] == "group" and grp["name"].startswith("Traced") and len(grp["items"]) >= 1, f"the result is one group of shapes, selected {grp and (grp['name'], len(grp['items']))}")
+    check(node_of(page, pic) is not None and node_of(page, pic)["m"] == [100, 0, 0, 100, 40, 20], "the original bitmap is kept, unchanged")
+    items = ds_eval(page, "const l = ds.store.find(arg).layer.items; return l.map((n) => n.id)", pic)
+    check(items.index(sel[0]) == items.index(pic) + 1, "the group sits just above the bitmap")
+    gb = nbox(page, sel[0])
+    # the disc: centre (32, 32) of 64 px, radius 0.31 * 64 = 19.84 px; the picture is 100 pt wide, so 1.5625 pt per pixel
+    k = 100 / 64
+    exp = {"x": 40 + (32 - 19.84) * k, "y": 20 + (32 - 19.84) * k, "w": 2 * 19.84 * k, "h": 2 * 19.84 * k}
+    check(abs(gb["x"] - exp["x"]) < 3 and abs(gb["y"] - exp["y"]) < 3 and abs(gb["w"] - exp["w"]) < 4 and abs(gb["h"] - exp["h"]) < 4, f"the shapes lie over the disc {({k_: round(v, 1) for k_, v in gb.items()})} vs {({k_: round(v, 1) for k_, v in exp.items()})}")
+    fills_ = ds_eval(page, "const o = []; const rec = (n) => n.t === 'group' ? n.items.forEach(rec) : o.push(n.fill); rec(ds.store.find(arg).node); return [...new Set(o)]", sel[0])
+    check(len(fills_) == 1 and all(int(fills_[0][i:i + 2], 16) < 16 for i in (1, 3, 5)), f"line art gives black shapes only {fills_}")
+    ds_eval(page, "ds.store.undo()")
+    check(ds_eval(page, "return ds.store.find(arg).layer.items.length", pic) == top_before, "Undo removes the trace and keeps the bitmap")
+    # logo and poster on a two-colour picture
+    asset2 = make_bitmap(page, 48, 48, "split")
+    pic2 = place_image(page, asset2, 200, 20, 90, 90, "Split")
+    for preset, label in (("logo", "Logo or clipart"), ("poster", "Poster or photo")):
+        select_ids(page, pic2)
+        run_menu(page, "Bitmaps", f'bitmap.trace{"Logo" if preset == "logo" else "Poster"}')
+        d = dialog(page)
+        d.get_by_role("button", name="Trace", exact=True).click()
+        page.wait_for_function("() => !document.querySelector('dialog[open]')", timeout=30000)
+        page.wait_for_timeout(250)
+        sel = sel_of(page)
+        cols = ds_eval(page, "const o = []; const rec = (n) => n.t === 'group' ? n.items.forEach(rec) : o.push(n.fill); rec(ds.store.find(arg).node); return [...new Set(o)].sort()", sel[0])
+        gb = nbox(page, sel[0])
+        check(len(cols) >= 2 and abs(gb["x"] - 200) < 3 and abs(gb["w"] - 90) < 4, f"{label}: the split picture traces into its colours {cols} over its box")
+        ds_eval(page, "ds.store.undo()")
+    # save the original bitmap
+    select_ids(page, pic2)
+    with page.expect_download() as dl:
+        run_menu(page, "Bitmaps", "bitmap.saveOriginal")
+    data = Path(dl.value.path()).read_bytes()
+    check(dl.value.suggested_filename.endswith(".png") and data[:4] == b"\x89PNG" and len(data) > 50, f"Save original bitmap downloads the stored picture ({dl.value.suggested_filename}, {len(data)} bytes)")
+    check(not [e for e in errors if "pageerror" in e], f"no uncaught errors {errors[:2]}")
+    shot(page, "fx")
+    page.close()
+
+
+SVG_SQUARES = '<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}"><rect x="10" y="10" width="{a}" height="{a}" fill="#2255cc"/><circle cx="{c}" cy="{c}" r="{r}" fill="#cc5522"/></svg>'
+
+
+def write_svg(dirp, name, w=120, h=90, a=40):
+    p = Path(dirp) / name
+    p.write_text(SVG_SQUARES.format(w=w, h=h, a=a, c=80, r=15), encoding="utf8")
+    return p
+
+
+def drop_files(page, files, selector=".ds-stage"):
+    """Drop real file bytes onto the canvas stage with a synthetic drop event (the same code path as a drag from the desktop)."""
+    payload = [{"name": f.name, "b64": base64.b64encode(f.read_bytes()).decode()} for f in files]
+    page.evaluate("""([sel, files]) => { const dt = new DataTransfer(); for (const f of files) { const bin = Uint8Array.from(atob(f.b64), (c) => c.charCodeAt(0)); dt.items.add(new File([bin], f.name)) }
+      const el = document.querySelector(sel); for (const t of ['dragover', 'drop']) el.dispatchEvent(new DragEvent(t, { dataTransfer: dt, bubbles: true, cancelable: true })) }""", [selector, payload])
+
+
+def n_objects(page):
+    return page.evaluate("() => { const r = document.querySelector('.tool-body').__ds.store.page(); const c = (items) => items.reduce((s, n) => s + 1 + (n.t === 'group' ? c(n.items) : 0), 0); return r.layers.reduce((s, l) => s + c(l.items), 0) }")
+
+
+NO_BRANDS = r"Corel|Adobe|Illustrator|Photoshop|Inkscape|Affinity|Figma|Sketch\b"
+
+
+def t_menus13(ctx, base):
+    """E13: the ten menus (every item has a command behind it), context menus, shortcut sheet and command finder, Properties docker, Options, Document
+    properties, Notes, Import (Ctrl+I) with the page picker, the Open-or-import prompt, several files at once."""
+    import re, tempfile
+    tmp = Path(tempfile.mkdtemp(prefix="dsimp-"))
+    page, errors = mount(ctx, base)
+    warns = []
+    page.on("console", lambda m: warns.append(m.text) if "has no implementation" in m.text else None)
+    info = load_scene(page)
+    ids = info["ids"]
+    ds_eval(page, "ds.store.setPref('snap', false)")
+    # ---- every menu, every item: a command with a run function ----
+    menus = page.evaluate("() => [...document.querySelectorAll('.ds-menubar .ds-mtop')].map((b) => b.textContent)")
+    check(menus == ["File", "Edit", "View", "Layout", "Object", "Effects", "Bitmaps", "Text", "Window", "Help"], f"the ten menus {menus}")
+    items = page.evaluate("() => [...document.querySelectorAll('.ds-menubar .ds-mi')].map((b) => b.dataset.cmd)")
+    bad = ds_eval(page, "return arg.filter((id) => !ds.commands.has(id))", items)
+    check(len(items) > 140 and not bad and not warns, f"{len(items)} menu items, every one has a command behind it {bad} {warns[:2]}")
+    meta_ids = ds_eval(page, "const K = await import('/packs/corel/_ds-keys.js'); return K.COMMANDS.map((c) => c.id)")
+    check(set(meta_ids) <= set(items), f"every command in the table is in a menu ({set(meta_ids) - set(items)})")
+    for m in menus:
+        page.get_by_role("menuitem", name=m, exact=True).click()
+        n = page.locator(".ds-menu:visible .ds-mi").count()
+        check(n >= 3, f"the {m} menu lists {n} items")
+        page.keyboard.press("Escape"); page.keyboard.press("Escape")
+    page.locator(".ds-view").focus()
+
+    # ---- every dialog closes with Esc, and none names another product ----
+    select_ids(page, ids["Blue"])
+    for label, how in (("Document properties", lambda: run_menu(page, "File", "file.properties")), ("Options", lambda: run_menu(page, "Edit", "edit.options")), ("Outline pen", lambda: run_menu(page, "Effects", "effects.outlinePen")),
+                       ("Page setup", lambda: run_menu(page, "Layout", "page.setup")), ("Add guide", lambda: run_menu(page, "Layout", "layout.guideV")), ("Notes about this file", lambda: run_menu(page, "File", "file.notes")),
+                       ("Keyboard shortcuts", lambda: run_menu(page, "Help", "help.shortcuts")), ("Notes on conversions", lambda: run_menu(page, "Help", "help.conversions")), ("Supported formats", lambda: run_menu(page, "Help", "help.formats")),
+                       ("About", lambda: run_menu(page, "Help", "help.about")), ("Fill colour", lambda: run_menu(page, "Effects", "effects.fillColor")), ("Export", lambda: run_menu(page, "File", "file.export"))):
+        how()
+        d = dialog(page)
+        txt = d.inner_text()
+        check(not re.search(NO_BRANDS, txt), f"{label}: no other product is named")
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(150)
+        check(page.locator("dialog[open]").count() == 0, f"{label}: Esc closes the dialog")
+    page.locator(".ds-view").focus()
+
+    # ---- the shortcuts sheet equals the key table, and doubles as the command finder ----
+    page.keyboard.press("?")
+    d = dialog(page)
+    check(page.locator("dialog[open]").count() == 1 and "Keyboard shortcuts and command finder" in d.inner_text(), "? opens only the editor's own sheet (the site's sheet stays closed)")
+    rows = d.locator(".ds-fr").count()
+    want = ds_eval(page, "const K = await import('/packs/corel/_ds-keys.js'); return K.shortcutRows().length")
+    check(rows == want and want > 60, f"the sheet lists exactly the commands that have keys ({rows} rows, table says {want})")
+    texts = d.locator(".ds-fr").all_inner_texts()
+    check(any("Ctrl+O" in t and "Open" in t for t in texts) and any("Alt+N" in t for t in texts) and any("Shift+F4" in t for t in texts) and any("Ctrl+C" in t for t in texts), "it shows Open, New, Zoom to page and the clipboard hints")
+    inp = d.locator('input[aria-label="Find a command"]')
+    inp.fill("break")
+    page.wait_for_timeout(100)
+    check(d.locator(".ds-fr").first.get_attribute("data-cmd") == "arrange.breakApart", "typing finds a command by its name")
+    inp.fill("nudge")
+    check(d.locator(".ds-fr").count() == 4, "and finds commands that have arrow keys")
+    inp.fill("grid")
+    check(d.locator('.ds-fr[data-cmd="view.snapGrid"]').count() == 1 and d.locator('.ds-fr[data-cmd="view.grid"]').count() == 1, "including commands that have no key")
+    inp.fill("zoom to page")
+    ds_eval(page, "ds.view.zoom100()")
+    inp.press("Enter")
+    page.wait_for_timeout(300)
+    check(page.locator("dialog[open]").count() == 0 and abs(zoom_of(page) - 96 / 72) > 0.01, "Enter runs the first match (Zoom to page)")
+    # Ctrl+K reaches Break apart, not the site's search
+    ds_eval(page, "const O = await import('/packs/corel/_ds-ops-arrange.js'); ds.store.setSel([arg[0], arg[1]])", [ids["Red"], ids["Blue"]])
+    key_on_canvas(page, "Control+l")
+    check(len(sel_of(page)) == 1, "Ctrl+L combines")
+    n1 = n_objects(page)
+    page.keyboard.press("Control+k")
+    page.wait_for_timeout(200)
+    check(n_objects(page) == n1 + 1 and page.locator("dialog[open]").count() == 0 and page.locator("#search-palette:visible, .palette:visible").count() == 0, f"Ctrl+K breaks apart and does not open the site's search ({n1} to {n_objects(page)})")
+    ds_eval(page, "ds.store.undo(); ds.store.undo()")
+    key_on_canvas(page, "F1")
+    dialog(page)
+    check("command finder" in page.inner_text("dialog[open]"), "F1 opens the same sheet")
+    page.keyboard.press("Escape")
+
+    # ---- context menus ----
+    page.locator(".ds-view").focus()
+    select_ids(page)
+    page.mouse.click(*scr(page, 100, 80), button="right")
+    page.wait_for_timeout(150)
+    cm = page.locator(".ds-ctxmenu:visible")
+    check(cm.count() == 1 and sel_of(page) == [ids["Red"]], f"right click on an object selects it and opens a context menu ({cm.count()}, {sel_of(page)}, {ids['Red']})")
+    cmds = page.evaluate("() => [...document.querySelectorAll('.ds-ctxmenu .ds-mi')].map((b) => b.dataset.cmd)")
+    check(all(c in cmds for c in ("edit.cut", "edit.copy", "edit.paste", "edit.duplicate", "edit.delete", "arrange.group", "arrange.front", "arrange.lock", "object.toCurves", "win.properties")), f"object menu {cmds[:8]}")
+    page.keyboard.press("ArrowDown"); page.keyboard.press("ArrowDown")
+    first = page.evaluate("() => document.activeElement.dataset.cmd")
+    check(first in cmds, f"arrow keys move through the menu ({first})")
+    page.keyboard.press("Escape")
+    check(page.locator(".ds-ctxmenu:visible").count() == 0 and page.evaluate("() => document.activeElement.classList.contains('ds-view')"), "Esc closes it and returns to the canvas")
+    n0 = n_objects(page)
+    page.mouse.click(*scr(page, 100, 80), button="right")
+    page.locator('.ds-ctxmenu [data-cmd="edit.duplicate"]').click()
+    page.wait_for_timeout(150)
+    check(n_objects(page) == n0 + 1, "a context menu item runs its command")
+    ds_eval(page, "ds.store.undo()")
+    page.mouse.click(*scr(page, 390, 20), button="right")
+    page.wait_for_timeout(120)
+    cmds = page.evaluate("() => [...document.querySelectorAll('.ds-ctxmenu .ds-mi')].map((b) => b.dataset.cmd)")
+    check(sel_of(page) == [] and "edit.selectAll" in cmds and "edit.paste" in cmds and "layout.guideH" in cmds and "edit.delete" not in cmds, f"right click on empty space: page menu {cmds[:6]}")
+    page.keyboard.press("Escape")
+    ds_eval(page, "const G = await import('/packs/corel/_ds-guides.js'); ds.store.tx('Add guide', (r) => G.addGuide(r, ds.store.page().id, 'v', 365, ds.store.newId))")
+    page.wait_for_timeout(120)
+    page.mouse.click(*scr(page, 365, 270), button="right")
+    page.wait_for_timeout(120)
+    cmds = page.evaluate("() => [...document.querySelectorAll('.ds-ctxmenu .ds-mi')].map((b) => b.dataset.cmd)")
+    check("layout.deleteGuide" in cmds and "layout.editGuide" in cmds and ds_eval(page, "return ds.store.guideSel") is not None, f"right click on a guide: guide menu {cmds}")
+    page.locator('.ds-ctxmenu [data-cmd="layout.deleteGuide"]').click()
+    page.wait_for_timeout(120)
+    check(guides_of(page) == [], "Delete guide from the context menu")
+    page.mouse.click(*scr(page, 100, 80), button="right")
+    page.mouse.click(*scr(page, 300, 20))
+    page.wait_for_timeout(100)
+    check(page.locator(".ds-ctxmenu:visible").count() == 0, "a click elsewhere closes the menu")
+    key_on_canvas(page, "z")
+    page.mouse.click(*scr(page, 100, 80), button="right")
+    page.wait_for_timeout(100)
+    check(page.locator(".ds-ctxmenu:visible").count() == 0, "the Zoom tool keeps its own right click (zoom out)")
+    key_on_canvas(page, "v")
+
+    # ---- the Properties docker ----
+    select_ids(page, ids["Red"])
+    page.keyboard.press("Alt+Enter")
+    page.wait_for_timeout(250)
+    sec = page.locator('.ds-dsec[data-section="properties"]')
+    check(sec.count() == 1 and sec.locator(".ds-dsec-head").get_attribute("aria-expanded") == "true", "Alt+Enter opens the Properties docker section")
+    summ = sec.locator(".ds-pr-sum").inner_text()
+    check("Rectangle" in summ and "35.28 x 21.17 mm" in summ and "node" in summ, f"it describes the object: {summ!r}")
+    sec.locator('.ds-kindbtn[data-kind="linear"]').click()
+    page.wait_for_timeout(120)
+    check(node_of(page, ids["Red"])["fill"]["g"] == "linear", "the Fill type buttons work from the docker")
+    ds_eval(page, "ds.store.undo()")
+    wf = sec.locator('input[aria-label="Properties: outline width"]')
+    wf.fill("1"); wf.press("Enter")
+    page.wait_for_timeout(120)
+    check(abs(node_of(page, ids["Red"])["strokeWidth"] - 72 / 25.4) < 1e-6, "the Outline width field sets the width")
+    ds_eval(page, "ds.store.undo()")
+    rg = sec.locator('input[type=range]')
+    rg.evaluate("(e) => { e.value = '30'; e.dispatchEvent(new Event('input', { bubbles: true })) }")
+    page.wait_for_timeout(100)
+    check(abs(node_of(page, ids["Red"])["fillOpacity"] - 0.7) < 1e-6, "the Transparency slider works from the docker")
+    ds_eval(page, "ds.store.undo()")
+    sec.get_by_role("button", name="Outline pen...").click()
+    dialog(page)
+    page.keyboard.press("Escape")
+    page.keyboard.press("Control+Shift+a")
+    page.wait_for_timeout(200)
+    check(page.locator('.ds-dsec[data-section="align"] .ds-dsec-head').get_attribute("aria-expanded") == "true", "Ctrl+Shift+A opens Align and distribute")
+    check(sel_of(page) == [ids["Red"]], "the docker did not change the selection")
+
+    # ---- Options ----
+    run_menu(page, "Edit", "edit.options")
+    d = dialog(page)
+    d.locator('input[aria-label="Nudge in millimetres"]').fill("2"); d.locator('input[aria-label="Nudge in millimetres"]').press("Tab")
+    d.locator('input[aria-label="Duplicate offset in millimetres"]').fill("8"); d.locator('input[aria-label="Duplicate offset in millimetres"]').press("Tab")
+    d.locator('select[aria-label="Mouse wheel"]').select_option("scroll")
+    d.get_by_label("Scale outlines with objects").check()
+    gr = d.locator('input[aria-label^="Grid spacing"]')
+    gr.fill("5"); gr.press("Tab")
+    d.get_by_role("button", name="Done").click()
+    page.wait_for_timeout(150)
+    P = ds_eval(page, "return {nudge: ds.store.prefs.nudge, dup: ds.store.prefs.dupOffset, wheel: ds.store.prefs.wheel, sc: ds.store.prefs.scaleStroke, grid: ds.store.prefs.gridStep}")
+    check(P["nudge"] == 2 and P["dup"] == 8 and P["wheel"] == "scroll" and P["sc"] is True and abs(P["grid"] - 5 * 72 / 25.4) < 1e-9, f"Options are applied {P}")
+    select_ids(page, ids["Red"])
+    x0 = nbox(page, ids["Red"])["x"]
+    key_on_canvas(page, "ArrowRight")
+    check(abs(nbox(page, ids["Red"])["x"] - x0 - 2 * 72 / 25.4) < 1e-6, "the arrow key nudges by the chosen step")
+    key_on_canvas(page, "Shift+ArrowRight")
+    check(abs(nbox(page, ids["Red"])["x"] - x0 - 22 * 72 / 25.4) < 1e-6, "Shift moves ten times as far")
+    ds_eval(page, "ds.store.undo()")  # two quick nudges are one merged step
+    n0 = n_objects(page)
+    key_on_canvas(page, "Control+d")
+    dup = sel_of(page)[0]
+    check(abs(nbox(page, dup)["x"] - x0 - 8 * 72 / 25.4) < 1e-6, "Duplicate uses the chosen offset")
+    ds_eval(page, "ds.store.undo()")
+    check("scroll" in (page.evaluate("() => localStorage.getItem('tools:ds-prefs')") or ""), "Options are remembered on this device")
+    run_menu(page, "Edit", "edit.options")
+    d = dialog(page)
+    d.get_by_role("button", name="Reset to defaults").click()
+    page.wait_for_timeout(150)
+    P = ds_eval(page, "return {nudge: ds.store.prefs.nudge, dup: ds.store.prefs.dupOffset, wheel: ds.store.prefs.wheel, sc: ds.store.prefs.scaleStroke, grid: ds.store.prefs.gridStep ?? null}")
+    check(P == {"nudge": 1, "dup": 5, "wheel": "zoom", "sc": False, "grid": None}, f"Reset to defaults {P}")
+
+    # ---- Document properties and Notes ----
+    run_menu(page, "File", "file.properties")
+    d = dialog(page)
+    d.locator('input[aria-label="Title"]').fill("My drawing")
+    d.locator('select[aria-label="Units"]').select_option("in")
+    d.get_by_role("button", name="Apply").click()
+    page.wait_for_timeout(150)
+    check(ds_eval(page, "return [ds.store.root.title, ds.store.root.units]") == ["My drawing", "in"] and "My drawing" in page.inner_text(".ds-docname"), "Document properties sets the title and the units")
+    ds_eval(page, "ds.store.undo()")
+    check(ds_eval(page, "return ds.store.root.units") == "mm", "and undoes")
+    ds_eval(page, "ds.store.tx('warn', (r) => ({ ...r, warnings: ['Test note one.'] }))")
+    run_menu(page, "File", "file.notes")
+    d = dialog(page)
+    check("Test note one." in d.inner_text(), "Notes about this file lists the reader's notes")
+    page.keyboard.press("Escape")
+
+    # ---- Object > Move to layer ----
+    select_ids(page, ids["Red"])
+    run_menu(page, "Object", "object.moveToLayer")
+    d = dialog(page)
+    top_id = ds_eval(page, "return ds.store.page().layers.find((l) => l.name === 'Top').id")
+    d.locator("select").select_option(str(top_id))
+    d.get_by_role("button", name="Move").click()
+    page.wait_for_timeout(150)
+    check(ds_eval(page, "return ds.store.find(arg).layer.name", ids["Red"]) == "Top", "Object > Move to layer opens a chooser and moves the selection")
+    ds_eval(page, "ds.store.undo()")
+    check(ds_eval(page, "return ds.store.find(arg).layer.name", ids["Red"]) == "Layer 1", "and undoes")
+
+    # ---- panels ----
+    run_menu(page, "Window", "win.palette")
+    check(page.evaluate("() => getComputedStyle(document.querySelector('.ds-palette')).display") == "none", "Window > Colour palette hides the palette")
+    run_menu(page, "Window", "win.toolbox")
+    check(page.evaluate("() => getComputedStyle(document.querySelector('.ds-tools')).display") == "none", "Window > Toolbox hides the toolbox")
+    run_menu(page, "Window", "win.reset")
+    check(page.evaluate("() => getComputedStyle(document.querySelector('.ds-palette')).display") != "none" and page.evaluate("() => getComputedStyle(document.querySelector('.ds-tools')).display") != "none", "Window > Reset layout brings them back")
+
+    # ---- Import (Ctrl+I): a file placed as a group ----
+    page.close()
+    page, errors = mount(ctx, base)
+    info = load_scene(page)
+    ds_eval(page, "ds.store.setPref('snap', false)")
+    svg = write_svg(tmp, "badge.svg")
+    n0 = n_objects(page)
+    page.locator(".ds-view").focus()
+    with page.expect_file_chooser() as fc:
+        page.keyboard.press("Control+i")
+    fc.value.set_files(str(svg))
+    page.wait_for_timeout(1200)
+    sel = sel_of(page)
+    g = node_of(page, sel[0]) if sel else None
+    check(g and g["t"] == "group" and g["name"] == "badge" and len(g["items"]) == 2, f"Ctrl+I places the file as a group named after it {g and (g['name'], len(g['items']))}")
+    gb = nbox(page, sel[0])
+    check(abs(gb["x"] + gb["w"] / 2 - 200) < 1.5 and abs(gb["y"] + gb["h"] / 2 - 150) < 1.5, f"centred on the page {({k: round(v, 1) for k, v in gb.items()})}")
+    check(n_objects(page) == n0 + 3 and ds_eval(page, "return ds.store.root.title") == "scene", "the drawing itself is kept (an import is not an open)")
+    ds_eval(page, "ds.store.undo()")
+    check(n_objects(page) == n0, "one Undo removes the whole import")
+    big = write_svg(tmp, "huge.svg", w=2000, h=1500, a=1800)
+    ds_eval(page, "ds.store.setSel([])")
+    with page.expect_file_chooser() as fc:
+        run_menu(page, "File", "file.import")
+    fc.value.set_files(str(big))
+    page.wait_for_timeout(1200)
+    sel = sel_of(page)
+    gb = nbox(page, sel[0]) if sel else None
+    check(gb and gb["w"] <= 400 * 0.9 + 1 and gb["h"] <= 300 * 0.9 + 1 and "smaller" in status_text(page), f"a file larger than the page is made smaller to fit ({gb and round(gb['w'])} x {gb and round(gb['h'])}; {status_text(page)!r})")
+    ds_eval(page, "ds.store.undo()")
+    # a multi-page file asks which page
+    fx = FIX / "designtool-3p.ai"
+    if fx.exists():
+        n0 = n_objects(page)
+        with page.expect_file_chooser() as fc:
+            page.keyboard.press("Control+i")
+        fc.value.set_files(str(fx))
+        d = dialog(page, timeout=60000)
+        check("Which page" in d.inner_text() and d.locator("select option").count() == 3, f"a multi-page file asks which page ({d.locator('select option').count()} pages)")
+        d.locator("select").select_option("1")
+        d.get_by_role("button", name="Import").click()
+        page.wait_for_function("() => !document.querySelector('dialog[open]')", timeout=60000)
+        page.wait_for_timeout(2500)
+        sel = sel_of(page)
+        check(len(sel) == 1 and n_objects(page) > n0 + 3, f"the chosen page is placed as one group ({n_objects(page) - n0} new objects)")
+        ds_eval(page, "ds.store.undo()")
+        with page.expect_file_chooser() as fc:
+            page.keyboard.press("Control+i")
+        fc.value.set_files(str(fx))
+        d = dialog(page, timeout=60000)
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        check(n_objects(page) == n0 and not page.locator(".ds-busy:visible").count(), "Cancel in the page picker imports nothing")
+
+    # ---- the Open-or-import prompt (a drop onto a drawing with content) ----
+    n0 = n_objects(page)
+    a = write_svg(tmp, "dropped.svg")
+    drop_files(page, [a])
+    d = dialog(page)
+    check("Open or import into this page?" in d.inner_text() and d.get_by_role("button", name="Import into this page").count() == 1 and d.get_by_role("button", name="Open", exact=True).count() == 1, "dropping a file onto a drawing with content asks first")
+    d.get_by_role("button", name="Cancel").click()
+    page.wait_for_timeout(300)
+    check(n_objects(page) == n0 and ds_eval(page, "return ds.store.root.title") == "scene", "Cancel does nothing")
+    drop_files(page, [a])
+    d = dialog(page)
+    d.get_by_role("button", name="Import into this page").click()
+    page.wait_for_timeout(1200)
+    check(n_objects(page) == n0 + 3 and ds_eval(page, "return ds.store.root.title") == "scene", "Import adds the file to this page")
+    drop_files(page, [a])
+    d = dialog(page)
+    d.get_by_role("button", name="Open", exact=True).click()
+    page.wait_for_timeout(1500)
+    check(ds_eval(page, "return ds.store.root.title") == "dropped" and n_objects(page) == 2, "Open replaces the drawing")
+    # an empty editor does not ask
+    page.close()
+    page, errors = mount(ctx, base)
+    drop_files(page, [a])
+    page.wait_for_timeout(1500)
+    check(page.locator("dialog[open]").count() == 0 and ds_eval(page, "return ds.store.root.title") == "dropped", "an empty editor just opens the dropped file")
+    # the hand-over from another tool goes through the same prompt
+    b = write_svg(tmp, "second.svg", w=200, h=100)
+    page.evaluate("async (b64) => { const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)); document.querySelector('.t-ds .dropzone')._take([new File([bin], 'second.svg')]) }", base64.b64encode(b.read_bytes()).decode())
+    d = dialog(page)
+    check("Open or import into this page?" in d.inner_text(), "files handed over by another tool get the same question")
+    d.get_by_role("button", name="Cancel").click()
+
+    # ---- several files at once ----
+    page.close()
+    page, errors = mount(ctx, base)
+    c1, c2 = write_svg(tmp, "one.svg"), write_svg(tmp, "two.svg", w=160, h=120)
+    page.set_input_files(".t-ds input[type=file]", [str(c1), str(c2)])
+    page.wait_for_function("() => document.querySelector('.tool-body').__ds.store.root.pages.length === 2", timeout=15000)
+    st = page.evaluate(STATE_JS)
+    check(st["pages"] == 2 and st["title"] == "one" and st["names"][1] and st["sizes"][1] == [160 * 0.75, 120 * 0.75], f"two files into an empty editor: the first opens, the second becomes a new page {st['names']} {st['sizes']}")
+    ds_eval(page, "ds.store.undo()")
+    check(ds_eval(page, "return ds.store.root.pages.length") == 1, "adding the pages is one step")
+    # with content and several files: the prompt, then Import places both as groups
+    c3 = write_svg(tmp, "three.svg", w=100, h=100)
+    page.set_input_files(".t-ds input[type=file]", [str(c2), str(c3)])
+    d = dialog(page)
+    check("these 2 files" in d.inner_text(), "several files onto a drawing that has content ask first too")
+    d.get_by_role("button", name="Import into this page").click()
+    page.wait_for_timeout(2000)
+    names = ds_eval(page, "return ds.store.page().layers.flatMap((l) => l.items.map((n) => n.name))")
+    check("two" in names and "three" in names, f"both files are imported as groups {names}")
+    check(not [e for e in errors if "pageerror" in e], f"no uncaught errors {errors[:2]}")
+    page.close()
+    import shutil
+    shutil.rmtree(tmp, ignore_errors=True)
+
+
+def t_e1113_phone(ctx, base):
+    """E11 to E13 at 375 px: rulers off by default but guides and snapping work, the menu sheet lists the new menus, the Panels sheet shows Properties,
+    the new dialogs and the context menu fit, the effects bars scroll inside their own box, targets are at least 36 px."""
+    page, errors = mount(ctx, base, 375, 760)
+    ov = lambda: page_state(page)["overflow"]
+    info = load_scene(page)
+    ids = info["ids"]
+    check(page.locator(".ds-ruler-h").count() == 1 and not page.locator(".ds-ruler-h").is_visible() and not page.locator(".ds-ruler-v").is_visible(), "rulers are off by default on a phone")
+    check(not page.locator(".ds-snapchips").is_visible(), "the snap chips are left to the View menu on a phone")
+    # guides through the Layout menu still work and still snap
+    page.get_by_role("button", name="Menu").click()
+    page.get_by_role("button", name="Layout", exact=True).click()
+    page.locator('.ds-msheet-body:visible [data-cmd="layout.guideV"]').click()
+    d = dialog(page)
+    check(ov() <= 1, f"the guide dialog fits (overflow {ov()})")
+    d.locator("input[type=number]").fill("20")
+    d.get_by_role("button", name="Add guide").click()
+    page.wait_for_timeout(200)
+    check(len(guides_of(page)) == 1 and page.locator(".ds-ov line.ds-guide").count() == 1, "the guide is drawn")
+    ds_eval(page, "ds.store.setPref('snapObjects', false); ds.store.setPref('snapPage', false)")
+    red = ids["Red"]
+    select_ids(page, red)
+    z = zoom_of(page)
+    page.evaluate("() => document.querySelector('.tool-body').__ds.view.zoomPage()")
+    page.wait_for_timeout(150)
+    gx = 20 * 72 / 25.4
+    drag_pt(page, (100, 80), (100 + (gx + 1.2 - 50), 80))
+    page.wait_for_timeout(150)
+    check(abs(nbox(page, red)["x"] - gx) < 0.01, f"an object snaps to the guide on a phone ({nbox(page, red)['x']:.3f} vs {gx:.3f})")
+    ds_eval(page, "ds.store.undo()")
+    # the menu sheet lists every menu and its items are large enough
+    page.get_by_role("button", name="Menu").click()
+    heads = page.locator(".ds-msheet-head").all_inner_texts()
+    check([h.strip() for h in heads] == ["File", "Edit", "View", "Layout", "Object", "Effects", "Bitmaps", "Text", "Window", "Help"], f"the menu sheet has the ten menus {heads}")
+    for name, cmd in (("Effects", "tool.fill"), ("Bitmaps", "bitmap.place"), ("Window", "win.properties"), ("Help", "help.about"), ("View", "view.wireframe")):
+        page.get_by_role("button", name=name, exact=True).click()
+        it = page.locator(f'.ds-msheet-body:visible [data-cmd="{cmd}"]')
+        b = it.bounding_box()
+        check(it.count() == 1 and b["height"] >= 30, f"{name}: {cmd} is in the sheet and easy to tap ({b and round(b['height'])} px)")
+    check(ov() <= 1, f"the menu sheet fits (overflow {ov()})")
+    page.get_by_role("button", name="Window", exact=True).click()
+    page.locator('.ds-msheet-body:visible [data-cmd="win.properties"]').click()
+    page.wait_for_timeout(300)
+    check(page.locator(".ds-dock").is_visible() and page.locator('.ds-dsec[data-section="properties"] .ds-dsec-head').get_attribute("aria-expanded") == "true", "Window > Properties opens the Panels sheet on Properties")
+    check(ov() <= 1, f"the Panels sheet with Properties fits (overflow {ov()})")
+    small = page.evaluate("() => [...document.querySelectorAll('.ds-props input, .ds-props button, .ds-props select')].filter((e) => e.offsetParent !== null).map((e) => { const r = e.getBoundingClientRect(); return [e.getAttribute('aria-label') || e.textContent.slice(0, 20), Math.round(r.width), Math.round(r.height)] }).filter(([, w, h]) => w < 30 || h < 28)")
+    check(not small, f"Properties controls are large enough {small[:4]}")
+    page.get_by_role("button", name="Close panels").click()
+    page.wait_for_timeout(200)
+    check(not page.locator(".ds-dock").is_visible(), "Close hides the Panels sheet")
+    # the effects bars scroll inside their own box
+    select_ids(page, red)
+    page.evaluate("() => document.querySelector('.tool-body').__ds.tools.set('fill')")
+    page.locator('.ds-fillbar .ds-kindbtn[data-kind="linear"]').click()
+    page.wait_for_timeout(150)
+    sizes = page.evaluate("() => { const e = document.querySelector('.ds-prop'); const bar = document.querySelector('.ds-fillbar'); return [e.scrollWidth > e.clientWidth, Math.round(e.getBoundingClientRect().width), bar.hidden] }")
+    check(sizes[0] and sizes[1] <= 375 and not sizes[2] and ov() <= 1, f"the Interactive fill bar scrolls inside the property bar {sizes}")
+    small = page.evaluate("() => [...document.querySelectorAll('.ds-fillbar input, .ds-fillbar button')].filter((e) => e.offsetParent !== null).map((e) => { const r = e.getBoundingClientRect(); return [e.getAttribute('aria-label'), Math.round(r.width), Math.round(r.height)] }).filter(([, w, h]) => w < 34 || h < 34)")
+    check(not small, f"the fill bar's targets are at least 34 px {small[:4]}")
+    # handles can be dragged with a touch-style pointer: the gradient end handle
+    wait_ov(page)
+    ex, ey = center_of(page, '.ds-ov [data-h="fill-end"]')
+    page.mouse.move(ex, ey); page.mouse.down(); page.mouse.move(ex, ey + 25, steps=5); page.mouse.up()
+    page.wait_for_timeout(150)
+    check(abs(node_of(page, red)["fill"]["y2"] - 80) > 3, "the handle drags on a phone too")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.tools.set('transp')")
+    check(page.locator(".ds-transpbar").is_visible() and ov() <= 1, "the Transparency bar shows")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.tools.set('pick')")
+    # dialogs
+    for label, cmd, setup in (("Outline pen", "effects.outlinePen", None), ("Options", "edit.options", None), ("Document properties", "file.properties", None), ("shortcut sheet", "help.shortcuts", None), ("Conversions", "help.conversions", None)):
+        page.evaluate("(c) => document.querySelector('.tool-body').__ds.commands.run(c)", cmd)
+        d = dialog(page)
+        b = d.bounding_box()
+        check(b["width"] <= 375 and ov() <= 1, f"{label} dialog fits at 375 px (width {round(b['width'])}, overflow {ov()})")
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(150)
+    asset = make_bitmap(page, 40, 40, "split")
+    pic = place_image(page, asset, 20, 20, 80, 80, "Disc")
+    page.evaluate("() => document.querySelector('.tool-body').__ds.commands.run('bitmap.traceLogo')")
+    d = dialog(page)
+    check(d.bounding_box()["width"] <= 375 and ov() <= 1, f"the Trace dialog fits ({round(d.bounding_box()['width'])})")
+    page.keyboard.press("Escape")
+    # the context menu stays inside the screen
+    select_ids(page)
+    page.evaluate("() => document.querySelector('.ds-view').focus()")
+    v = page.locator(".ds-view").bounding_box()
+    page.mouse.click(v["x"] + v["width"] - 10, v["y"] + v["height"] - 10, button="right")
+    page.wait_for_timeout(200)
+    cm = page.locator(".ds-ctxmenu:visible")
+    b = cm.bounding_box()
+    t = page.locator(".t-ds").bounding_box()
+    check(cm.count() == 1 and b["x"] >= t["x"] - 1 and b["x"] + b["width"] <= t["x"] + t["width"] + 1 and b["y"] + b["height"] <= t["y"] + t["height"] + 1 and ov() <= 1, f"the context menu opens inside the app at the screen corner {({k: round(v_) for k, v_ in b.items()})}")
+    page.keyboard.press("Escape")
+    check(not [e for e in errors if "pageerror" in e], f"no uncaught errors {errors[:2]}")
+    shot(page, "e1113-phone")
+    page.close()
+
+
 def shot(page, name):
     SHOTS.mkdir(parents=True, exist_ok=True)
     page.screenshot(path=str(SHOTS / f"{name}.png"))
 
 
 CHECKS = {"mount": t_mount, "inject": t_inject, "fixture": t_open_fixture, "cdr": t_open_cdr, "pixels": t_pixels, "other": t_open_other, "handoff": t_handoff, "leaks": t_leaks, "keys": t_keys_menus, "quick": t_quick, "dark": t_dark, "phone": t_phone, "truth": t_truth,
-          "pick": t_pick, "pickperf": t_pick_perf, "palette": t_palette, "objects": t_objects, "domfuzz": t_dom_fuzz, "objectsmany": t_objects_many, "objectsfiles": t_objects_files, "editphone": t_edit_phone, "pages": t_pages, "autosave": t_autosave, "text": t_text, "textpdf": t_text_pdf, "save": t_save, "savetext": t_save_text, "e2e": t_e2e, "e678phone": t_e678_phone, "shapes": t_shapes, "arrange": t_arrange, "e910phone": t_arrange_phone}
+          "pick": t_pick, "pickperf": t_pick_perf, "palette": t_palette, "objects": t_objects, "domfuzz": t_dom_fuzz, "objectsmany": t_objects_many, "objectsfiles": t_objects_files, "editphone": t_edit_phone, "pages": t_pages, "autosave": t_autosave, "text": t_text, "textpdf": t_text_pdf, "save": t_save, "savetext": t_save_text, "e2e": t_e2e, "e678phone": t_e678_phone, "shapes": t_shapes, "arrange": t_arrange, "e910phone": t_arrange_phone, "rulers": t_rulers, "fx": t_fx, "menus13": t_menus13, "e1113phone": t_e1113_phone}
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

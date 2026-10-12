@@ -3,18 +3,21 @@
 // the menus and the toolbox together (no dead buttons).
 //   {id, label, menu, path?: ['Submenu'], group?: n (a separator is drawn when it changes), keys: ['Ctrl+O'], icon?, phone?: true (shown in the phone bar),
 //    keyArgs?: {'Shift+Left': {step: 10}} (arguments passed to run when that key fires; menus run with none),
-//    hint?: 'Ctrl+C' (shown in the menu and the shortcut sheet, but NOT bound: the browser's own copy, cut and paste events do that work)}
+//    hint?: 'Ctrl+C' (shown in the menu and the shortcut sheet, but NOT bound: the browser's own copy, cut and paste events do that work),
+//    also?: ['Window'] (further menus that list the same command)}
 export const MENUS = ['File', 'Edit', 'View', 'Layout', 'Object', 'Effects', 'Bitmaps', 'Text', 'Window', 'Help']
 
 export const COMMANDS = [
   // File
   { id: 'file.new', label: 'New', menu: 'File', group: 1, keys: ['Alt+N'], icon: 'file-plus' },
   { id: 'file.open', label: 'Open...', menu: 'File', group: 1, keys: ['Ctrl+O'], icon: 'folder-open', phone: true },
+  { id: 'file.import', label: 'Import...', menu: 'File', group: 1, keys: ['Ctrl+I'], icon: 'upload' },
   { id: 'file.restore', label: 'Restore autosaved drawing...', menu: 'File', group: 1, keys: [], icon: 'history' },
   { id: 'file.save', label: 'Save as CDR', menu: 'File', group: 2, keys: ['Ctrl+S'], icon: 'save', phone: true },
   { id: 'file.saveAs', label: 'Save as...', menu: 'File', group: 2, keys: ['Ctrl+Shift+S'], icon: 'file-down' },
   { id: 'file.export', label: 'Export...', menu: 'File', group: 2, keys: ['Ctrl+E'], icon: 'file-output' },
   { id: 'file.exportSel', label: 'Export selection as PNG...', menu: 'File', group: 2, keys: [], icon: 'image' },
+  { id: 'file.properties', label: 'Document properties...', menu: 'File', group: 4, keys: [], icon: 'sliders-horizontal' },
   { id: 'file.notes', label: 'Notes about this file', menu: 'File', group: 4, keys: [], icon: 'info' },
   { id: 'file.exportNotes', label: 'Notes about the last save or export', menu: 'File', group: 4, keys: [], icon: 'info' },
   // Edit
@@ -30,6 +33,8 @@ export const COMMANDS = [
   { id: 'edit.selectNone', label: 'Select none', menu: 'Edit', group: 3, keys: ['Esc'], icon: 'square-dashed' },
   { id: 'edit.selectNext', label: 'Select next object', menu: 'Edit', group: 3, keys: ['Tab'], icon: 'chevron-right' },
   { id: 'edit.selectPrev', label: 'Select previous object', menu: 'Edit', group: 3, keys: ['Shift+Tab'], icon: 'chevron-left' },
+  { id: 'edit.invertSelection', label: 'Invert selection', menu: 'Edit', group: 3, keys: [], icon: 'box-select' },
+  { id: 'edit.options', label: 'Options...', menu: 'Edit', group: 4, keys: [], icon: 'settings' },
   // View
   { id: 'view.zoomIn', label: 'Zoom in', menu: 'View', group: 1, keys: ['+', '=', 'Ctrl+='], icon: 'zoom-in' },
   { id: 'view.zoomOut', label: 'Zoom out', menu: 'View', group: 1, keys: ['-', 'F3', 'Ctrl+-'], icon: 'zoom-out' },
@@ -37,7 +42,15 @@ export const COMMANDS = [
   { id: 'view.zoomAll', label: 'Zoom to all objects', menu: 'View', group: 1, keys: ['F4'], icon: 'scan-search' },
   { id: 'view.zoomPage', label: 'Zoom to page', menu: 'View', group: 1, keys: ['Shift+F4', 'Ctrl+0'], icon: 'frame' },
   { id: 'view.zoom100', label: '100 percent', menu: 'View', group: 1, keys: ['Ctrl+1'], icon: 'maximize' },
-  { id: 'view.snap', label: 'Snap to objects and page', menu: 'View', group: 4, keys: ['Alt+Z'], icon: 'magnet' },
+  { id: 'view.wireframe', label: 'Wireframe', menu: 'View', group: 2, keys: ['Shift+F9'], icon: 'square-dashed' },
+  { id: 'view.rulers', label: 'Rulers', menu: 'View', group: 3, keys: ['Ctrl+Alt+R'], icon: 'ruler', also: ['Window'] },
+  { id: 'view.guides', label: 'Guides', menu: 'View', group: 3, keys: [], icon: 'ruler' },
+  { id: 'view.grid', label: 'Grid', menu: 'View', group: 3, keys: [], icon: 'grid-3x3' },
+  { id: 'view.snap', label: 'Snapping', menu: 'View', group: 4, keys: ['Alt+Z'], icon: 'magnet' },
+  { id: 'view.snapGuides', label: 'Snap to guides', menu: 'View', path: ['Snap to'], keys: [], icon: 'magnet' },
+  { id: 'view.snapObjects', label: 'Snap to objects', menu: 'View', path: ['Snap to'], keys: [], icon: 'magnet' },
+  { id: 'view.snapPage', label: 'Snap to page', menu: 'View', path: ['Snap to'], keys: [], icon: 'magnet' },
+  { id: 'view.snapGrid', label: 'Snap to grid', menu: 'View', path: ['Snap to'], keys: ['Ctrl+Shift+Y'], icon: 'grid-3x3' },
   { id: 'view.fullscreen', label: 'Full screen', menu: 'View', group: 5, keys: ['F9'], icon: 'maximize' },
   // Layout
   { id: 'page.insertAfter', label: 'Insert page after', menu: 'Layout', group: 1, keys: [], icon: 'file-plus' },
@@ -51,6 +64,12 @@ export const COMMANDS = [
   { id: 'page.next', label: 'Next page', menu: 'Layout', group: 2, keys: ['PageDown'], icon: 'chevron-right' },
   { id: 'page.setup', label: 'Page setup...', menu: 'Layout', group: 3, keys: [], icon: 'ruler' },
   { id: 'page.orientation', label: 'Switch orientation', menu: 'Layout', group: 3, keys: [], icon: 'rotate-cw' },
+  { id: 'layout.guideH', label: 'Add horizontal guide...', menu: 'Layout', group: 4, keys: [], icon: 'ruler' },
+  { id: 'layout.guideV', label: 'Add vertical guide...', menu: 'Layout', group: 4, keys: [], icon: 'ruler' },
+  { id: 'layout.editGuide', label: 'Guide position...', menu: 'Layout', group: 4, keys: [], icon: 'pencil' },
+  { id: 'layout.deleteGuide', label: 'Delete guide', menu: 'Layout', group: 4, keys: [], icon: 'trash-2' },
+  { id: 'layout.clearGuides', label: 'Clear guides', menu: 'Layout', group: 4, keys: [], icon: 'circle-slash' },
+  { id: 'layout.lockGuides', label: 'Lock guides', menu: 'Layout', group: 4, keys: [], icon: 'lock' },
   // Object
   { id: 'arrange.group', label: 'Group', menu: 'Object', group: 1, keys: ['Ctrl+G'], icon: 'group' },
   { id: 'arrange.ungroup', label: 'Ungroup', menu: 'Object', group: 1, keys: ['Ctrl+U'], icon: 'ungroup' },
@@ -108,11 +127,23 @@ export const COMMANDS = [
   { id: 'object.unclip', label: 'Release clip', menu: 'Object', group: 6, keys: [], icon: 'square-dashed' },
   { id: 'object.toCurves', label: 'Convert to curves', menu: 'Object', group: 5, keys: ['Ctrl+Q', 'Ctrl+Alt+Q'], icon: 'spline' },
   { id: 'object.newLayer', label: 'New layer', menu: 'Object', group: 4, keys: [], icon: 'plus' },
+  { id: 'object.moveToLayer', label: 'Move to layer...', menu: 'Object', group: 4, keys: [], icon: 'layers' },
   // Effects
-  { id: 'effects.fillColor', label: 'Fill colour...', menu: 'Effects', group: 1, keys: ['F11'], icon: 'paint-bucket' },
-  { id: 'effects.outlineColor', label: 'Outline colour...', menu: 'Effects', group: 1, keys: ['Shift+F12'], icon: 'pen-line' },
-  { id: 'effects.clearFill', label: 'Clear fill', menu: 'Effects', group: 2, keys: [], icon: 'circle-slash' },
-  { id: 'effects.clearOutline', label: 'Clear outline', menu: 'Effects', group: 2, keys: [], icon: 'circle-slash' },
+  { id: 'tool.fill', label: 'Interactive fill', menu: 'Effects', group: 1, keys: ['G'], icon: 'paint-bucket' },
+  { id: 'tool.transp', label: 'Transparency', menu: 'Effects', group: 1, keys: ['Shift+T'], icon: 'blend' },
+  { id: 'tool.eyedrop', label: 'Copy attributes (eyedropper)', menu: 'Effects', group: 1, keys: ['I'], icon: 'pipette' },
+  { id: 'effects.fillColor', label: 'Fill colour...', menu: 'Effects', group: 2, keys: ['F11', 'Shift+F11'], icon: 'paint-bucket' },
+  { id: 'effects.outlinePen', label: 'Outline pen...', menu: 'Effects', group: 2, keys: ['F12'], icon: 'pen-line' },
+  { id: 'effects.outlineColor', label: 'Outline colour...', menu: 'Effects', group: 2, keys: ['Shift+F12'], icon: 'pen-line' },
+  { id: 'effects.clearFill', label: 'Clear fill', menu: 'Effects', group: 3, keys: [], icon: 'circle-slash' },
+  { id: 'effects.clearOutline', label: 'Clear outline', menu: 'Effects', group: 3, keys: [], icon: 'circle-slash' },
+  { id: 'effects.clearTransp', label: 'Clear transparency', menu: 'Effects', group: 3, keys: [], icon: 'circle-slash' },
+  // Bitmaps
+  { id: 'bitmap.traceLogo', label: 'Logo or clipart...', menu: 'Bitmaps', path: ['Trace bitmap'], keys: [], icon: 'wand-sparkles' },
+  { id: 'bitmap.traceLine', label: 'Line art (black and white)...', menu: 'Bitmaps', path: ['Trace bitmap'], keys: [], icon: 'wand-sparkles' },
+  { id: 'bitmap.tracePoster', label: 'Poster or photo...', menu: 'Bitmaps', path: ['Trace bitmap'], keys: [], icon: 'wand-sparkles' },
+  { id: 'bitmap.saveOriginal', label: 'Save original bitmap...', menu: 'Bitmaps', group: 2, keys: [], icon: 'download' },
+  { id: 'bitmap.place', label: 'Place bitmap...', menu: 'Bitmaps', group: 2, keys: [], icon: 'image-plus' },
   // Text
   { id: 'text.edit', label: 'Edit text', menu: 'Text', group: 1, keys: ['Enter'], icon: 'type' },
   { id: 'text.bold', label: 'Bold', menu: 'Text', group: 2, keys: [], icon: 'bold' },
@@ -126,12 +157,16 @@ export const COMMANDS = [
   { id: 'text.addFont', label: 'Add font file...', menu: 'Text', group: 5, keys: [], icon: 'file-up' },
   // Window
   { id: 'win.objects', label: 'Objects', menu: 'Window', group: 1, keys: ['Ctrl+F3'], icon: 'layers' },
+  { id: 'win.properties', label: 'Properties', menu: 'Window', group: 1, keys: ['Alt+Enter'], icon: 'sliders-horizontal' },
   { id: 'win.align', label: 'Align and distribute', menu: 'Window', group: 1, keys: ['Ctrl+Shift+A'], icon: 'align-center' },
   { id: 'win.transform', label: 'Transform', menu: 'Window', group: 1, keys: [], icon: 'move' },
   { id: 'win.transformPos', label: 'Transform: position', menu: 'Window', path: ['Transform'], keys: ['Alt+F7'], icon: 'move' },
   { id: 'win.transformRotate', label: 'Transform: rotate', menu: 'Window', path: ['Transform'], keys: ['Alt+F8'], icon: 'rotate-cw' },
   { id: 'win.transformScale', label: 'Transform: scale', menu: 'Window', path: ['Transform'], keys: ['Alt+F9'], icon: 'scaling' },
   { id: 'win.transformSize', label: 'Transform: size', menu: 'Window', path: ['Transform'], keys: ['Alt+F10'], icon: 'scaling' },
+  { id: 'win.palette', label: 'Colour palette', menu: 'Window', group: 2, keys: [], icon: 'panel-right' },
+  { id: 'win.toolbox', label: 'Toolbox', menu: 'Window', group: 2, keys: [], icon: 'hammer' },
+  { id: 'win.reset', label: 'Reset layout', menu: 'Window', group: 3, keys: [], icon: 'rotate-ccw' },
   // Tools (the toolbox is built from TOOL_INFO in _ds-tools.js; the keys are mirrored here so duplicates are caught)
   { id: 'tool.pick', label: 'Pick tool', menu: 'View', path: ['Tools'], keys: ['V'], icon: 'mouse-pointer-2' },
   { id: 'tool.zoom', label: 'Zoom tool', menu: 'View', path: ['Tools'], keys: ['Z', 'F2'], icon: 'zoom-in' },
@@ -145,17 +180,25 @@ export const COMMANDS = [
   { id: 'tool.star', label: 'Star tool', menu: 'View', path: ['Tools'], keys: ['Shift+Y'], icon: 'star' },
   { id: 'tool.text', label: 'Text tool', menu: 'View', path: ['Tools'], keys: ['F8'], icon: 'type' },
   // Help
-  { id: 'help.shortcuts', label: 'Keyboard shortcuts', menu: 'Help', group: 1, keys: ['F1', '?'], icon: 'keyboard' },
+  { id: 'help.shortcuts', label: 'Keyboard shortcuts and command finder', menu: 'Help', group: 1, keys: ['F1', '?', 'Ctrl+/'], icon: 'keyboard' },
+  { id: 'help.conversions', label: 'Notes on conversions', menu: 'Help', group: 2, keys: [], icon: 'info' },
+  { id: 'help.formats', label: 'Supported formats', menu: 'Help', group: 2, keys: [], icon: 'files' },
+  { id: 'help.about', label: 'About Draw Studio', menu: 'Help', group: 3, keys: [], icon: 'circle-help' },
 ]
 
 export const commandById = (id) => COMMANDS.find((c) => c.id === id)
 
 /** Menu structure for the menubar: [{menu, items: [{id,label,...} | {sep:true} | {label, items:[...]}]}]. Empty menus are left out. */
 export function menuTree(commands = COMMANDS) {
+  // a command that also appears in another menu (its `also`) is merged by group, so the groups stay together
+  const listFor = (menu) => {
+    const own = commands.filter((x) => x.menu === menu), extra = commands.filter((x) => x.menu !== menu && x.also?.includes(menu))
+    return extra.length ? [...own, ...extra].map((c, i) => [c, i]).sort((a, b) => (a[0].group ?? 0) - (b[0].group ?? 0) || a[1] - b[1]).map(([c]) => c) : own
+  }
   return MENUS.map((menu) => {
     const items = []
     let lastGroup = null
-    for (const c of commands.filter((x) => x.menu === menu)) {
+    for (const c of listFor(menu)) {
       if (lastGroup != null && c.group != null && c.group !== lastGroup && !c.path) items.push({ sep: true })
       if (!c.path) lastGroup = c.group ?? lastGroup
       let list = items

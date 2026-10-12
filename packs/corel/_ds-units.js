@@ -28,3 +28,5 @@ export function niceStep(zoom, unit = 'mm', minPx = 50) {
   for (const m of [1, 2, 5, 10]) if (m * p >= raw) return m * p
   return 10 * p
 }
+/** Default grid spacing in points for a unit: 10 mm, half an inch, 36 pt or 32 px. */
+export const defaultGrid = (unit) => ({ mm: 10 * PT_PER.mm, in: 36, pt: 36, px: 24 })[unit] || 36

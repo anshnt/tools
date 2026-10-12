@@ -1213,6 +1213,165 @@ await t('keys: align letters, order aliases, combine, lock, tools, shaping and d
   for (const c of K.COMMANDS) assert.ok(!(c.id.startsWith('node.') && c.keys.length), 'node commands have no keys of their own')
 })
 
+// ---------- E11 to E13: guides, snapping switches and grid, fill, preferences, menus, import ----------
+const GD = await imp('_ds-guides.js')
+const FL = await imp('_ds-fill.js')
+const PF = await imp('_ds-prefs.js')
+const IM = await imp('_ds-import.js')
+
+await t('guides: add, move, delete, clear are pure, one-step ops; a pending page, bad numbers and the limit change nothing', () => {
+  const root = opsRoot()
+  const pid = root.pages[0].id
+  let n = 7000
+  const nid2 = () => n++
+  const out = {}
+  const r1 = GD.addGuide(root, pid, 'v', 50, nid2, { out })
+  assert.equal(r1.pages[0].guides.length, 1); assert.deepEqual(r1.pages[0].guides[0], { id: out.id, axis: 'v', pos: 50 })
+  assert.equal(root.pages[0].guides.length, 0, 'the input is never touched')
+  assert.equal(r1.pages[0].layers, root.pages[0].layers, 'layers keep their identity')
+  const r2 = GD.addGuide(r1, pid, 'h', 20, nid2)
+  const r3 = GD.moveGuide(r2, pid, out.id, 60)
+  assert.equal(r3.pages[0].guides[0].pos, 60); assert.equal(r3.pages[0].guides[1].pos, 20)
+  assert.equal(GD.moveGuide(r3, pid, out.id, 60), r3, 'moving to the same place is no step')
+  assert.equal(GD.moveGuide(r3, pid, 99999, 1), r3); assert.equal(GD.moveGuide(r3, pid, out.id, NaN), r3)
+  assert.equal(GD.deleteGuide(r3, pid, out.id).pages[0].guides.length, 1); assert.equal(GD.deleteGuide(r3, pid, 123456), r3)
+  assert.equal(GD.clearGuides(r3, pid).pages[0].guides.length, 0); assert.equal(GD.clearGuides(root, pid), root)
+  assert.equal(GD.addGuide(root, pid, 'x', 1, nid2), root); assert.equal(GD.addGuide(root, pid, 'v', Infinity, nid2), root)
+  const pending = { ...root, pages: [{ ...root.pages[0], pending: { n: 2 } }] }
+  assert.equal(GD.addGuide(pending, pid, 'v', 5, nid2), pending, 'a page that is still being read is never touched')
+  const many = { ...root, pages: [{ ...root.pages[0], guides: Array.from({ length: D.LIMITS.guides }, (_, i) => ({ id: 100 + i, axis: 'v', pos: i })) }] }
+  assert.equal(GD.addGuide(many, pid, 'v', 5, nid2), many)
+  assert.equal(GD.addGuide(root, pid, 'v', 1e12, nid2).pages[0].guides[0].pos, 1e6, 'positions are clamped')
+  const toScreen = (x, y) => ({ x: x * 2 + 10, y: y * 2 + 10 })
+  const gs = [{ id: 1, axis: 'v', pos: 50 }, { id: 2, axis: 'h', pos: 20 }]
+  assert.equal(GD.guideAt(gs, toScreen, 110 + 3, 500)?.id, 1); assert.equal(GD.guideAt(gs, toScreen, 110 + 5, 500), null); assert.equal(GD.guideAt(gs, toScreen, 0, 50 + 2)?.id, 2)
+  const s = S.createStore(r3)
+  assert.equal(s.guideSel, null); s.guideSel = out.id
+  s.setSel([r3.pages[0].layers[0].items[0].id]); assert.equal(s.guideSel, null, 'selecting an object leaves the guide')
+})
+await t('snapping: the four switches, the grid from the bottom-left corner, a guide moves out of its own way', () => {
+  const doc = D.newDoc({ w: 200, h: 100 })
+  const root = { ...doc, pages: [{ ...doc.pages[0], guides: [{ id: 9001, axis: 'v', pos: 55 }, { id: 9002, axis: 'h', pos: 33 }], layers: [{ ...doc.pages[0].layers[0], items: [path(9003, 10, 10, 20, 20)] }] }] }
+  const s = S.createStore(root)
+  s.setView({ x: 0, y: 0, z: 2 })
+  const boxOf = H.createBoxer(() => null)
+  let T2 = H.collectTargets(s, boxOf)
+  assert.ok(T2.xs.includes(0) && T2.xs.includes(55) && T2.xs.includes(10) && T2.xs.includes(30) && T2.ys.includes(33) && T2.ys.includes(100))
+  s.prefs.snapPage = false; T2 = H.collectTargets(s, boxOf); assert.ok(!T2.xs.includes(0) && !T2.xs.includes(200) && T2.xs.includes(55))
+  s.prefs.snapGuides = false; T2 = H.collectTargets(s, boxOf); assert.ok(!T2.xs.includes(55) && !T2.ys.includes(33) && T2.xs.includes(10))
+  s.prefs.snapObjects = false; T2 = H.collectTargets(s, boxOf); assert.deepEqual([T2.xs.length, T2.ys.length], [0, 0])
+  s.prefs.snapGuides = true; T2 = H.collectTargets(s, boxOf, new Set(), null, { skipGuide: 9001 }); assert.deepEqual(T2.xs, [], 'the guide being moved is not a target'); assert.deepEqual(T2.ys, [33])
+  // grid: origin at the page bottom-left (y = 100), 10 pt spacing
+  s.prefs = { snapGrid: true, gridStep: 10 }
+  T2 = H.collectTargets(s, boxOf)
+  assert.equal(T2.grid, 10); assert.equal(T2.gy0, 100)
+  const sp = H.snapPoint({ x: 23, y: 96 }, { ...T2, xs: [], ys: [] }, 4)
+  assert.deepEqual([sp.x, sp.y], [20, 100]); assert.deepEqual(sp.lines, { x: [], y: [] })
+  const sb = H.snapBox({ x: 41, y: 63, w: 18, h: 14 }, { ...T2, xs: [], ys: [] }, 4)
+  assert.deepEqual([sb.dx, sb.dy], [-1, -3], 'a box snaps by whichever edge is nearest a grid line (left 41 to 40, top 63 to 60; the bottom edge would be 3 the other way)')
+  assert.equal(H.collectTargets(s, boxOf, new Set(), null, { grid: 0 }).grid, 0)
+  s.setView({ x: 0, y: 0, z: 0.1 }); assert.equal(H.collectTargets(s, boxOf).grid, 0, 'a grid denser than 3 px is not snapped to')
+  assert.equal(U.defaultGrid('mm'), 10 * U.PT_PER.mm); assert.equal(U.defaultGrid('in'), 36)
+})
+await t('fill: gradient handles follow the matrix, handle edits, stops stay sorted, at least two stops, fill types, opacity, dash presets', () => {
+  const near = (a, b, tol = 1e-9) => assert.ok(Math.abs(a - b) <= tol, `${a} vs ${b}`)
+  const g = FL.makeGradient('linear', { x: 10, y: 20, w: 100, h: 40 }, FL.stopsOf('#ff0000', '#0000ff'))
+  let H0 = FL.gradientHandles(g)
+  assert.deepEqual([H0.a.x, H0.a.y, H0.b.x, H0.b.y], [10, 40, 110, 40]); assert.deepEqual(H0.stops.map((s) => s.x), [10, 110])
+  const rot = { ...g, m: M.rotate(Math.PI / 2) }
+  H0 = FL.gradientHandles(rot); near(H0.a.x, -40); near(H0.a.y, 10); near(H0.b.x, -40); near(H0.b.y, 110)
+  const g2 = FL.moveEnd(rot, { x: -40, y: 210 }); near(g2.x2, 210); near(g2.y2, 40)
+  const g3 = FL.moveStart(rot, { x: -90, y: 10 }); near(g3.x1, 10); near(g3.y1, 90)
+  near(FL.offsetAt(g, { x: 60, y: 99 }), 0.5); near(FL.offsetAt(g, { x: -50, y: 0 }), 0); near(FL.offsetAt(g, { x: 500, y: 0 }), 1)
+  near(FL.distToLine(g, { x: 60, y: 45 }), 5)
+  const rad = FL.makeGradient('radial', { x: 0, y: 0, w: 60, h: 40 }, FL.stopsOf(null))
+  assert.deepEqual([rad.cx, rad.cy, rad.r], [30, 20, 30]); const RH = FL.gradientHandles(rad); assert.deepEqual([RH.a.x, RH.b.x], [30, 60])
+  near(FL.moveEnd(rad, { x: 30, y: 60 }).r, 40); assert.ok(FL.moveEnd(rad, { x: 30, y: 20 }).r > 0, 'the radius never reaches zero')
+  // stops
+  const a = FL.addStop(g, 0.5)
+  assert.equal(a.g.stops.length, 3); assert.equal(a.index, 1); assert.equal(a.g.stops[1].c, '#800080'); assert.equal(g.stops.length, 2, 'the input gradient is untouched')
+  const b = FL.setStop(a.g, 1, { o: 0.9 }); assert.deepEqual(b.g.stops.map((s) => s.o), [0, 0.9, 1]); const b2 = FL.setStop(b.g, 1, { o: 1.7 }); assert.deepEqual(b2.g.stops.map((s) => s.o), [0, 1, 1])
+  const c = FL.setStop(a.g, 0, { o: 0.8 }); assert.deepEqual(c.g.stops.map((s) => s.o), [0.5, 0.8, 1]); assert.equal(c.index, 1)
+  assert.equal(FL.setStop(g, 0, { c: 'red;x' }).g.stops[0].c, '#ff0000', 'only #rrggbb is accepted')
+  assert.equal(FL.removeStop(g, 0), g, 'a gradient keeps two colours'); assert.equal(FL.removeStop(a.g, 1).stops.length, 2)
+  assert.deepEqual(FL.reverseStops(g).stops.map((s) => s.c), ['#0000ff', '#ff0000'])
+  assert.deepEqual(FL.colorAt(g.stops, 0), { c: '#ff0000', a: 1 }); assert.equal(FL.colorAt(g.stops, 2).c, '#0000ff')
+  // fill types over a root
+  const root = opsRoot(), ids = [10, 13]
+  const lin = FL.setFillType(root, ids, 'linear')
+  const leaf = (r, id) => D.findNode(r, id).node
+  assert.equal(leaf(lin, 10).fill.g, 'linear'); assert.equal(leaf(lin, 11).fill.g, 'linear'); assert.equal(leaf(lin, 12).fill.g, 'linear'); assert.equal(leaf(lin, 14).fill, '#ff0000', 'unselected shapes stay')
+  assert.deepEqual([leaf(lin, 11).fill.x1, leaf(lin, 11).fill.x2], [20, 30], 'each shape gets a gradient over its own box')
+  assert.equal(FL.setFillType(lin, ids, 'linear'), lin, 'the same type again is no change')
+  const rd = FL.setFillType(lin, ids, 'radial'); assert.equal(leaf(rd, 10).fill.g, 'radial'); assert.deepEqual(leaf(rd, 10).fill.stops, leaf(lin, 10).fill.stops, 'the colours carry over')
+  const un = FL.setFillType(rd, ids, 'uniform'); assert.equal(leaf(un, 10).fill, '#ff0000'); assert.equal(FL.setFillType(un, ids, 'uniform'), un)
+  assert.equal(leaf(FL.setFillType(un, ids, 'none'), 10).fill, null); assert.equal(FL.fillKind(leaf(rd, 10)), 'radial'); assert.equal(FL.fillKind(leaf(un, 10)), 'uniform')
+  const withK = Ops.setStyle(root, [10], { fill: '#123456', fillK: [0, 0, 0, 1] }); assert.equal('fillK' in leaf(FL.setFillType(withK, [10], 'linear'), 10), false, 'a gradient drops the CMYK hint')
+  const g4 = FL.setGradient(root, 10, g); assert.equal(leaf(g4, 10).fill, g); assert.equal(FL.setGradient(g4, 10, g), g4)
+  assert.equal(FL.setGradient(root, 99999, g), root)
+  // opacity
+  const op = FL.setOpacity(root, [13], 0.4)
+  assert.equal(leaf(op, 11).fillOpacity, 0.4); assert.equal(leaf(op, 11).strokeOpacity, 0.4); assert.equal(leaf(op, 10).fillOpacity, 1); assert.equal(FL.setOpacity(op, [13], 0.4), op)
+  assert.equal(FL.opacityOf([leaf(op, 13)]), 0.4); assert.equal(FL.opacityOf([leaf(op, 13), leaf(op, 10)]), null); assert.equal(FL.opacityOf([]), null)
+  const mixed = { id: 1, t: 'group', items: [{ t: 'image', opacity: 0.5 }, { t: 'text', opacity: 0.5 }] }; assert.equal(FL.opacityOf([mixed]), 0.5)
+  assert.equal(FL.setOpacity(root, [10], 7).pages[0].layers[0].items[0].fillOpacity, 1, 'opacity is clamped to 0..1')
+  // dash presets and the eyedropper's look
+  assert.equal(FL.dashFor('solid', 2), null); assert.deepEqual(FL.dashFor('dashed', 2), [8, 6]); assert.deepEqual(FL.dashFor('dotted', 0.25), [1, 2])
+  for (const [k] of FL.DASH_KINDS) assert.equal(FL.dashKind(FL.dashFor(k, 3), 3), k)
+  assert.equal(FL.dashKind([1, 5, 9], 1), 'custom'); assert.equal(FL.dashKind(null, 1), 'solid')
+  const look = FL.attrsOf({ t: 'path', fill: '#111111', fillOpacity: 0.5, stroke: '#222222', strokeWidth: 2, strokeOpacity: 1, cap: 1, join: 2, miter: 4, dash: [3, 3], dashOffset: 0, fillK: [1, 0, 0, 0] })
+  assert.equal(look.fill, '#111111'); assert.equal(look.strokeK, null); assert.equal(look.fillK[0], 1); assert.deepEqual(FL.attrsOf({ t: 'text', fill: '#333333' }), { fill: '#333333' }); assert.equal(FL.attrsOf({ t: 'image' }), null)
+  const applied = Ops.setStyle(root, [14], look); assert.deepEqual([leaf(applied, 14).stroke, leaf(applied, 14).cap, leaf(applied, 14).join], ['#222222', 1, 2])
+})
+await t('prefs: only valid values survive a damaged or hostile stored record', () => {
+  assert.deepEqual(PF.cleanPrefs(null), {}); assert.deepEqual(PF.cleanPrefs('x'), {}); assert.deepEqual(PF.cleanPrefs([1, 2]), {})
+  const c = PF.cleanPrefs({ rulers: true, showGuides: 'yes', snap: false, nudge: 0.001, dupOffset: 500, gridStep: 'ten', wheel: 'scroll', constructor: 5, junk: 1 })
+  assert.deepEqual(c, { rulers: true, snap: false, nudge: 0.01, dupOffset: 100, wheel: 'scroll' })
+  assert.deepEqual(PF.cleanPrefs({ wheel: 'sideways', gridStep: Infinity }), {})
+  assert.equal(PF.PREF_DEFAULTS.nudge, 1)
+})
+await t('keys and menus: view, guide, effects, bitmap, window and help commands are bound, unique and reachable; the Window menu also lists Rulers', () => {
+  const { map, dupes } = K.buildKeymap()
+  assert.deepEqual(dupes, [])
+  for (const [k, id] of [['F2', 'tool.zoom'], ['F3', 'view.zoomOut'], ['F4', 'view.zoomAll'], ['Shift+F2', 'view.zoomSel'], ['Shift+F4', 'view.zoomPage'], ['Ctrl+1', 'view.zoom100'], ['Shift+F9', 'view.wireframe'], ['Ctrl+Alt+R', 'view.rulers'], ['Ctrl+Shift+Y', 'view.snapGrid'], ['Alt+Z', 'view.snap'],
+    ['G', 'tool.fill'], ['Shift+T', 'tool.transp'], ['I', 'tool.eyedrop'], ['F12', 'effects.outlinePen'], ['Shift+F12', 'effects.outlineColor'], ['F11', 'effects.fillColor'], ['Shift+F11', 'effects.fillColor'], ['Ctrl+I', 'file.import'], ['Alt+Enter', 'win.properties'], ['F1', 'help.shortcuts'], ['?', 'help.shortcuts']]) assert.equal(map.get(k), id, k)
+  const tr = K.menuTree()
+  const menu = (m) => tr.find((x) => x.menu === m).items
+  const flat = (items) => items.flatMap((i) => (i.items ? flat(i.items) : i.id ? [i.id] : []))
+  assert.deepEqual(K.MENUS, ['File', 'Edit', 'View', 'Layout', 'Object', 'Effects', 'Bitmaps', 'Text', 'Window', 'Help'])
+  assert.equal(tr.length, 10, 'every one of the ten menus has items')
+  assert.ok(flat(menu('Window')).includes('view.rulers') && flat(menu('View')).includes('view.rulers'))
+  assert.equal(flat(menu('Window')).filter((id) => id === 'view.rulers').length, 1)
+  assert.deepEqual(menu('View').find((i) => i.label === 'Snap to').items.map((i) => i.id), ['view.snapGuides', 'view.snapObjects', 'view.snapPage', 'view.snapGrid'])
+  assert.deepEqual(menu('Bitmaps').find((i) => i.label === 'Trace bitmap').items.map((i) => i.id), ['bitmap.traceLogo', 'bitmap.traceLine', 'bitmap.tracePoster'])
+  for (const id of ['tool.fill', 'tool.transp', 'tool.eyedrop', 'effects.outlinePen', 'effects.clearFill', 'effects.clearOutline', 'effects.clearTransp']) assert.ok(flat(menu('Effects')).includes(id), id)
+  for (const id of ['layout.guideH', 'layout.guideV', 'layout.clearGuides', 'layout.lockGuides']) assert.ok(flat(menu('Layout')).includes(id), id)
+  for (const id of ['win.objects', 'win.properties', 'win.align', 'win.transform', 'win.palette', 'win.toolbox', 'win.reset']) assert.ok(flat(menu('Window')).includes(id), id)
+  for (const id of ['help.shortcuts', 'help.conversions', 'help.formats', 'help.about']) assert.ok(flat(menu('Help')).includes(id), id)
+  for (const id of ['file.import', 'file.properties', 'file.notes']) assert.ok(flat(menu('File')).includes(id), id)
+  for (const id of ['edit.invertSelection', 'edit.options']) assert.ok(flat(menu('Edit')).includes(id), id)
+  const sheet = K.shortcutRows()
+  assert.ok(sheet.find((r) => r.id === 'view.zoomPage').keys.includes('Shift+F4') && sheet.find((r) => r.id === 'view.zoom100').keys[0] === 'Ctrl+1')
+  for (const c of K.COMMANDS) assert.ok(sheet.some((r) => r.id === c.id) === !!(c.keys?.length || c.hint), `${c.id}: the sheet lists exactly the commands that have keys`)
+  assert.ok(K.COMMANDS.length > 150)
+})
+await t('import: fresh ids, fonts merged under unique keys, text without its font keeps its words but loses glyph positions', async () => {
+  const store = S.createStore(D.newDoc({ w: 100, h: 100 }))
+  store.root.fonts['i1:f0'] = { name: 'Taken', family: 'Taken', bold: false, italic: false, data: new Uint8Array(4) }
+  const added = []
+  const fonts = { add: async (f) => { added.push(...Object.keys(f)) } }
+  const rec = (n) => ({ name: n, family: n, bold: false, italic: false, data: new Uint8Array(8) })
+  const map = await IM.mergeFonts(store, fonts, { f0: rec('A'), f1: { ...rec('B'), data: null } }, 1)
+  assert.equal(map.get('f0'), 'i1:f0_2', 'a key already in use gets a suffix'); assert.ok(!map.has('f1'), 'a font without data is not merged'); assert.deepEqual(added, ['i1:f0_2']); assert.ok(store.root.fonts['i1:f0_2'])
+  assert.ok(Object.keys(store.root.fonts).every((k) => /^[\w.:-]{1,64}$/.test(k)))
+  const nodes = [{ id: 5, t: 'group', name: 'G', items: [{ id: 6, t: 'text', str: 'hi', font: 'f0', glyphs: [{ c: 'h', x: 0 }, { c: 'i', x: 5 }], size: 10 }, { id: 7, t: 'text', str: 'yo', font: 'f1', glyphs: [{ c: 'y', x: 0 }], size: 10 }, path(8, 0, 0)], src: 99 }]
+  let n2 = 600
+  const out = IM.freshNodes(nodes, () => n2++, map)
+  assert.deepEqual([out[0].id, out[0].items.map((i) => i.id)], [600, [601, 602, 603]]); assert.ok(!('src' in out[0]))
+  assert.equal(out[0].items[0].font, 'i1:f0_2'); assert.ok(out[0].items[0].glyphs); assert.ok(!('font' in out[0].items[1]) && !('glyphs' in out[0].items[1])); assert.equal(out[0].items[1].str, 'yo')
+  assert.equal(nodes[0].items[0].font, 'f0', 'the imported document is never mutated')
+})
+
 // ---------- every import specifier resolves (check.mjs only validates static imports) ----------
 const LATE = ['./_psin.js', './_cdrout.js']
 await t('imports: every static and dynamic relative import in the editor files exists', () => {

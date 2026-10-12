@@ -1,6 +1,6 @@
 // Draw Studio view: zoom and pan (store.view = {x, y, z}, screen = page * z + (x, y)), wheel, pinch, space and middle-button pan, the pointer
 // router that forwards everything else to the active tool, and the screen-space overlay layer tools draw handles and previews into.
-// Zoom range 0.02 to 64. Rulers, guides and snapping lines arrive with milestone E11 (they hook into the overlay and the 'view' event).
+// Zoom range 0.02 to 64. Rulers, guides and the grid (_ds-rulers.js) hook into the overlay, the 'view' event and addGrab().
 import { unionBox } from './_model.js'
 
 const NS = 'http://www.w3.org/2000/svg'
@@ -19,6 +19,8 @@ export function createView({ store, host, ov, renderer, boxOf }) {
   const ovG = document.createElementNS(NS, 'g')
   ov.append(ovG)
   let tool = null, spaceDown = false, panning = null, pinch = null, fitNext = true
+  let grab = null // a press that something other than the tool took (a guide being moved): {move(ev), up(ev), cancel()}
+  const grabbers = new Set()
   const pointers = new Map()
   const overlays = new Set()
   const pageViews = new Map() // page id -> last view (so switching pages keeps each page's zoom)
@@ -95,7 +97,7 @@ export function createView({ store, host, ov, renderer, boxOf }) {
     return { p, s, mods: { shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey, alt: e.altKey, meta: e.metaKey }, button: e.button, buttons: e.buttons, pointerType: e.pointerType, pressure: e.pressure, target: e.target, detail: e.detail, raw: e }
   }
   /** A second finger (pinch) or a cancelled pointer: tools that keep a drawing in progress (Bezier, polyline) just drop the press; others cancel. */
-  const interrupt = () => (tool?.interrupt ? tool.interrupt() : tool?.cancel?.())
+  const interrupt = () => { if (grab) { const g = grab; grab = null; g.cancel() } else if (tool?.interrupt) tool.interrupt(); else tool?.cancel?.() }
   const startPan = (e) => { const s = local(e); panning = { sx: s.x, sy: s.y, vx: store.view.x, vy: store.view.y, id: e.pointerId }; host.classList.add('ds-panning') }
   function pinchState() {
     const [a, b] = [...pointers.values()]
@@ -111,6 +113,7 @@ export function createView({ store, host, ov, renderer, boxOf }) {
     if (pointers.size > 2) return
     const wantPan = e.button === 1 || (e.button === 0 && (spaceDown || store.tool === 'pan'))
     if (wantPan) { e.preventDefault(); startPan(e); return }
+    if (e.button === 0) for (const fn of grabbers) { const g = fn(mkEv(e), tool); if (g) { grab = g; return } }
     tool?.pointerdown?.(mkEv(e))
   }
   function onMove(e) {
@@ -125,6 +128,7 @@ export function createView({ store, host, ov, renderer, boxOf }) {
     if (panning && e.pointerId === panning.id) { const s = local(e); commit({ ...store.view, x: panning.vx + s.x - panning.sx, y: panning.vy + s.y - panning.sy }); return }
     const ev = mkEv(e)
     store.emit('cursor', ev.p)
+    if (grab) { grab.move(ev); return }
     tool?.pointermove?.(ev)
   }
   function onUp(e) {
@@ -132,6 +136,7 @@ export function createView({ store, host, ov, renderer, boxOf }) {
     try { host.releasePointerCapture(e.pointerId) } catch { /* already released */ }
     if (pinch) { if (pointers.size < 2) pinch = null; return }
     if (panning && e.pointerId === panning.id) { panning = null; host.classList.remove('ds-panning'); return }
+    if (grab) { const g = grab; grab = null; if (e.type === 'pointerup') g.up(mkEv(e)); else g.cancel(); requestOverlay(); return }
     if (had && e.type === 'pointerup') tool?.pointerup?.(mkEv(e))
     else if (had) interrupt()
   }
@@ -169,6 +174,11 @@ export function createView({ store, host, ov, renderer, boxOf }) {
   return {
     toPage, toScreen, fromClient, size, setView, setZoom, setLabelledZoom, zoomAt, panBy, zoomPage, zoomAll, zoomSel, zoom100, fitBox, requestOverlay, addOverlay, ovG,
     setTool(t) { tool = t },
+    /** Let something take a primary press before the tool does: fn(ev, tool) -> {move(ev), up(ev), cancel()} or null. Returns the remover. */
+    addGrab(fn) { grabbers.add(fn); return () => grabbers.delete(fn) },
+    /** Esc: abandon a grabbed press. True when there was one. */
+    cancelGrab() { if (!grab) return false; const g = grab; grab = null; g.cancel(); requestOverlay(); return true },
+    get grabbing() { return !!grab },
     setSpace(on) { spaceDown = !!on; host.classList.toggle('ds-space', spaceDown) },
     get pinching() { return !!pinch },
     dispose() { ro.disconnect(); offPage(); offDoc(); offSel(); offDocRedraw(); cancelAnimationFrame(rafId); clearTimeout(tmo); host.removeEventListener('wheel', onWheel); ovG.remove() },

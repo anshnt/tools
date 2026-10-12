@@ -245,6 +245,15 @@ export function createPick({ store, view, boxOf, renderer, host, info }) {
         g.append(el('circle', { class: 'ds-pivot', 'data-h': 'pivot', cx: s.x, cy: s.y, r: 5 }), el('path', { class: 'ds-pivot', d: `M${s.x - 9} ${s.y}H${s.x + 9}M${s.x} ${s.y - 9}V${s.y + 9}` }))
       }
     },
+    /** For the fill, transparency and eyedropper tools and the guide grab: the object (or handle) under a pointer, and a plain click selection. */
+    objectAt, handleAt,
+    selectAt(ev) {
+      const id = objectAt(ev)
+      const sel = store.sel.ids
+      if (id != null) store.setSel(ev.mods.shift ? (sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]) : [id])
+      else if (!ev.mods.shift) store.setSel([])
+      return id
+    },
     /** For tests and the property bar: the current handle mode and pivot. */
     get state() { return { mode, pivot, handles: HANDLE_IDS } },
   }

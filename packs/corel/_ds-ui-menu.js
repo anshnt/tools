@@ -119,3 +119,55 @@ export function createMenus({ commands, focusBack }) {
 
   return { bar, menuButton, sheet, close, closeSheet, refresh, dispose() { document.removeEventListener('pointerdown', onDocDown, true) } }
 }
+
+/**
+ * Context menu: a flat list of commands opened at a pointer position (right click, or a long press where the browser sends contextmenu).
+ * open(clientX, clientY, ids) takes command ids and '-' for a separator. Arrow keys, Home, End, Esc and a click elsewhere work as in the menubar.
+ * env: {commands, wrap (the .t-ds root, position: relative), focusBack()} -> {el, open, close, isOpen, dispose}
+ */
+export function createContextMenu({ commands, wrap, focusBack }) {
+  const el = h('div', { class: 'ds-menu ds-ctxmenu', role: 'menu', 'aria-label': 'Context menu', hidden: true })
+  wrap.append(el)
+  const buttons = () => [...el.querySelectorAll('.ds-mi:not(:disabled)')]
+  function close(back = true) {
+    if (el.hidden) return
+    el.hidden = true
+    if (back) focusBack?.()
+  }
+  function open(x, y, ids) {
+    el.replaceChildren()
+    let last = null
+    for (const id of ids) {
+      if (id === '-') { if (last !== '-' && last !== null) { el.append(h('div', { class: 'ds-msep', role: 'separator' })); last = '-' } continue }
+      const c = commands.meta.get(id)
+      if (!c || !commands.has(id)) continue
+      const check = !!commands.impl[id]?.checked
+      const on = commands.enabled(id)
+      const btn = h('button', { type: 'button', role: check ? 'menuitemcheckbox' : 'menuitem', tabindex: -1, class: 'ds-mi', 'data-cmd': id, disabled: !on, 'aria-disabled': String(!on),
+        onclick: () => { close(false); focusBack?.(); commands.run(id) } }, h('span', { class: 'ds-mi-l' }, commands.label(id)), c.keys?.length || c.hint ? h('span', { class: 'ds-mi-k' }, c.keys?.[0] || c.hint) : null)
+      if (check) btn.setAttribute('aria-checked', String(commands.checked(id)))
+      el.append(btn)
+      last = id
+    }
+    if (el.lastChild?.classList?.contains('ds-msep')) el.lastChild.remove()
+    if (!el.childElementCount) return
+    el.hidden = false
+    const w = wrap.getBoundingClientRect()
+    const left = Math.max(4, Math.min(x - w.left, w.width - el.offsetWidth - 4)), top = Math.max(4, Math.min(y - w.top, w.height - el.offsetHeight - 4))
+    el.style.left = `${left}px`; el.style.top = `${top}px`
+    buttons()[0]?.focus({ preventScroll: true })
+  }
+  el.addEventListener('keydown', (e) => {
+    const list = buttons(), at = list.indexOf(document.activeElement), n = list.length
+    const go = (j) => { e.preventDefault(); list[(j + n) % n]?.focus() }
+    if (e.key === 'ArrowDown') go(at + 1)
+    else if (e.key === 'ArrowUp') go(at < 0 ? n - 1 : at - 1)
+    else if (e.key === 'Home') go(0)
+    else if (e.key === 'End') go(n - 1)
+    else if (e.key === 'Escape' || e.key === 'Tab') { e.preventDefault(); close(true) }
+    e.stopPropagation()
+  })
+  const onDown = (e) => { if (!el.hidden && !el.contains(e.target)) close(false) }
+  document.addEventListener('pointerdown', onDown, true)
+  return { el, open, close, isOpen: () => !el.hidden, dispose() { document.removeEventListener('pointerdown', onDown, true); el.remove() } }
+}

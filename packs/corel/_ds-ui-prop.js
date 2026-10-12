@@ -67,7 +67,7 @@ export function createPropBar({ store, boxOf, commands }) {
     const page = store.page()
     const ids = store.sel.ids.filter((id) => store.find(id)?.node)
     const nodes = ids.map((id) => store.find(id).node)
-    fields.hidden = !nodes.length || store.tool === 'shape' // the Shape tool shows its node buttons instead
+    fields.hidden = !nodes.length || ['shape', 'fill', 'transp', 'eyedrop'].includes(store.tool) // these tools show their own controls instead
     if (!nodes.length) { cur = null; text.hidden = sections.some((s) => s.page); text.textContent = page ? `Page size ${fmt(page.w, u)} x ${fmt(page.h, u)} ${u}` : '' } // the Page section (E6) replaces this text
     else {
       text.hidden = true

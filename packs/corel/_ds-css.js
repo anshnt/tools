@@ -230,6 +230,56 @@ const CSS = `
 .t-ds .ds-xapply { display: flex; gap: 6px; flex-wrap: wrap; }
 .t-ds .ds-nodeinfo { font-variant-numeric: tabular-nums; }
 
+/* rulers, guides, grid, wireframe, snap chips */
+.t-ds .ds-stage.ds-rulers .ds-view { inset: 20px 0 0 20px; }
+.t-ds .ds-ruler { position: absolute; z-index: 3; display: block; background: var(--surface-2); touch-action: none; }
+.t-ds .ds-ruler-h { left: 20px; top: 0; right: 0; height: 20px; width: calc(100% - 20px); cursor: s-resize; }
+.t-ds .ds-ruler-v { left: 0; top: 20px; bottom: 0; width: 20px; height: calc(100% - 20px); cursor: e-resize; }
+.t-ds .ds-corner { position: absolute; z-index: 3; left: 0; top: 0; width: 20px; height: 20px; display: grid; place-items: center; overflow: hidden; font-size: 8px; color: var(--muted); background: var(--surface-2); border-right: 1px solid var(--border-strong); border-bottom: 1px solid var(--border-strong); }
+.t-ds .ds-guide { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 6 3; stroke-opacity: .85; }
+.t-ds .ds-guide-sel { stroke-width: 2; stroke-dasharray: none; }
+.t-ds .ds-guide-out { stroke: var(--danger); stroke-opacity: .5; }
+.t-ds .ds-grid { stroke: var(--border-strong); stroke-width: 1; stroke-opacity: .5; fill: none; }
+.t-ds .ds-wire { color: #1a1a2e; }
+.t-ds .ds-wire image { opacity: .3; }
+.t-ds .ds-wire text { fill: #1a1a2e !important; }
+.t-ds .ds-snapchips { display: inline-flex; align-items: center; gap: 3px; flex: none; color: var(--muted); }
+.t-ds .ds-snapchips .icon { width: 15px; height: 15px; }
+.t-ds .ds-schip { height: 24px; padding: 0 9px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); cursor: pointer; font-size: 12px; }
+.t-ds .ds-schip[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.t-ds .ds-snap-off .ds-schip { opacity: .45; }
+.t-ds .ds-ctxmenu { z-index: 45; }
+.t-ds.ds-hide-palette .ds-palette, .t-ds.ds-hide-toolbox .ds-tools { display: none; }
+.t-ds.ds-hide-palette { --ds-pal: 0px; }
+.t-ds.ds-hide-toolbox { --ds-tool: 0px; }
+
+/* interactive fill, transparency, properties */
+.t-ds .ds-fillline { stroke-width: 1.5; }
+.t-ds .ds-fillring { stroke-dasharray: 3 3; fill: none; }
+.t-ds .ds-stopm { stroke: var(--surface); stroke-width: 2; paint-order: stroke; }
+.t-ds .ds-stopm.ds-picked { stroke: var(--accent); stroke-width: 3; }
+.t-ds .ds-kinds { display: inline-flex; gap: 2px; flex: none; }
+.t-ds .ds-kindbtn { padding: 0 9px; }
+.t-ds .ds-colorin, .t-ds-dlg .ds-colorin { width: 36px; height: 28px; padding: 0 2px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface); cursor: pointer; flex: none; }
+.t-ds-dlg .ds-colorin { width: 56px; height: 34px; }
+.t-ds .ds-range { width: 150px; flex: none; height: 28px; }
+.t-ds .ds-rangeout { min-width: 44px; font-variant-numeric: tabular-nums; }
+.t-ds .ds-pr-sum { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.t-ds .ds-props .ds-xrow { flex-wrap: nowrap; }
+.t-ds .ds-props .ds-range { width: 100%; flex: 1; min-width: 0; }
+.t-ds .ds-props .ds-kinds { flex-wrap: wrap; }
+.t-ds .ds-dsec[data-section="properties"] { flex: none; }
+
+/* shortcuts sheet and command finder */
+.t-ds-dlg .ds-finder { display: flex; flex-direction: column; gap: 2px; max-height: 46vh; overflow-y: auto; }
+.t-ds-dlg .ds-fr { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 36px; padding: 4px 10px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.t-ds-dlg .ds-fr:hover, .t-ds-dlg .ds-fr:focus-visible { background: var(--accent-soft); }
+.t-ds-dlg .ds-fr-l { min-width: 0; overflow-wrap: anywhere; }
+.t-ds-dlg .ds-fr-l small { margin-left: 8px; color: var(--muted); }
+.t-ds-dlg .ds-fr-k { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.t-ds-dlg .ds-fr-off { opacity: .5; }
+.t-ds-dlg .ds-mouse { max-height: none; }
+
 /* dialogs */
 .t-ds-dlg { display: flex; flex-direction: column; gap: 12px; min-width: 0; max-width: 100%; }
 .t-ds-dlg .ds-list { margin: 0; padding-left: 18px; font-size: 13.5px; display: flex; flex-direction: column; gap: 4px; }
@@ -268,6 +318,9 @@ const CSS = `
   .t-ds .ds-dock-head { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 4px 12px; flex: none; }
   .t-ds .ds-dock-title { font-weight: 600; }
   .t-ds .ds-docname { display: none; }
+  .t-ds .ds-snapchips { display: none; }
+  .t-ds .ds-colorin { height: 36px; width: 44px; }
+  .t-ds .ds-range { width: 120px; height: 36px; }
   .t-ds .ds-st-pos { display: none; }
   .t-ds .ds-st-w { display: none; }
   .t-ds input, .t-ds select, .t-ds .ds-units, .t-ds .ds-selsm, .t-ds .ds-num, .t-ds .ds-tolayer, .t-ds .ds-rename, .t-ds .ds-tab-input { font-size: 16px; }
@@ -295,6 +348,11 @@ const CSS = `
   .t-ds .ds-sw { width: 24px; height: 24px; }
   .t-ds .ds-sw-grid { grid-template-columns: repeat(2, 24px); }
 }
+@media (min-width: 861px) {
+  .t-ds { --ds-tool: 80px; }
+  .t-ds .ds-tools { display: grid; grid-template-columns: repeat(2, max-content); justify-content: center; align-content: start; overflow-x: hidden; }
+}
+@media (min-width: 861px) and (pointer: coarse) { .t-ds { --ds-tool: 92px; } }
 @media (min-width: 861px) and (pointer: fine) {
   .t-ds .ds-tools { gap: 2px; }
   .t-ds .ds-tool { width: 34px; height: 32px; }

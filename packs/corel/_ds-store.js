@@ -34,7 +34,7 @@ export function createStore(initial, { prefs = {} } = {}) {
   const subs = new Map()
   const S = { page: root.pages[0]?.id ?? null, ids: [] }
   const store = {
-    sel: S, selMode: 'click', ctx: null, view: { x: 0, y: 0, z: 1 }, tool: 'pick', activeLayer: {}, prefs: { ...prefs },
+    sel: S, selMode: 'click', ctx: null, guideSel: null, view: { x: 0, y: 0, z: 1 }, tool: 'pick', activeLayer: {}, prefs: { ...prefs },
     get root() { return root },
     get pageIndex() { return pageIndex },
     get dirty() { return root !== savedRoot },
@@ -85,6 +85,7 @@ export function createStore(initial, { prefs = {} } = {}) {
     S.page = pid
     store.selMode = mode
     if (store.ctx != null && !find(store.ctx)) store.ctx = null
+    if (next.length && store.guideSel != null) { store.guideSel = null; emit('guides') } // selecting an object leaves the guide
     if (changed) emit('sel', S)
     return changed
   }
@@ -93,6 +94,7 @@ export function createStore(initial, { prefs = {} } = {}) {
     const keep = S.ids.filter((id) => find(id)?.node)
     if (keep.length !== S.ids.length || (S.page != null && !find(S.page))) { S.ids = keep; if (!find(S.page)) S.page = root.pages[pageIndex]?.id ?? null; emit('sel', S) }
     if (store.ctx != null && !find(store.ctx)) store.ctx = null
+    if (store.guideSel != null && !root.pages[pageIndex]?.guides?.some((g) => g.id === store.guideSel)) store.guideSel = null
   }
 
   function setPage(i) {
@@ -102,6 +104,7 @@ export function createStore(initial, { prefs = {} } = {}) {
     S.page = root.pages[i].id
     S.ids = []
     store.ctx = null
+    store.guideSel = null
     emit('sel', S)
     emit('page', root.pages[i])
     return true
@@ -193,6 +196,7 @@ export function createStore(initial, { prefs = {} } = {}) {
     S.page = root.pages[0].id
     S.ids = []
     store.ctx = null
+    store.guideSel = null
     store.activeLayer = {}
     savedRoot = meta.dirty ? null : root
     emit('doc', { load: true, ...meta })

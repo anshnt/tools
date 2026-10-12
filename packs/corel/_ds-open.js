@@ -252,13 +252,15 @@ async function openPdf(bytes, file, env) {
       }
     }
   }
-  env.progress?.('Reading page 1', null)
-  const first = await call([1], 'Reading page 1')
+  const only = Math.max(0, env.pageOnly | 0) // Import of one chosen page: read that page alone
+  env.progress?.(`Reading page ${only || 1}`, null)
+  const first = await call([only || 1], `Reading page ${only || 1}`)
   const numPages = Math.max(1, first.numPages || first.pages.length)
   const merger = createFontMerger()
   const ids = { n: 1 }
   const fresh = () => ids.n++
   const { doc } = await normalizeDoc(first, { assets: env.assets, signal: env.signal, merger, freshIds: fresh, title: baseTitle(file.name), source: file.name.toLowerCase().endsWith('.ai') ? 'ai' : 'pdf', name: file.name })
+  if (only) return { doc, rest: null, kind: 'pdf' }
   const keep = Math.min(numPages, LIMITS.pages)
   if (numPages > keep) doc.warnings.push(`Only the first ${LIMITS.pages} pages were opened.`)
   const first1 = doc.pages[0]

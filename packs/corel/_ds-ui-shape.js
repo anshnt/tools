@@ -55,7 +55,7 @@ export function createShapeSection({ store, app }) {
     const leaves = leavesOf(editableIds(store).map((id) => store.find(id)?.node).filter(Boolean)).filter((n) => n.t === 'path')
     const shaped = leaves.filter((n) => n.shape && n.sm)
     const selKind = shaped.length && shaped.every((n) => n.shape.k === shaped[0].shape.k) ? shaped[0].shape.k : null
-    kind = KIND_OF_TOOL[store.tool] || (store.tool === 'free' ? 'free' : store.tool === 'shape' || store.tool === 'text' ? null : selKind)
+    kind = KIND_OF_TOOL[store.tool] || (store.tool === 'free' ? 'free' : ['shape', 'text', 'fill', 'transp', 'eyedrop'].includes(store.tool) ? null : selKind)
     el.hidden = !kind
     if (!kind) return
     for (const [k, list] of Object.entries(groups)) for (const c of list) c.hidden = k !== kind

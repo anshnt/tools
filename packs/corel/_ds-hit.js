@@ -1,6 +1,7 @@
 // Draw Studio hit testing, boxes, marquee and snapping. Pure except pickFromTarget (it reads DOM attributes from the event target).
 import { pathBBox, mapPath, unionBox } from './_model.js'
 import { pathDistance } from './_ds-path.js'
+import { defaultGrid } from './_ds-units.js'
 
 const UNIT_SQUARE = [['M', 0, 0], ['L', 1, 0], ['L', 1, 1], ['L', 0, 1], ['Z']]
 /** boxOf(node) with a WeakMap cache (nodes are immutable). Text boxes come from the DOM through textBox(node); epoch() changes when fonts load. */
@@ -83,45 +84,60 @@ export function marquee(store, boxOf, rect, touching = false) {
   return ids
 }
 
-/** Snap target lines: page edges and centre, guides, edges and centres of visible unlocked objects in the viewport rect (nearest 3000), the grid when on. */
-export function collectTargets(store, boxOf, exclude = new Set(), viewport = null, { grid = 0 } = {}) {
-  const page = store.page()
-  const xs = [0, page.w / 2, page.w], ys = [0, page.h / 2, page.h]
-  for (const g of page.guides || []) (g.axis === 'v' ? xs : ys).push(g.pos)
-  const near = []
-  for (const n of pickables(store)) {
-    if (exclude.has(n.id)) continue
-    const b = boxOf(n)
-    if (!b || (viewport && !touches(b, viewport))) continue
-    near.push(b)
+/**
+ * Snap target lines: the page edges and centre, guides, edges and centres of visible unlocked objects in the viewport rect (nearest 3000), and the grid.
+ * Each group follows its own switch in store.prefs (snapPage, snapGuides, snapObjects, snapGrid; the first three default to on, the grid to off).
+ * opts: {grid: spacing in points (overrides the preference), skipGuide: id of a guide being moved (it must not snap to itself)}.
+ * The grid starts at the page's bottom-left corner (T.gy0 is the y of that corner), like the rulers.
+ */
+export function collectTargets(store, boxOf, exclude = new Set(), viewport = null, opts = {}) {
+  const page = store.page(), P = store.prefs
+  const xs = [], ys = []
+  if (P.snapPage !== false) { xs.push(0, page.w / 2, page.w); ys.push(0, page.h / 2, page.h) }
+  if (P.snapGuides !== false) for (const g of page.guides || []) if (g.id !== opts.skipGuide) (g.axis === 'v' ? xs : ys).push(g.pos)
+  if (P.snapObjects !== false) {
+    const near = []
+    for (const n of pickables(store)) {
+      if (exclude.has(n.id)) continue
+      const b = boxOf(n)
+      if (!b || (viewport && !touches(b, viewport))) continue
+      near.push(b)
+    }
+    if (viewport && near.length > 3000) {
+      const cx = viewport.x + viewport.w / 2, cy = viewport.y + viewport.h / 2
+      near.sort((a, b) => Math.hypot(a.x + a.w / 2 - cx, a.y + a.h / 2 - cy) - Math.hypot(b.x + b.w / 2 - cx, b.y + b.h / 2 - cy))
+      near.length = 3000
+    }
+    for (const b of near) { xs.push(b.x, b.x + b.w / 2, b.x + b.w); ys.push(b.y, b.y + b.h / 2, b.y + b.h) }
   }
-  if (viewport && near.length > 3000) {
-    const cx = viewport.x + viewport.w / 2, cy = viewport.y + viewport.h / 2
-    near.sort((a, b) => Math.hypot(a.x + a.w / 2 - cx, a.y + a.h / 2 - cy) - Math.hypot(b.x + b.w / 2 - cx, b.y + b.h / 2 - cy))
-    near.length = 3000
-  }
-  for (const b of near) { xs.push(b.x, b.x + b.w / 2, b.x + b.w); ys.push(b.y, b.y + b.h / 2, b.y + b.h) }
-  return { xs, ys, grid }
+  let grid = opts.grid ?? (P.snapGrid ? P.gridStep || defaultGrid(store.root.units) : 0)
+  if (grid * (store.view?.z || 1) < 3) grid = 0 // a grid denser than 3 px is not snapped to
+  return { xs, ys, grid, gx0: 0, gy0: page.h }
 }
 const best = (vals, targets, thr) => {
   let hit = null
   for (const v of vals) for (const t of targets) { const d = t - v; if (Math.abs(d) <= thr && (!hit || Math.abs(d) < Math.abs(hit.d))) hit = { d, at: t } }
   return hit
 }
+/** Nearest grid line (spacing g, one line at o) to any of vals, as {d, at: null} when within thr. */
+const gridBest = (vals, g, o, thr) => {
+  let hit = null
+  for (const v of vals) { const d = Math.round((v - o) / g) * g + o - v; if (Math.abs(d) <= thr && (!hit || Math.abs(d) < Math.abs(hit.d))) hit = { d, at: null } }
+  return hit
+}
 /** Offset {dx, dy} that snaps a moving box's left, centre, right and top, middle, bottom to targets (tolerance thr in points, i.e. 6 px / zoom). lines lists the snapped lines for the overlay. */
 export function snapBox(box, T, thr, off = false) {
   if (off || !T) return { dx: 0, dy: 0, lines: { x: [], y: [] } }
   let bx = best([box.x, box.x + box.w / 2, box.x + box.w], T.xs, thr), by = best([box.y, box.y + box.h / 2, box.y + box.h], T.ys, thr)
-  if (!bx && T.grid) { const g = Math.round(box.x / T.grid) * T.grid - box.x; if (Math.abs(g) <= thr) bx = { d: g, at: null } }
-  if (!by && T.grid) { const g = Math.round(box.y / T.grid) * T.grid - box.y; if (Math.abs(g) <= thr) by = { d: g, at: null } }
+  if (!bx && T.grid) bx = gridBest([box.x, box.x + box.w], T.grid, T.gx0 || 0, thr)
+  if (!by && T.grid) by = gridBest([box.y, box.y + box.h], T.grid, T.gy0 || 0, thr)
   return { dx: bx?.d || 0, dy: by?.d || 0, lines: { x: bx?.at != null ? [bx.at] : [], y: by?.at != null ? [by.at] : [] } }
 }
 /** Snap one point (a node or a drawing point). Returns {x, y, lines}. */
 export function snapPoint(p, T, thr, off = false) {
   if (off || !T) return { x: p.x, y: p.y, lines: { x: [], y: [] } }
-  const bx = best([p.x], T.xs, thr), by = best([p.y], T.ys, thr)
-  let x = bx ? p.x + bx.d : p.x, y = by ? p.y + by.d : p.y
-  if (!bx && T.grid) { const g = Math.round(p.x / T.grid) * T.grid; if (Math.abs(g - p.x) <= thr) x = g }
-  if (!by && T.grid) { const g = Math.round(p.y / T.grid) * T.grid; if (Math.abs(g - p.y) <= thr) y = g }
-  return { x, y, lines: { x: bx ? [bx.at] : [], y: by ? [by.at] : [] } }
+  let bx = best([p.x], T.xs, thr), by = best([p.y], T.ys, thr)
+  if (!bx && T.grid) bx = gridBest([p.x], T.grid, T.gx0 || 0, thr)
+  if (!by && T.grid) by = gridBest([p.y], T.grid, T.gy0 || 0, thr)
+  return { x: bx ? p.x + bx.d : p.x, y: by ? p.y + by.d : p.y, lines: { x: bx?.at != null ? [bx.at] : [], y: by?.at != null ? [by.at] : [] } }
 }
