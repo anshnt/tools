@@ -779,3 +779,12 @@ dialog.palette[open] { animation: dlg-in .28s var(--spring); }
   .modal-foot > .btn { flex: 1 1 0; justify-content: center; }
 }
 @keyframes sheet-in { from { transform: translateY(40px); opacity: .4; } }
+
+/* ---------- Free on-device AI: model download card ---------- */
+.ai-dl { position: fixed; z-index: 90; right: 16px; bottom: calc(16px + var(--safe-b)); width: min(340px, calc(100vw - 32px)); display: flex; gap: 12px; align-items: flex-start;
+  padding: 14px 16px; border-radius: 16px; background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow-lg); animation: toast-in .3s var(--spring); }
+.ai-dl > .icon { color: var(--accent, #8b5cf6); flex: none; margin-top: 2px; }
+.ai-dl-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; font-size: 13.5px; }
+.ai-dl-text { color: var(--muted); }
+.ai-dl-bar { height: 6px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.ai-dl-bar i { display: block; height: 100%; width: 0; background: var(--brand); transition: width .3s; }

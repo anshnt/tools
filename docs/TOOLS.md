@@ -22,7 +22,7 @@ lib/                       shared helpers every tool uses (do not edit from a pa
   ffmpeg.js                runFFmpeg, loadFFmpeg, probe, terminateFFmpeg, MAX_INPUT_BYTES (single-thread ffmpeg.wasm)
   ocr.js                   recognize(image, {lang, onProgress}), OCR_LANGS
   whisper.js               transcribe(blob, {model, language, task, onProgress}), decodeAudio, toSRT, toVTT, WHISPER_MODELS, WHISPER_LANGS
-  ai.js                    Claude or Gemini: ensureKey(), ask({...}), notice(), imageBlock, pdfBlock, textBlock, openSettings, isConfigured, config
+  ai.js                    Claude, Gemini or free on-device AI (ai-local.js, WebLLM): ensureKey(), ask({...}), notice(), imageBlock, pdfBlock, textBlock, openSettings, isConfigured, config
   store.js                 load/save/remove/persisted for localStorage (namespaced, never throws)
 packs/<pack>/catalog.js    the pack's tool entries (owned by the pack)
 packs/<pack>/<module>.js   tool modules (owned by the pack)
