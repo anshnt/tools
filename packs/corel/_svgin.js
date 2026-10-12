@@ -3,6 +3,7 @@
 // Supported: path, rect, circle, ellipse, line, polyline, polygon, groups, use, nested svg, clip paths, solid fills and strokes,
 // linear and radial gradients, images (data URLs), text. Filters, masks, markers and patterns are dropped with a note.
 import { I, mul, translate, mapPath, parseD, pointsPath, rectPath, ellipsePath, parseColor, pathBBox, meanScale, rotate } from './_model.js'
+import { scrubSvgText } from './_ds-doc.js'
 
 const PX = 0.75 // CSS px -> pt
 const UNITS = { px: 1, pt: 4 / 3, pc: 16, mm: 96 / 25.4, cm: 96 / 2.54, in: 96, q: 96 / 101.6 }
@@ -87,6 +88,7 @@ const matrixOf = (dm) => [dm.a, dm.b, dm.c, dm.d, dm.e, dm.f]
  * Convert SVG text. Returns {pages: [{w, h, items}], warnings}. Page size is the SVG's own size in points.
  */
 export async function svgToDoc(text) {
+  text = scrubSvgText(text) // drop processing instructions (remote stylesheets) and external entities
   const warnings = new Set()
   const warn = (s) => warnings.add(s)
   const xml = new DOMParser().parseFromString(text, 'image/svg+xml')

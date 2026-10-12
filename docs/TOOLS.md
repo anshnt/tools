@@ -156,7 +156,7 @@ Test locally with a static server (`python -m http.server 8000`, then open `http
 
 ## Studio apps (full editors)
 
-The `studio-*` packs hold full editors (photo, develop, vector, video, motion, layout, PDF, audio, slides, docs, sheets, CAD). Use `openToolWith(id, files)` from lib/ui.js to open another tool with a file loaded. They follow everything above, plus:
+The `studio-*` packs hold full editors (photo, develop, vector, video, motion, layout, PDF, audio, slides, docs, sheets, CAD). Draw Studio (CDR, AI, PDF, EPS, SVG and pictures, saved as CDR or any format) lives in the `corel` pack next to the converters. Use `openToolWith(id, files)` from lib/ui.js to open another tool with a file loaded. They follow everything above, plus:
 
 - Catalog entry has `layout: 'app'`: the tool page gets a compact header, a full-width workspace and a Full screen button (`.tool-body.app`). Build an app shell inside `root`: a top toolbar, optional left tool rail and right inspector panels, and the canvas/editor in the middle, sized to the available height. Keep it usable at 360px (panels collapse into tabs or a bottom sheet) and say "best on a larger screen" where a feature really needs it.
 - **State:** one document model (plain objects), rendered from state; every edit goes through a command so **undo/redo** works (Ctrl+Z / Ctrl+Shift+Z or Ctrl+Y), with a history panel where useful.
@@ -165,3 +165,14 @@ The `studio-*` packs hold full editors (photo, develop, vector, video, motion, l
 - **Performance:** canvas or WebGL for pixels, SVG for vectors, virtualize long lists and big grids, workers for heavy processing, `yieldToMain()` in long loops.
 - **Libraries:** pinned, permissively licensed (MIT, Apache, BSD, ISC; avoid GPL/AGPL/commercial engines such as HyperFormula). The ffmpeg.wasm core used by `lib/ffmpeg.js` is GPL, but it is loaded at runtime from the CDN as a separate program, which is fine; do not vendor GPL code into the repo. Examples that fit: ag-psd (PSD), paper.js (vector booleans), pdf.js + pdf-lib, SheetJS, docx/mammoth, pptxgenjs, dxf-parser, ffmpeg.wasm via `lib/ffmpeg.js`, WebCodecs + mp4-muxer.
 - **Branding:** these are this site's own apps. Do not credit, link or name other products (no Adobe, Microsoft, Autodesk or other app names or links in the UI); descriptive search tags like "photoshop alternative" are fine.
+
+### Corel pack (Draw Studio and the CDR converters)
+
+`draw-studio.js` is the editor (its `_ds-*.js` modules hold the store, renderer, tools, commands, dialogs, autosave and the save and import code). `cdr-to-*` entries are Draw Studio in quick export mode (`params.to`), and `convert-to-coreldraw.js` is the converter behind `pdf-to-cdr`, `svg-to-cdr`, `png-to-cdr` and the older EPS, AI and PDF entries. Shared helper modules, all DOM-free unless noted, so Node tests can import them (`packs/corel/tests`):
+
+- `_model.js`: the flat document model (points, y down). The header comment lists every field, including fonts, glyph text, ids and the tree extension. `_tree.js`: `treeFromFlat` and `flattenDoc` (pages with layers and groups).
+- Readers: `_cdr.js` and `_cdrdoc.js` (CDR, RIFF and the ZIP containers), `_svgin.js`, `_pdfin.js` (pdf.js, keeps embedded fonts), `_psin.js` (EPS, PS and old AI), `_trace.js` (bitmap tracing).
+- Writers: `_cdrout.js` (CDR), `_pdfout.js` (PDF and AI), `_eps.js`, `_svgout.js`. `_text.js` turns text into outlines (embedded fonts first, bundled fonts otherwise). `_libs.js` loads opentype.js and the bundled fonts.
+- pdf.js documents have no `destroy()` in version 6: `openPdf` in `lib/pdf.js` adds one that destroys the loading task, which owns the worker and the copy of the file. Any code that calls `getDocument` itself must destroy the loading task.
+
+CDR caveat: the CDR writer follows the public description of the format and is checked only with this site's own reader (`readCdr`), not against the desktop application, so the converter and Draw Studio say so and offer EPS, AI and SVG as the safe fallbacks. Keep that wording when you touch their copy.

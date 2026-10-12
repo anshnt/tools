@@ -271,6 +271,7 @@ function parseBmp(body, ctx) {
   const stride = ((w * bpp + 31) >> 5) << 2
   if (px.length < stride * h) throw new Error('short bitmap')
   const rgba = new Uint8ClampedArray(w * h * 4)
+  let anyA = false
   for (let y = 0; y < h; y++) {
     const row = (h - 1 - y) * stride
     for (let x = 0; x < w; x++) {
@@ -279,7 +280,7 @@ function parseBmp(body, ctx) {
       if (bpp === 24) { B = px[row + x * 3]; G = px[row + x * 3 + 1]; R = px[row + x * 3 + 2] }
       else if (bpp === 32) {
         const a = px[row + x * 4], b2 = px[row + x * 4 + 1], c2 = px[row + x * 4 + 2], d2 = px[row + x * 4 + 3]
-        if (model === 2 || model === 3 || model === 17) { const k = d2 / 255; R = 255 * (1 - a / 255) * (1 - k); G = 255 * (1 - b2 / 255) * (1 - k); B = 255 * (1 - c2 / 255) * (1 - k) } else { B = a; G = b2; R = c2; A = d2 || 255 }
+        if (model === 2 || model === 3 || model === 17) { const k = d2 / 255; R = 255 * (1 - a / 255) * (1 - k); G = 255 * (1 - b2 / 255) * (1 - k); B = 255 * (1 - c2 / 255) * (1 - k) } else { B = a; G = b2; R = c2; A = d2; if (d2) anyA = true }
       } else if (bpp === 8) { const i = px[row + x]; if (pal) [R, G, B] = pal[i] || [0, 0, 0]; else R = G = B = i }
       else if (bpp === 1) { const bit = (px[row + (x >> 3)] >> (7 - (x & 7))) & 1; if (pal?.length >= 2) [R, G, B] = pal[bit]; else R = G = B = bit ? 255 : 0 }
       else if (bpp === 4) { const byte = px[row + (x >> 1)], i = x & 1 ? byte & 15 : byte >> 4; if (pal) [R, G, B] = pal[i] || [0, 0, 0]; else R = G = B = i * 17 }
@@ -287,6 +288,8 @@ function parseBmp(body, ctx) {
       rgba[o] = R; rgba[o + 1] = G; rgba[o + 2] = B; rgba[o + 3] = A
     }
   }
+  // a 32 bit bitmap whose alpha bytes are all 0 is a padded 24 bit one (opaque); any real alpha is kept, so a fully clear pixel stays clear
+  if (bpp === 32 && !anyA && !(model === 2 || model === 3 || model === 17)) for (let i = 3; i < rgba.length; i += 4) rgba[i] = 255
   return { id, bmp: { w, h, rgba } }
 }
 
@@ -651,7 +654,8 @@ export async function readCdr(input, { JSZip } = {}) {
   walk(root.children, {})
   // the preview image is in a page-less file too
   const useful = pages.filter((p) => p.layers.some((l) => l.objects.length))
-  if (!useful.length) { res.failed = true; warnings.push('No drawing objects could be read from this file.') }
+  // a file with pages but no objects is a blank drawing, not a failure (a blank CDR saved by this site must reopen)
+  if (!useful.length && !pages.some((p) => !p.master)) { res.failed = true; warnings.push('No drawing objects could be read from this file.') }
   // names, sizes
   let n = 0
   for (const p of pages) { if (!p.name) p.name = p.master ? 'Master page' : `Page ${++n}`; if (!p.w || !p.h) { p.w = mcfg?.w || 8.5; p.h = mcfg?.h || 11 } }
