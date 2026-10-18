@@ -132,7 +132,9 @@ export function mount(root) {
         actions: (f) => (f.unpacked || f.link != null || f.truncated ? null : rowDownload(f.name, () => download(blobOf(f), f.path.split('/').pop()))),
       })
 
+      let previewSeq = 0
       async function preview(f) {
+        const seq = ++previewSeq
         revoke()
         const meta = kv([['Path', f.path], ['Size', f.link != null ? null : `${formatBytes(f.size)} (${formatNumber(f.size)} bytes)`],
           ['Offset', f.offset != null && !f.unpacked ? `${formatNumber(f.offset)} (file byte ${formatNumber(arc.dataOffset + f.offset)})` : null],
@@ -168,6 +170,7 @@ export function mount(root) {
             body = h('div', { class: 'preview' }, h('img', { class: 'pkg-imgprev', src: previewUrl, alt: f.path }))
           } else {
             const bytes = new Uint8Array(await blobOf(f).slice(0, PREVIEW_TEXT).arrayBuffer())
+            if (seq !== previewSeq) return // another file was picked while this one was read
             if (looksText(bytes)) {
               let text = new TextDecoder().decode(bytes)
               if (f.size > PREVIEW_TEXT) text += `\n\n... preview stops at ${formatBytes(PREVIEW_TEXT)}. Download the file to see all of it.`
@@ -176,7 +179,7 @@ export function mount(root) {
             } else body = h('div', { class: 'stack' }, h('div', { class: 'small muted' }, 'Binary file. First bytes:'), codeBlock(hexDump(bytes, 1024)))
           }
           previewBox.lastChild.replaceWith(body)
-        } catch (e) { previewBox.lastChild.replaceWith(alert('error', errorMessage(e))) }
+        } catch (e) { if (seq === previewSeq) previewBox.lastChild.replaceWith(alert('error', errorMessage(e))) }
       }
 
       const zipOut = h('div')

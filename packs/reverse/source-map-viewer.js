@@ -111,13 +111,16 @@ function flattenIndexMap(m) {
   const ignoreList = []
   for (const sec of m.sections) {
     if (!sec.map) fail('This index map has a section that points to another URL. Only sections with an embedded "map" can be read here.')
+    const lo = sec.offset?.line ?? 0, co = sec.offset?.column ?? 0
+    // A huge or non-numeric offset would make the padding loop below run (almost) forever.
+    if (!Number.isInteger(lo) || !Number.isInteger(co) || lo < 0 || co < 0 || lo > 10_000_000) fail('This index map has a section with an invalid offset.')
     const sub = parseSourceMap(sec.map)
     const so = sources.length, no = names.length
-    sources.push(...sub.sources)
+    // Loops instead of push(...list): very large lists overflow the argument limit.
+    for (const s of sub.sources) sources.push(s)
     sub.sources.forEach((_, i) => sourcesContent.push(sub.sourcesContent[i] ?? null))
-    names.push(...sub.names)
-    ignoreList.push(...sub.ignoreList.map((i) => i + so))
-    const lo = sec.offset?.line || 0, co = sec.offset?.column || 0
+    for (const n of sub.names) names.push(n)
+    for (const i of sub.ignoreList) ignoreList.push(i + so)
     sub.lines.forEach((row, i) => {
       const L = lo + i
       while (lines.length <= L) lines.push([])
@@ -387,7 +390,7 @@ export function mount(root) {
       const rows = []
       outer: for (let gl = 0; gl < map.lines.length; gl++) {
         for (const seg of map.lines[gl]) {
-          rows.push([`${gl + 1}:${seg.gc + 1}`, seg.s >= 0 ? h('code', { style: 'overflow-wrap:anywhere' }, map.sources[seg.s]) : h('span', { class: 'muted' }, '(none)'), seg.s >= 0 ? `${seg.l + 1}:${seg.c + 1}` : '', seg.n >= 0 ? h('code', map.names[seg.n]) : ''])
+          rows.push([`${gl + 1}:${seg.gc + 1}`, seg.s >= 0 ? h('code', { style: 'overflow-wrap:anywhere' }, map.sources[seg.s]) : h('span', { class: 'muted' }, '(none)'), seg.s >= 0 ? `${seg.l + 1}:${seg.c + 1}` : '', seg.n >= 0 ? h('code', String(map.names[seg.n] ?? '')) : ''])
           if (rows.length >= 1000) break outer
         }
       }

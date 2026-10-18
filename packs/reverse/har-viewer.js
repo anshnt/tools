@@ -117,7 +117,7 @@ export const statusClass = (s) => (s >= 100 && s < 600 ? `${Math.floor(s / 100)}
 /** Summary numbers for a list of parsed entries. */
 export function summarizeHar(entries) {
   const starts = entries.map((e) => e.start).filter(Number.isFinite)
-  const t0 = starts.length ? Math.min(...starts) : NaN
+  const t0 = starts.length ? starts.reduce((a, b) => (b < a ? b : a)) : NaN // no spread: big HARs overflow the argument limit
   let end = -Infinity, transferred = 0, size = 0, errors = 0
   const domains = new Map()
   for (const e of entries) {
@@ -370,7 +370,8 @@ export function mount(root) {
 
     function drawList() {
       const t0 = sum.start
-      const span = Math.max(1, ...current.filter((e) => Number.isFinite(e.start)).map((e) => e.start - t0 + e.time))
+      let span = 1
+      for (const e of current) if (Number.isFinite(e.start)) span = Math.max(span, e.start - t0 + e.time)
       count.textContent = `${current.length} request${current.length === 1 ? '' : 's'} shown`
       if (!current.length) { clear(listHost, h('p', { class: 'muted' }, 'No requests match these filters.')); return }
       const rows = current.slice(0, limit).map((e) => {
@@ -448,9 +449,13 @@ function waterfallBar(e, t0, span) {
   return h('div', { class: 'hv-wf', role: 'img', 'aria-label': `Starts at ${fmtMs(e.start - t0)}, takes ${fmtMs(e.time)}` }, segs)
 }
 
+// HAR values come from an untrusted file and may be objects. h(tag, obj) would treat an object as props (html, innerHTML),
+// so every value is turned into text first.
+const txt = (v) => (v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v))
+
 function kv(list) {
   if (!list || !list.length) return h('p', { class: 'muted small' }, 'None.')
-  return h('dl', { class: 'hv-kv' }, list.map(([k, v]) => [h('dt', k), h('dd', v)]))
+  return h('dl', { class: 'hv-kv' }, list.map(([k, v]) => [h('dt', txt(k)), h('dd', txt(v))]))
 }
 const headerPairs = (hs) => (Array.isArray(hs) ? hs.map((x) => [x.name, x.value]) : [])
 
@@ -520,7 +525,7 @@ function cookies(req, res) {
   const tbl = (list, title) => h('div', { class: 'stack tight' }, h('h3', { class: 'hv-h3' }, title),
     !list?.length ? h('p', { class: 'muted small' }, 'None.') : h('div', { class: 'table-wrap' }, h('table', { class: 'table' },
       h('thead', h('tr', ['Name', 'Value', 'Domain', 'Path', 'Expires', 'Flags'].map((c) => h('th', { scope: 'col' }, c)))),
-      h('tbody', list.map((c) => h('tr', h('td', c.name), h('td', { class: 'hv-name', title: c.value }, String(c.value ?? '').slice(0, 80)), h('td', c.domain || ''), h('td', c.path || ''), h('td', c.expires || ''),
+      h('tbody', list.map((c) => h('tr', h('td', txt(c.name)), h('td', { class: 'hv-name', title: txt(c.value) }, txt(c.value).slice(0, 80)), h('td', txt(c.domain)), h('td', txt(c.path)), h('td', txt(c.expires)),
         h('td', [c.httpOnly && 'HttpOnly', c.secure && 'Secure', c.sameSite && `SameSite=${c.sameSite}`].filter(Boolean).join(', '))))))))
   return h('div', { class: 'stack tight' }, tbl(req.cookies, 'Sent with the request'), tbl(res.cookies, 'Set by the response'))
 }

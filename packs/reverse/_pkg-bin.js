@@ -168,7 +168,8 @@ export async function readApkSigningBlock(readRange, fileSize) {
 
 // v2/v3 value: lp(signers) where each signer = lp(signedData = lp(digests), lp(certificates = lp(cert)...), ...)
 function signerCerts(v) {
-  const lp = (b, o) => { const n = u32(b, o); return { s: o + 4, e: o + 4 + n } }
+  // Clamp to the value so a damaged length cannot make the loops below walk billions of empty bytes.
+  const lp = (b, o) => { const n = u32(b, o); return { s: o + 4, e: Math.min(b.length, o + 4 + n) } }
   const out = []
   const signers = lp(v, 0)
   for (let o = signers.s; o < signers.e;) {

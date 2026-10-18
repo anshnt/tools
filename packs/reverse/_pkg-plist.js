@@ -78,13 +78,22 @@ export function parseBplist(bytes) {
     if (n === 16) return dv.getBigInt64(o + 8) // 128-bit ints only appear for values over 2^63; keep the low 64 bits signed
     return BigInt(uint(o, n))
   }
-  function count(o, info) { // returns [count, dataStart]
-    if (info !== 0x0f) return [info, o + 1]
-    const m = b[o + 1]
-    if ((m & 0xf0) !== 0x10) fail('This binary plist has a damaged length field.')
-    const n = 1 << (m & 0x0f)
-    return [Number(readInt(o + 2, n)), o + 2 + n]
+  function count(o, info, unit = 1) { // returns [count, dataStart]; unit is the byte size of one item, used to bounds-check
+    let r
+    if (info !== 0x0f) r = [info, o + 1]
+    else {
+      const m = b[o + 1]
+      if ((m & 0xf0) !== 0x10) fail('This binary plist has a damaged length field.')
+      const n = 1 << (m & 0x0f)
+      r = [Number(readInt(o + 2, n)), o + 2 + n]
+    }
+    if (r[0] < 0 || r[1] + r[0] * unit > t) fail('This binary plist is truncated (an object runs past the end).')
+    return r
   }
+  // Objects can be shared, so a tiny file can describe a huge tree. Cap the expanded size so viewing it cannot hang the tab.
+  const MAX_EXPANDED = 5_000_000
+  const sizes = new Map()
+  const child = (ref) => { const n = obj(ref); return [n, sizes.get(ref) || 1] }
   function obj(ref) {
     if (ref >= numObjects) fail('This binary plist refers to an object that does not exist.')
     if (cache.has(ref)) return cache.get(ref)
@@ -93,7 +102,7 @@ export function parseBplist(bytes) {
     const o = offsets[ref]
     if (o >= t) fail('This binary plist has an object offset out of range.')
     const m = b[o], hi = m >> 4, info = m & 0x0f
-    let r
+    let r, size = 1
     switch (hi) {
       case 0x0:
         r = info === 0x08 ? node.bool(false) : info === 0x09 ? node.bool(true) : node.null()
@@ -103,30 +112,33 @@ export function parseBplist(bytes) {
       case 0x3: r = node.date(new Date(APPLE_EPOCH + dv.getFloat64(o + 1) * 1000)); break
       case 0x4: { const [n, s] = count(o, info); r = node.data(b.slice(s, s + n)); break }
       case 0x5: { const [n, s] = count(o, info); let str = ''; for (let i = 0; i < n; i++) str += String.fromCharCode(b[s + i]); r = node.string(str); break }
-      case 0x6: { const [n, s] = count(o, info); let str = ''; for (let i = 0; i < n; i++) str += String.fromCharCode(dv.getUint16(s + i * 2)); r = node.string(str); break }
+      case 0x6: { const [n, s] = count(o, info, 2); let str = ''; for (let i = 0; i < n; i++) str += String.fromCharCode(dv.getUint16(s + i * 2)); r = node.string(str); break }
       case 0x7: { const [n, s] = count(o, info); r = node.string(new TextDecoder().decode(b.subarray(s, s + n))); break }
       case 0x8: r = node.uid(uint(o + 1, info + 1)); break
       case 0xa: case 0xb: case 0xc: {
-        const [n, s] = count(o, info)
+        const [n, s] = count(o, info, refSize)
         const items = []
         r = node.array(items)
-        for (let i = 0; i < n; i++) items.push(obj(uint(s + i * refSize, refSize)))
+        for (let i = 0; i < n; i++) { const [c, cs] = child(uint(s + i * refSize, refSize)); items.push(c); size += cs }
         break
       }
       case 0xd: {
-        const [n, s] = count(o, info)
+        const [n, s] = count(o, info, refSize * 2)
         const entries = []
         r = node.dict(entries)
         for (let i = 0; i < n; i++) {
           const k = obj(uint(s + i * refSize, refSize))
-          const v = obj(uint(s + (n + i) * refSize, refSize))
+          const [v, vs] = child(uint(s + (n + i) * refSize, refSize))
           entries.push([k.t === 'string' ? k.v : String(k.v), v])
+          size += vs
         }
         break
       }
       default: fail(`This binary plist has an unknown object type (0x${m.toString(16)}).`)
     }
+    if (size > MAX_EXPANDED) fail('This binary plist reuses objects so often that it expands to millions of values, which is too many to show.')
     active.delete(ref)
+    sizes.set(ref, size)
     cache.set(ref, r)
     return r
   }

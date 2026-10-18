@@ -164,7 +164,8 @@ const TYPE_ICON = { table: 'table', view: 'eye', index: 'list-ordered', trigger:
 export function mount(root) {
   injectStyle()
   const st = { db: null, file: null, info: null, objects: [], current: null, page: 0, pageSize: 100, last: null, modified: false }
-  onCleanup(() => { try { st.db?.close() } catch { /* already closed */ } st.db = null })
+  let gone = false
+  onCleanup(() => { gone = true; try { st.db?.close() } catch { /* already closed */ } st.db = null })
   const prog = progress('Opening database')
   const result = h('div', { class: 'stack' })
   const zone = dropzone({
@@ -194,15 +195,19 @@ export function mount(root) {
         try { db?.close() } catch { /* ignore */ }
         throw Object.assign(new Error(`SQLite could not read this database: ${e.message}. The file may be damaged or encrypted.`), { userError: true })
       }
+      // The page was left while the engine loaded: close now, or the copy of the database stays in WebAssembly memory.
+      if (gone) { db.close(); return }
       try { st.db?.close() } catch { /* ignore */ }
       Object.assign(st, { db, file, info, current: null, page: 0, last: null, modified: false })
       prog.set(null, 'Counting rows')
       st.objects = await listObjects(db, { yieldFn: yieldToMain })
+      if (gone) return
       zone.classList.add('compact')
       render()
       const first = st.objects.find((o) => o.type === 'table' && !o.internal) || st.objects.find((o) => o.type === 'view')
       if (first) pick(first)
     } catch (e) {
+      if (gone) return // the database was closed on unmount while rows were being counted
       if (!(e.userError)) console.error(e)
       clear(result, alert('error', errorMessage(e)))
     } finally { prog.hide() }

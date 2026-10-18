@@ -220,7 +220,7 @@ export async function inspectIpa(zip, { onStep } = {}) {
     }
     for (const b of found.values()) {
       const f = zip.file(`${appDir}${kind === 'appex' ? 'PlugIns' : 'Frameworks'}/${b.name}/Info.plist`)
-      if (f) { try { const p = toPlain(parsePlist(await f.async('uint8array'))); b.bundleId = p.CFBundleIdentifier || ''; b.version = p.CFBundleShortVersionString || p.CFBundleVersion || ''; b.extensionPoint = p.NSExtension?.NSExtensionPointIdentifier || '' } catch { /* optional */ } }
+      if (f) { try { const p = toPlain(parsePlist(await f.async('uint8array'))); b.bundleId = String(p.CFBundleIdentifier || ''); b.version = String(p.CFBundleShortVersionString || p.CFBundleVersion || ''); b.extensionPoint = String(p.NSExtension?.NSExtensionPointIdentifier || '') } catch { /* optional */ } }
       await yieldToMain()
     }
     return [...found.values()].sort((a, b) => a.name.localeCompare(b.name))
@@ -242,8 +242,9 @@ export function mount(root, { params = {} } = {}) {
   const prog = progress()
   const urls = []
   const revoke = () => { while (urls.length) URL.revokeObjectURL(urls.pop()) }
-  onCleanup(revoke)
   let run = 0
+  // Leaving the page makes the current run stale, which stops it at its next step.
+  onCleanup(() => { run++; revoke() })
 
   const zone = dropzone({
     accept: kind === 'apk' ? '.apk,.aab,.xapk,.apks,.apkm' : '.ipa',
@@ -266,13 +267,18 @@ export function mount(root, { params = {} } = {}) {
       let zip
       try { zip = await JSZip.loadAsync(file) } catch { fail(`${file.name} is not a valid ZIP archive, so it cannot be an ${kind.toUpperCase()}. It may be damaged or only partly downloaded.`) }
       if (my !== run) return
-      const onStep = (t) => prog.set(null, t)
+      const onStep = (t) => {
+        if (my !== run) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' })
+        prog.set(null, t)
+      }
       const data = kind === 'apk' ? await inspectApk(zip, { readRange: fileRange(file), size: file.size, name: file.name, onStep }) : await inspectIpa(zip, { onStep })
       if (my !== run) return
       data.zip = data.innerZip || zip
       prog.set(1, 'Rendering')
       await yieldToMain()
-      clear(result, kind === 'apk' ? await renderApk(data, file) : renderIpa(data, file))
+      const view = kind === 'apk' ? await renderApk(data, file, my) : renderIpa(data, file)
+      if (my !== run) return
+      clear(result, view)
     } catch (e) {
       if (isAbort(e)) return
       if (!e?.userMessage) console.error(e)
@@ -289,14 +295,18 @@ export function mount(root, { params = {} } = {}) {
   const notesEl = (notes) => notes.map((n) => alert('info', n))
 
   // ----- APK -----
-  async function renderApk(d, file) {
+  async function renderApk(d, file, my) {
     const s = d.manifest?.summary
     let iconImg = null
     if (d.manifest?.iconPath && d.zip.file(d.manifest.iconPath)) {
       try {
-        const u = URL.createObjectURL(await d.zip.file(d.manifest.iconPath).async('blob'))
-        urls.push(u)
-        iconImg = h('img', { src: u, alt: '' })
+        const blob = await d.zip.file(d.manifest.iconPath).async('blob')
+        // Only a live run may create the URL: a stale one (page left or new file) would never revoke it.
+        if (my === run) {
+          const u = URL.createObjectURL(blob)
+          urls.push(u)
+          iconImg = h('img', { src: u, alt: '' })
+        }
       } catch { /* no icon */ }
     }
     const dangerous = s ? s.permissions.filter((p) => p.dangerous) : []

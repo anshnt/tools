@@ -80,11 +80,14 @@ function* readPcapng(bytes, dv, info) {
       type = 0x0a0d0d0a
       ifaces = []
       info.littleEndian = le
-      info.version = `${dv.getUint16(off + 12, le)}.${dv.getUint16(off + 14, le)}`
     }
     const len = dv.getUint32(off + 4, le)
     if (len < 12 || len % 4 !== 0 || off + len > bytes.length) { info.truncated = true; info.offset = bytes.length; return }
     const body = off + 8, end = off + len - 4
+    // Blocks too short for their fixed fields are skipped (reading them would run past the block or the file).
+    const minBody = { 1: 8, 2: 20, 3: 4, 6: 20, 0x0a0d0d0a: 8 }[type] || 0
+    if (end - body < minBody) { info.skippedBlocks++; off += len; info.offset = off; continue }
+    if (type === 0x0a0d0d0a) info.version = `${dv.getUint16(off + 12, le)}.${dv.getUint16(off + 14, le)}`
     if (type === 1) {
       // Interface description block
       const iface = { linktype: dv.getUint16(body, le), snaplen: dv.getUint32(body + 4, le), tsUnits: 1e6, tsOffset: 0, name: '' }

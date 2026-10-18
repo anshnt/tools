@@ -23,24 +23,30 @@ export const ANDROID_ATTRS = {
 /** Read a ResStringPool chunk at `o`. Handles UTF-8 and UTF-16 pools. */
 export function readStringPool(b, dv, o) {
   const size = dv.getUint32(o + 4, true)
-  const count = dv.getUint32(o + 8, true)
+  const hdr = dv.getUint16(o + 2, true)
+  const end = Math.min(o + size, b.length)
+  // The offset table must fit in the chunk; a damaged count would otherwise loop over the rest of the file.
+  const count = Math.min(dv.getUint32(o + 8, true), Math.max(0, Math.floor((end - o - hdr) / 4)))
   const flags = dv.getUint32(o + 16, true)
   const stringsStart = dv.getUint32(o + 20, true)
   const utf8 = (flags & 0x100) !== 0
-  const hdr = dv.getUint16(o + 2, true)
   const out = new Array(count)
   const dec = new TextDecoder('utf-8', { fatal: false })
-  const end = o + size
+  // Offsets can overlap, so a small pool could decode to gigabytes of text. Real pools decode to about their own size.
+  let budget = 4 * (end - o) + (1 << 20)
   for (let i = 0; i < count; i++) {
     let p = o + stringsStart + dv.getUint32(o + hdr + i * 4, true)
     if (p >= end) { out[i] = ''; continue }
     if (utf8) {
       let n = b[p++]; if (n & 0x80) p++ // char length, skipped
       n = b[p++]; if (n & 0x80) n = ((n & 0x7f) << 8) | b[p++]
+      if ((budget -= n) < 0) fail('The string pool is damaged (its strings overlap far more than a real file).')
       out[i] = dec.decode(b.subarray(p, Math.min(p + n, end)))
     } else {
       let n = dv.getUint16(p, true); p += 2
       if (n & 0x8000) { n = ((n & 0x7fff) << 16) | dv.getUint16(p, true); p += 2 }
+      n = Math.min(n, Math.max(0, Math.floor((end - p) / 2)))
+      if ((budget -= n) < 0) fail('The string pool is damaged (its strings overlap far more than a real file).')
       let s = ''
       for (let k = 0; k < n && p + k * 2 + 1 < end; k++) s += String.fromCharCode(dv.getUint16(p + k * 2, true))
       out[i] = s
@@ -201,12 +207,13 @@ export function parseArsc(bytes) {
       if (ct === TABLE_TYPE) {
         const typeId = b[o + 8]
         const flags = b[o + 9]
-        const entryCount = dv.getUint32(o + 12, true)
         const entriesStart = dv.getUint32(o + 16, true)
         const cfgSize = dv.getUint32(o + 20, true)
         const config = describeConfig(b, dv, o + 20, cfgSize)
         const sparse = (flags & 1) !== 0
         const offset16 = (flags & 2) !== 0
+        // The index table must fit in this chunk; a damaged count would otherwise rescan the rest of the file for every chunk.
+        const entryCount = Math.min(dv.getUint32(o + 12, true), Math.max(0, Math.floor((cs - chs) / (offset16 && !sparse ? 2 : 4))))
         for (let i = 0; i < entryCount; i++) {
           let idx = i, eo
           if (sparse) {
