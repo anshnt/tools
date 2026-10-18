@@ -1,6 +1,6 @@
 # Toolverse
 
-**Every everyday tool, right in your browser.** 470 free tools for PDFs, images, video and audio, Excel and data, text, calculators, developer work, security, students, careers, India forms and AI.
+**Every everyday tool, right in your browser.** 637 free tools for PDFs, images, video and audio, Excel and data, text, calculators, developer work, security, students, careers, India forms and AI, plus full Studio editors for photos, vectors, video, slides, docs, sheets and CAD.
 
 **Live site: https://anshnt.github.io/tools/**
 
@@ -17,11 +17,11 @@ Tools are marked by how they run:
 | On-device | Runs fully in your browser. |
 | On-device AI | Downloads an ML model once (OCR, Whisper speech-to-text, background removal) and runs it locally. |
 | Online | Calls a public, key-free web service for lookups (DNS, exchange rates, IFSC...). |
-| AI | Uses Claude (Anthropic) or Gemini (Google) with your own API key, stored only in your browser. |
+| AI | Uses Claude (Anthropic) or Gemini (Google) with your own API key, stored only in your browser, or a free AI that runs on your device. |
 
 ## Categories
 
-PDF · Image · Video & Audio · Text & Writing · Excel & Data · Calculators · Developer · Security · Web & Internet · Files · Screen & Browser · Work & Career · Student · Everyday Life · India · AI
+PDF · Image · Video & Audio · Text & Writing · Excel & Data · Calculators · Developer · Security · Web & Internet · Files · Screen & Browser · Work & Career · Student · Everyday Life · India · Studio · AI
 
 ## Development
 
