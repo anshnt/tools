@@ -37,6 +37,7 @@ import studioDocs, * as studioDocsMeta from '../packs/studio-docs/catalog.js'
 import studioSheets, * as studioSheetsMeta from '../packs/studio-sheets/catalog.js'
 import studioCad, * as studioCadMeta from '../packs/studio-cad/catalog.js'
 import corel, * as corelMeta from '../packs/corel/catalog.js'
+import reverse, * as reverseMeta from '../packs/reverse/catalog.js'
 
 export const CATEGORIES = [
   { id: 'pdf', name: 'PDF', title: 'PDF tools', icon: 'file-text', color: '#e5484d', blurb: 'Merge, split, compress, convert, sign and secure PDFs.' },
@@ -55,6 +56,7 @@ export const CATEGORIES = [
   { id: 'personal', name: 'Everyday Life', title: 'Everyday life tools', icon: 'heart', color: '#e54666', blurb: 'Lists, planners, budgets, timers and health.' },
   { id: 'india', name: 'India', title: 'India tools', icon: 'landmark', color: '#ef7d1a', blurb: 'Govt form photos, income tax, GST, IFSC, PIN and more.' },
   { id: 'studio', name: 'Studio', title: 'Creative studio apps', icon: 'layers', color: '#4f6bed', blurb: 'Full editors in your browser: photos, vectors, video, motion, layout, PDF, audio, slides, docs, sheets and CAD.' },
+  { id: 'reverse', name: 'Reverse Engineering', title: 'Reverse engineering tools', icon: 'scan-search', color: '#c2410c', blurb: 'Look inside APKs, IPAs, Electron apps, source maps, plists, databases and network captures.' },
   { id: 'ai', name: 'AI', title: 'AI tools', icon: 'sparkles', color: '#8b5cf6', blurb: 'Summarize, chat with PDFs, extract data and more with Claude, Gemini or a free AI that runs on your device.' },
 ]
 
@@ -67,7 +69,7 @@ const PACKS = [
   ['career', career, careerMeta], ['student', student, studentMeta], ['web', web, webMeta], ['security', security, securityMeta],
   ['dev-format', devFormat, devFormatMeta], ['dev-utils', devUtils, devUtilsMeta], ['personal', personal, personalMeta],
   ['files', files, filesMeta], ['screen', screen, screenMeta], ['india', india, indiaMeta], ['ai', ai, aiMeta],
-  ['studio-photo', studioPhoto, studioPhotoMeta], ['studio-develop', studioDevelop, studioDevelopMeta], ['studio-vector', studioVector, studioVectorMeta], ['studio-video', studioVideo, studioVideoMeta], ['studio-motion', studioMotion, studioMotionMeta], ['studio-layout', studioLayout, studioLayoutMeta], ['studio-pdf', studioPdf, studioPdfMeta], ['studio-audio', studioAudio, studioAudioMeta], ['studio-slides', studioSlides, studioSlidesMeta], ['studio-docs', studioDocs, studioDocsMeta], ['studio-sheets', studioSheets, studioSheetsMeta], ['studio-cad', studioCad, studioCadMeta], ['corel', corel, corelMeta],
+  ['studio-photo', studioPhoto, studioPhotoMeta], ['studio-develop', studioDevelop, studioDevelopMeta], ['studio-vector', studioVector, studioVectorMeta], ['studio-video', studioVideo, studioVideoMeta], ['studio-motion', studioMotion, studioMotionMeta], ['studio-layout', studioLayout, studioLayoutMeta], ['studio-pdf', studioPdf, studioPdfMeta], ['studio-audio', studioAudio, studioAudioMeta], ['studio-slides', studioSlides, studioSlidesMeta], ['studio-docs', studioDocs, studioDocsMeta], ['studio-sheets', studioSheets, studioSheetsMeta], ['studio-cad', studioCad, studioCadMeta], ['corel', corel, corelMeta], ['reverse', reverse, reverseMeta],
 ]
 
 export const TOOLS = PACKS.flatMap(([pack, list, meta]) => list.map((t) => ({
