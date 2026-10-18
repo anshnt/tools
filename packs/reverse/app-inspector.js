@@ -275,7 +275,7 @@ export function mount(root, { params = {} } = {}) {
       clear(result, kind === 'apk' ? await renderApk(data, file) : renderIpa(data, file))
     } catch (e) {
       if (isAbort(e)) return
-      console.error(e)
+      if (!e?.userMessage) console.error(e)
       clear(result, alert('error', errorMessage(e)))
     } finally { if (my === run) prog.hide() }
   }

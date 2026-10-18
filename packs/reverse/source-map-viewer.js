@@ -273,7 +273,7 @@ export function mount(root) {
       }
       load(map, name, code || (state && !mapFile ? state.generated : null))
     } catch (e) {
-      console.error(e)
+      if (!e?.userMessage) console.error(e)
       clear(result, alert('error', errorMessage(e)))
     } finally { prog.hide() }
   }

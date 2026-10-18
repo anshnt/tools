@@ -62,7 +62,7 @@ export function mount(root) {
       paste.value = ''
       show({ ...r, name: file.name, size: file.size })
     } catch (e) {
-      console.error(e)
+      if (!e?.userMessage) console.error(e)
       clear(result, alert('error', errorMessage(e)))
     } finally { prog.hide() }
   }

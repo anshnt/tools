@@ -110,7 +110,7 @@ export function mount(root) {
       if (pj && pj.size < 2 * 1024 * 1024) { try { pkg = JSON.parse(await blobOf(pj).text()) } catch { /* optional */ } }
       render(arc, pkg)
     } catch (e) {
-      console.error(e)
+      if (!e?.userMessage) console.error(e)
       clear(result, alert('error', errorMessage(e)))
     } finally { if (my === run) prog.hide() }
 
