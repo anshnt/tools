@@ -165,7 +165,7 @@ export function fileTree(entries, opts = {}) {
     const nameEl = h('span', { class: 'nm', title: f.path }, showPath ? f.path : f.name)
     const main = onSelect ? h('button', { type: 'button', class: 'pick', onclick: () => select(row, f) }, icon(f.icon || fileIcon(f.name)), nameEl)
       : h('span', { class: 'pick', style: 'display:flex;align-items:center;gap:6px;flex:1;min-width:0' }, icon(f.icon || fileIcon(f.name)), nameEl)
-    row.append(h('span', { class: 'pkg-spacer' }), main, f.note ? pill(f.note, f.noteKind || '') : null, h('span', { class: 'sz' }, f.size == null ? '' : formatBytes(f.size)), actions ? actions(f) : null)
+    row.append(...[h('span', { class: 'pkg-spacer' }), main, f.note ? pill(f.note, f.noteKind || '') : null, h('span', { class: 'sz' }, f.size == null ? '' : formatBytes(f.size)), actions ? actions(f) : null].filter(Boolean))
     return h('li', { role: 'treeitem' }, row)
   }
   const dirNode = (d, depth) => {
