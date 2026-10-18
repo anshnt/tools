@@ -45,9 +45,8 @@ export function mount(root, { signal } = {}) {
   const prog = progress('Reading capture')
   let runId = 0
   const zone = dropzone({
-    accept: '.pcap,.pcapng,.cap,.dmp,.pcap0,application/vnd.tcpdump.pcap',
     label: 'Drop a .pcap or .pcapng file here or click to choose',
-    hint: 'Wireshark, tcpdump or dumpcap captures up to 500 MB. Analyzed on your device.',
+    hint: '.pcap, .pcapng, .cap or .dmp from Wireshark, tcpdump or dumpcap, up to 500 MB. Analyzed on your device.',
     icon: 'activity',
     onFiles: ([f]) => analyze(f),
   })

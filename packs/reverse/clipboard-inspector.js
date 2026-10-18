@@ -319,7 +319,7 @@ export function mount(root) {
           h('thead', h('tr', h('th', { scope: 'col' }, 'Type'), h('th', { scope: 'col' }, 'Kind'), h('th', { scope: 'col', class: 'num' }, 'Size'))),
           h('tbody', snap.items.map((it, i) => h('tr',
             h('td', h('a', { href: `#ci-item-${i}`, class: 'ci-type', onclick: (e) => { e.preventDefault(); cards[i].scrollIntoView({ block: 'start' }); cards[i].focus({ preventScroll: true }) } }, it.type || '(no type)')),
-            h('td', it.kind === 'string' ? 'text' : it.name ? 'file' : 'binary'),
+            h('td', { style: 'overflow-wrap:anywhere;white-space:normal' }, it.kind === 'string' ? 'text' : it.name ? `file: ${it.name}` : 'binary'),
             h('td', { class: 'num' }, formatBytes(it.kind === 'string' ? utf8Size(it.text) : it.file.size))))))),
         snap.types.includes('Files') ? h('p', { class: 'small muted' }, 'The "Files" entry is listed by the browser for clipboard files; each file appears below.') : null,
         h('p', { class: 'small muted' }, 'Text sizes are UTF-8 bytes. Browsers only share some formats with web pages (usually text, HTML, RTF, links, images and files).')),
@@ -407,17 +407,42 @@ function revealView(text) {
 function htmlPreview(html) {
   const host = h('div', { class: 'stack tight' }, h('p', { class: 'small muted' }, 'Sanitizing...'))
   const remote = toggle('Load remote images', false, () => draw())
-  let clean = ''
+  let sanitized = ''
   const draw = () => {
+    const { html: clean, blocked } = remote.input.checked ? { html: sanitized, blocked: 0 } : stripRemote(sanitized)
     const frame = h('iframe', { class: 'ci-frame', sandbox: '', title: 'Sanitized HTML preview', referrerpolicy: 'no-referrer' })
     frame.srcdoc = `<!doctype html><html><head><meta charset="utf-8">${CSP(remote.input.checked)}<style>:root{color-scheme:light}body{font:15px/1.5 system-ui,sans-serif;margin:12px;color:CanvasText;background:Canvas;overflow-wrap:anywhere}img{max-width:100%;height:auto}</style></head><body>${clean}</body></html>`
-    clear(host, frame, h('div', { class: 'row' }, remote, h('span', { class: 'small muted' }, 'Scripts and event handlers are removed (DOMPurify) and the preview runs in a sandbox with no network access unless you allow remote images.')))
+    clear(host, frame, h('div', { class: 'row' }, remote, blocked ? h('span', { class: 'small' }, `${blocked} remote resource${blocked === 1 ? '' : 's'} blocked.`) : null, h('span', { class: 'small muted' }, 'Scripts and event handlers are removed (DOMPurify) and the preview runs in a sandbox with no network access unless you allow remote images.')))
   }
   dompurify().then((DOMPurify) => {
-    clean = DOMPurify.sanitize(html, { FORBID_TAGS: ['form', 'input', 'button', 'textarea', 'select'] })
+    sanitized = DOMPurify.sanitize(html, { FORBID_TAGS: ['form', 'input', 'button', 'textarea', 'select'] })
     draw()
   }).catch((e) => clear(host, alert('error', e.message)))
   return host
+}
+
+/** Remove references to remote resources (tracking pixels, web fonts) from sanitized HTML. Returns { html, blocked }. */
+export function stripRemote(html) {
+  const doc = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html')
+  const remote = (v) => /^\s*(https?:)?\/\//i.test(v || '')
+  let blocked = 0
+  for (const el of doc.body.querySelectorAll('[src], [srcset], [background], [poster], [href]')) {
+    for (const a of ['src', 'srcset', 'background', 'poster']) {
+      const v = el.getAttribute(a)
+      if (v != null && (a === 'srcset' ? /(^|,)\s*(https?:)?\/\//i.test(v) : remote(v))) { el.removeAttribute(a); blocked++ }
+    }
+    if (el.tagName === 'LINK' && remote(el.getAttribute('href'))) { el.remove(); blocked++ }
+  }
+  for (const el of doc.body.querySelectorAll('[style]')) {
+    const st = el.getAttribute('style')
+    const ns = st.replace(/url\(\s*['"]?\s*(https?:)?\/\/[^)]*\)/gi, () => { blocked++; return 'none' })
+    if (ns !== st) el.setAttribute('style', ns)
+  }
+  for (const el of doc.body.querySelectorAll('style')) {
+    const ns = el.textContent.replace(/url\(\s*['"]?\s*(https?:)?\/\/[^)]*\)|@import[^;]*;/gi, () => { blocked++; return 'none' })
+    el.textContent = ns
+  }
+  return { html: doc.body.innerHTML, blocked }
 }
 
 function uriList(text) {
