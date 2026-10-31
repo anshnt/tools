@@ -286,7 +286,7 @@ export async function paginate(root, { size = 'A4', orient = 'portrait', margin 
       const [s, e] = pages[p]
       const sy = Math.round((s - cStart) * sr), sh = Math.max(1, Math.min(chunk.height - sy, Math.round((e - s) * sr)))
       const image = await canvasSlice(chunk, sy, sh, { jpeg: jpeg || hasMediaIn(media, s, e) })
-      const inPage = (top) => top >= s - 1 && top < e - 1
+      const inPage = (top) => (p === 0 || top >= s - 1) && top < e - 1 // text boxes can start above the line box, so the first page also takes words that start above the top
       await builder.addPage({
         W, H, image, x: margin.l, y: margin.t, w: contentWpt, h: ((sh / sr) * k) / PX,
         words: m.words.filter((w) => inPage(w.top)).map((w) => ({ text: w.text, x: margin.l + toPt(w.x), y: margin.t + toPt(w.top + w.h * 0.8 - s), size: toPt(w.size), w: toPt(w.w) })),

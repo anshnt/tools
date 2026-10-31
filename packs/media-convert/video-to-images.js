@@ -4,6 +4,7 @@ import { inputName, fmtTime } from './_media.js'
 import { timeInput } from './_timeline.js'
 import { number, select, field } from '../../lib/ui.js'
 import { baseName } from '../../lib/files.js'
+import { loadImage, toCanvas, toBlob } from '../../lib/image.js'
 
 const MAX_FRAMES = 120
 const FORMATS = {
@@ -11,7 +12,8 @@ const FORMATS = {
   png: { label: 'PNG', sub: 'Lossless, larger', ext: 'png' },
   webp: { label: 'WebP', sub: 'Small and sharp', ext: 'webp' },
 }
-const QUALITY = { jpg: { high: ['-q:v', '2'], balanced: ['-q:v', '5'], small: ['-q:v', '10'] }, webp: { high: ['-quality', '92'], balanced: ['-quality', '80'], small: ['-quality', '60'] }, png: { high: [], balanced: [], small: [] } }
+const JPEG_QUALITY = { high: 0.92, balanced: 0.8, small: 0.6 } // JPEGs are written by the browser: the wasm mjpeg encoder crashes at high quality
+const QUALITY = { jpg: { high: [], balanced: [], small: [] }, webp: { high: ['-quality', '92'], balanced: ['-quality', '80'], small: ['-quality', '60'] }, png: { high: [], balanced: [], small: [] } }
 
 /** Which moments (seconds) to grab. Pure, so it can be tested. */
 export function frameTimes({ mode, duration, at = 0, every = 5, count = 10 }) {
@@ -90,14 +92,22 @@ export function mount(root, { signal }) {
       const times = o.times.slice(0, MAX_FRAMES)
       const f = FORMATS[o.fmt]
       const inName = inputName(file)
-      const names = times.map((_, i) => `f${String(i + 1).padStart(3, '0')}.${f.ext}`)
+      const names = times.map((_, i) => `f${String(i + 1).padStart(3, '0')}.${o.fmt === 'jpg' ? 'png' : f.ext}`)
       const vf = o.width ? ['-vf', `scale=${o.width}:-2`] : []
-      const codec = o.fmt === 'png' ? [] : o.fmt === 'webp' ? ['-c:v', 'libwebp'] : ['-c:v', 'mjpeg', '-pix_fmt', 'yuvj420p']
+      const codec = o.fmt === 'webp' ? ['-c:v', 'libwebp'] : []
       const args = [
         ...times.flatMap((t) => ['-ss', t.toFixed(3), '-i', inName]),
         ...times.flatMap((_, i) => ['-map', `${i}:v:0`, '-frames:v', '1', ...vf, ...codec, ...QUALITY[o.fmt][o.quality], names[i]]),
       ]
-      const blobs = await hp.ffmpeg({ inputs: [{ name: inName, data: file }], args, output: names, label: times.length > 1 ? `Grabbing ${times.length} frames` : 'Grabbing the frame' })
+      let blobs = await hp.ffmpeg({ inputs: [{ name: inName, data: file }], args, output: names, label: times.length > 1 ? `Grabbing ${times.length} frames` : 'Grabbing the frame' })
+      if (o.fmt === 'jpg') {
+        const jpgs = []
+        for (const png of blobs) {
+          const img = await loadImage(png)
+          jpgs.push(await toBlob(toCanvas(img, img.naturalWidth, img.naturalHeight, { background: '#ffffff' }), 'image/jpeg', JPEG_QUALITY[o.quality]))
+        }
+        blobs = jpgs
+      }
       const base = baseName(file.name)
       if (times.length === 1) {
         return { blob: blobs[0], kind: 'image', name: `${base}-${times[0].toFixed(1)}s.${f.ext}`, compare: false, duration: null, title: 'Frame saved', summary: `The picture at ${fmtTime(times[0], 1)} as a ${f.label}.` }
