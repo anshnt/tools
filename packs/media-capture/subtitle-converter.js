@@ -1,9 +1,10 @@
-// Subtitle converter and sync fixer (also srt-to-vtt, vtt-to-srt and subtitle-sync via params): convert between SRT, WebVTT, ASS and
-// plain text, shift every time by milliseconds, stretch for frame-rate mismatches (23.976 vs 25 fps) or resync from two anchor lines.
-import { h, icon, button, alert, dropzone, textarea, split, panel, segmented, number, copyButton, download, clear, debounce, table } from '../../lib/ui.js'
+// Subtitle converter and sync fixer (also srt-to-vtt, smi-to-srt, lrc-converter and friends via params): convert between SRT, WebVTT, ASS, SAMI,
+// LRC, TTML, MicroDVD, SCC and plain text (always saved as UTF-8; old Korean, Japanese, Chinese and Western encodings are read correctly), shift every time by milliseconds, stretch for frame-rate mismatches (23.976 vs 25 fps) or resync from two anchor lines.
+import { h, icon, button, alert, dropzone, textarea, split, panel, segmented, number, select, field, copyButton, download, clear, debounce, table } from '../../lib/ui.js'
 import { baseName } from '../../lib/files.js'
 import * as K from './_kit.js'
-import { SUB_ACCEPT, SUB_FORMATS, FPS_PRESETS, parseSubtitles, parseTime, formatTime, format, shiftCues, stretchCues, resyncCues, decodeText } from './_subs.js'
+import { SUB_ACCEPT, SUB_FORMATS, FORMAT_NAMES, FPS_PRESETS, parseSubtitles, parseTime, formatTime, format, shiftCues, stretchCues, resyncCues } from './_subs.js'
+import { ENCODINGS, SAMI_LANGS, decodeBytes } from './_subformats.js'
 
 const MODES = [['off', 'No timing change'], ['shift', 'Shift'], ['fps', 'Frame rate'], ['sync', 'Two-point sync']]
 const NUDGES = [-1000, -500, -100, 100, 500, 1000]
@@ -20,7 +21,18 @@ one line at a time.
 00:01:10,000 --> 00:01:13,000
 And that is how it is done.
 `
-const FILE_EXT = { srt: 'srt', vtt: 'vtt', ass: 'ass', txt: 'txt' }
+const FILE_EXT = { srt: 'srt', vtt: 'vtt', ass: 'ass', smi: 'smi', lrc: 'lrc', ttml: 'ttml', sub: 'sub', scc: 'scc', txt: 'txt' }
+const DEFAULT_OUT = { srt: 'vtt', vtt: 'srt' }
+const ENC_NAME = Object.fromEntries(ENCODINGS)
+const MIME = { srt: 'application/x-subrip', vtt: 'text/vtt', ttml: 'application/ttml+xml', smi: 'application/smil+xml' }
+/** One line about what a target format cannot hold. */
+const OUT_NOTE = {
+  scc: 'SCC is the US TV caption format: pop-on captions of up to 4 lines of 32 letters, Latin characters only. Other letters become plain letters or ?.',
+  lrc: 'LRC keeps one line of text per start time (lines are joined). Where a gap follows, an empty line marks when the text should clear.',
+  sub: 'MicroDVD counts frames, so the frame rate below must match your video. Only whole-line italics are kept.',
+  smi: 'SAMI is saved with one language class. Pick the language below so players can tell it apart.',
+  ass: 'ASS output uses one plain default style.',
+}
 const sec = (t) => (Number.isFinite(t) ? `${Math.abs(t) >= 10 ? t.toFixed(1) : t.toFixed(2)}`.replace(/\.?0+$/, '') : '-')
 
 /** Two lanes of cue blocks (before and after) that glide when the timing changes. */
@@ -64,12 +76,16 @@ function timeline() {
 export function mount(root, { params }) {
   K.useStyle()
   const accept = params?.accept || SUB_ACCEPT
+  const prefer = params?.prefer || null
   let userFmt = params?.to && params.to !== 'auto' ? params.to : null
   let mode = params?.tab || 'off'
   let fileName = ''
+  let rawBytes = null
   let cues = []
   let parsedFormat = 'unknown'
+  let parsed = { format: 'unknown', cues: [] }
   let anchorKey = ''
+  let fpsUser = false // true once the visitor types a frame rate; until then a MicroDVD file's own rate is used
 
   const input = textarea({ rows: 13, mono: true, placeholder: 'Paste subtitles here, or drop a file above...', 'aria-label': 'Subtitle text', spellcheck: false })
   const output = textarea({ rows: 13, mono: true, readonly: true, placeholder: 'The converted subtitles appear here.', 'aria-label': 'Converted subtitles' })
@@ -79,9 +95,29 @@ export function mount(root, { params }) {
   const tl = timeline()
   const outFmt = segmented(SUB_FORMATS, 'vtt', (v) => { userFmt = v; render() }, 'Output format')
   const zone = dropzone({
-    accept, compact: true, label: 'Drop a subtitle file here or click to browse', hint: 'SRT, VTT, ASS and SSA. Old Windows encodings are fine.', icon: 'captions',
-    onFiles: async ([f]) => { fileName = f.name; input.value = decodeText(await f.arrayBuffer()); render() },
+    accept, compact: true, label: 'Drop a subtitle file here or click to browse', hint: 'SRT, VTT, ASS, SAMI, LRC, TTML, MicroDVD and SCC. Old Korean, Japanese, Chinese and Western encodings are fine.', icon: 'captions',
+    onFiles: async ([f]) => { fileName = f.name; rawBytes = new Uint8Array(await f.arrayBuffer()); langSel.value = ''; encSel.value = 'auto'; fpsUser = false; decodeRaw() },
   })
+
+  // ---- reading and writing options ----
+  const encSel = select(ENCODINGS, 'auto', () => { if (rawBytes) decodeRaw() })
+  const encHint = h('small', { class: 'field-hint' }, '')
+  const encField = field('Text encoding of the file', encSel)
+  encField.append(encHint)
+  const langSel = select([['', 'First language']], '', () => render())
+  const langField = field('Language to convert', langSel)
+  const fpsRate = number(23.976, { step: 'any', min: 1, ariaLabel: 'Frame rate for MicroDVD', onInput: () => { fpsUser = true; render() } })
+  const fpsField = field('Frame rate (MicroDVD)', fpsRate)
+  const samiSel = select(SAMI_LANGS.map(([c, n, l]) => [c, `${n} (${l})`]), 'ENCC', () => render())
+  const samiField = field('SAMI language', samiSel)
+  const outNote = h('p', { class: 'small muted', 'aria-live': 'polite' })
+  const optRow = h('div', { class: 'grid-auto' }, encField, langField, fpsField, samiField)
+  function decodeRaw() {
+    const r = decodeBytes(rawBytes, encSel.value)
+    input.value = r.text
+    encHint.textContent = encSel.value === 'auto' ? `Detected: ${ENC_NAME[r.encoding] || r.encoding}. Saved as UTF-8.` : 'Saved as UTF-8.'
+    render()
+  }
 
   // ---- timing controls ----
   const shiftIn = number(0, { step: 50, ariaLabel: 'Shift in milliseconds', placeholder: '0', onInput: () => render() })
@@ -169,14 +205,28 @@ export function mount(root, { params }) {
     modeSeg.set(mode)
     clear(paneHost, panes[mode] || null)
     const text = input.value
-    const parsed = text.trim() ? parseSubtitles(text) : { format: 'unknown', cues: [] }
+    parsed = text.trim() ? parseSubtitles(text, { fps: looksMicroDvd(text) && fpsUser && fpsRate.valueAsNumber > 0 ? fpsRate.valueAsNumber : undefined, lang: langSel.value }) : { format: 'unknown', cues: [] }
     cues = parsed.cues
     parsedFormat = parsed.format
     fillAnchors()
-    const fmt = userFmt || ({ srt: 'vtt', vtt: 'srt', ass: 'srt' }[parsedFormat] || 'vtt')
+    const fmt = userFmt || (prefer && parsedFormat !== prefer ? prefer : DEFAULT_OUT[parsedFormat] || 'srt')
     outFmt.set(fmt)
-    clear(chips, parsed.cues.length ? [h('span', { class: 'badge local' }, icon('file-check'), `${parsedFormat.toUpperCase()} detected`), h('span', { class: 'badge' }, icon('captions'), `${cues.length} lines`), h('span', { class: 'badge' }, icon('clock'), formatTime(cues.at(-1).end, 'short').replace(/\.\d$/, ''))] : null)
-    clear(info, !text.trim() ? null : cues.length ? null : alert('warn', h('strong', 'No subtitle lines found. '), 'Check that the timing lines (00:00:01,000 --> 00:00:03,000) are present.'))
+    // option fields that only matter for some formats
+    const langs = parsed.languages || []
+    if (langs.length > 1 && langSel.options.length !== langs.length + 1) {
+      const keep = langSel.value
+      langSel.replaceChildren(...[['', `First language (${langs[0].name || langs[0].id})`], ...langs.map((l) => [l.id, `${l.name || l.id}${l.lang ? ` (${l.lang})` : ''}`])].map(([v, l]) => h('option', { value: v }, l)))
+      langSel.value = keep
+    }
+    langField.hidden = langs.length < 2
+    if (parsed.format === 'sub' && !fpsUser && Math.abs(fpsRate.valueAsNumber - parsed.fps) > 1e-6) fpsRate.value = String(parsed.fps)
+    fpsField.hidden = !(parsed.format === 'sub' || fmt === 'sub')
+    samiField.hidden = fmt !== 'smi'
+    encField.hidden = !rawBytes
+    optRow.hidden = encField.hidden && langField.hidden && fpsField.hidden && samiField.hidden
+    outNote.textContent = OUT_NOTE[fmt] || ''
+    clear(chips, parsed.cues.length ? [h('span', { class: 'badge local' }, icon('file-check'), `${FORMAT_NAMES[parsedFormat] || parsedFormat} detected`), h('span', { class: 'badge' }, icon('captions'), `${cues.length} lines`), h('span', { class: 'badge' }, icon('clock'), formatTime(cues.at(-1).end, 'short').replace(/\.\d$/, ''))] : null)
+    clear(info, !text.trim() ? null : cues.length ? (parsed.enhanced ? alert('info', 'Word-by-word timing was found. Each line keeps its start time; the word timing is not carried over.') : null) : alert('warn', h('strong', 'No subtitle lines found. '), parsed.error || 'Check that the timing lines (00:00:01,000 --> 00:00:03,000) are present. If the text looks scrambled, pick the file encoding above.'))
     const r = transformed()
     tl.update(cues, r.cues)
     clear(summary)
@@ -193,7 +243,8 @@ export function mount(root, { params }) {
           table({ columns: ['#', 'Before', 'After', 'Text'], rows: idx.map((i) => [String(i + 1), formatTime(cues[i].start), formatTime(after[i].start), cues[i].text.replace(/\s+/g, ' ').slice(0, 40)]) })))
       } else summary.append(notes.length ? alert('warn', notes.join(' ')) : null)
     }
-    const out = cues.length ? format(r.cues, fmt, { title: baseName(fileName) || 'Subtitles' }) : ''
+    const sam = SAMI_LANGS.find((l) => l[0] === samiSel.value) || SAMI_LANGS[0]
+    const out = cues.length ? format(r.cues, fmt, { title: baseName(fileName) || 'Subtitles', fps: fpsRate.valueAsNumber > 0 ? fpsRate.valueAsNumber : 23.976, sami: { className: sam[0], name: sam[1], lang: sam[2] }, ttmlLang: sam[2].split('-')[0] }) : ''
     output.value = out
     saveBtn.disabled = !out
     return r
@@ -204,19 +255,20 @@ export function mount(root, { params }) {
     const base = baseName(fileName) || 'subtitles'
     return `${base}${mode !== 'off' ? '-synced' : ''}.${FILE_EXT[f] || f}`
   }
-  const saveBtn = button('Download', { icon: 'download', variant: 'primary', size: 'sm', disabled: true, onClick: () => download(output.value, outName(), 'text/plain') })
-  input.addEventListener('input', debounce(render, 120))
+  const saveBtn = button('Download', { icon: 'download', variant: 'primary', size: 'sm', disabled: true, onClick: () => download(output.value, outName(), MIME[userFmt || outFmt.value] || 'text/plain') })
+  input.addEventListener('input', debounce(() => { rawBytes = null; render() }, 120))
+  const looksMicroDvd = (text) => /^\s*\{\d+\}\s*\{\d+\}/m.test(text.slice(0, 4000))
 
   const modeIntro = params?.tab === 'shift' ? 'Subtitles late or early? Use Shift for a constant delay, Frame rate when the drift grows over time, or Two-point sync to fix both at once.' : null
   root.append(h('div', { class: 'mc stack' },
     zone,
     split(
-      panel(h('h2', 'Subtitles in'), h('div', { class: 'stack tight' }, input, chips, info,
+      panel(h('h2', 'Subtitles in'), h('div', { class: 'stack tight' }, input, chips, info, optRow,
         h('div', { class: 'row' }, button('Try an example', { icon: 'sparkles', variant: 'ghost', size: 'sm', onClick: () => { fileName = ''; input.value = SAMPLE; render() } }),
           button('Clear', { icon: 'eraser', variant: 'ghost', size: 'sm', onClick: () => { input.value = ''; fileName = ''; render(); input.focus() } })))),
-      panel(h('h2', 'Result'), h('div', { class: 'stack tight' }, outFmt, output, h('div', { class: 'row' }, copyButton(() => output.value, 'Copy'), saveBtn)))),
+      panel(h('h2', 'Result'), h('div', { class: 'stack tight' }, outFmt, outNote, output, h('div', { class: 'row' }, copyButton(() => output.value, 'Copy'), saveBtn)))),
     panel(h('h2', h('span', { class: 'row', style: 'gap:8px;flex-wrap:nowrap' }, icon('timer'), 'Fix the timing')),
       h('div', { class: 'stack' }, modeIntro ? h('p', { class: 'small muted' }, modeIntro) : null, tl.el, modeSeg, paneHost, summary)),
-    h('p', { class: 'small muted' }, icon('shield-check'), ' Converted in your browser, nothing is uploaded. Positions are kept to the millisecond. ASS output uses one plain default style.')))
+    h('p', { class: 'small muted' }, icon('shield-check'), ' Converted in your browser, nothing is uploaded, and the result is always UTF-8. Positions are kept to the millisecond where the format allows it.')))
   render()
 }

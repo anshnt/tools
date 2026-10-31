@@ -1,4 +1,5 @@
 // Video & audio info: what is inside a media file (container, codecs, resolution, frame rate, bitrate, streams).
+import { AUDIO_ACCEPT } from './_core.js'
 import { createShell, step, h } from './_ui.js'
 import { fmtTime } from './_media.js'
 import { stats, table, copyButton, formatBytes, downloadButton } from '../../lib/ui.js'
@@ -29,7 +30,7 @@ export function mount(root, { signal }) {
     dropIcon: 'info',
     dropLabel: 'Drop a video or audio file to look inside',
     dropHint: 'Any video or audio file. Nothing is changed or uploaded.',
-    accept: 'video/*,audio/*,.mkv,.avi,.mov,.m4v,.wmv,.flv,.3gp,.ts,.mts,.m2ts,.webm,.mp4,.mp3,.wav,.m4a,.aac,.ogg,.opus,.flac,.wma,.amr',
+    accept: AUDIO_ACCEPT,
     trust: [['shield-check', 'Stays on your device', 'The file is read inside this tab. Nothing is uploaded.'], ['search', 'Every detail', 'Codecs, resolution, frame rate, bitrate, channels and tags.'], ['copy', 'Copy or save the report', 'Handy for support tickets and upload requirements.']],
     options(media) {
       const { info, file } = media

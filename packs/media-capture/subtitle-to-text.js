@@ -4,7 +4,7 @@ import { h, icon, button, alert, dropzone, stats, textarea, split, panel, copyBu
 import { zip, baseName } from '../../lib/files.js'
 import { load, save } from '../../lib/store.js'
 import * as K from './_kit.js'
-import { SUB_ACCEPT, parseSubtitles, toPlain, decodeText, formatTime } from './_subs.js'
+import { SUB_ACCEPT, FORMAT_NAMES, parseSubtitles, toPlain, decodeText, formatTime } from './_subs.js'
 
 const GAPS = [['1', '1 second'], ['2.5', '2.5 seconds'], ['4', '4 seconds'], ['8', '8 seconds']]
 const SAMPLE = `WEBVTT
@@ -26,7 +26,7 @@ Today we are <i>cleaning up</i> subtitles.
 00:00:20.000 --> 00:00:22.500
 Ten seconds later, a new paragraph begins.
 `
-const FORMAT_NAME = { srt: 'SRT', vtt: 'WebVTT', ass: 'ASS', unknown: 'Unknown' }
+const FORMAT_NAME = FORMAT_NAMES
 
 export function mount(root) {
   K.useStyle()
@@ -43,7 +43,7 @@ export function mount(root) {
   const picker = h('select', { class: 'select', 'aria-label': 'Which file', onchange: () => { active = +picker.value; input.value = docs[active].text; render() } })
   const pickerWrap = h('div', { class: 'row', hidden: true }, icon('files'), h('div', { class: 'grow' }, picker))
   const zone = dropzone({
-    accept: SUB_ACCEPT, multiple: true, compact: true, label: 'Drop subtitle files here or click to browse', hint: 'SRT, VTT, ASS and SSA. Several files at once is fine.', icon: 'captions',
+    accept: SUB_ACCEPT, multiple: true, compact: true, label: 'Drop subtitle files here or click to browse', hint: 'SRT, VTT, ASS, SAMI, LRC, TTML, MicroDVD and SCC. Several files at once is fine.', icon: 'captions',
     onFiles: async (files) => {
       const read = await Promise.all(files.map(async (f) => ({ name: f.name, text: decodeText(await f.arrayBuffer()) })))
       docs = read

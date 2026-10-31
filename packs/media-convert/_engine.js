@@ -125,8 +125,20 @@ export async function putFonts(fonts) {
   for (const f of fonts) await ff.writeFile(`/fonts/${f.name}`, f.data.slice())
 }
 
-/** Run one ffmpeg job. Thin wrapper so tools share the abort and progress plumbing. */
-export const run = (spec) => runFFmpeg(spec)
+/**
+ * Run one ffmpeg job. Thin wrapper so tools share the abort and progress plumbing. When the wasm instance crashes (it can run out of
+ * memory after many jobs) the engine is dropped and the job is tried once more on a fresh one; file inputs are re-read for the retry.
+ */
+export async function run(spec) {
+  try {
+    return await runFFmpeg(spec)
+  } catch (e) {
+    const rereadable = (spec.inputs || []).every((i) => typeof Blob !== 'undefined' && i.data instanceof Blob)
+    if (!needsReset(e) || !rereadable || spec.signal?.aborted) throw e
+    resetEngine()
+    return runFFmpeg(spec)
+  }
+}
 
 /** Map low-level failures to plain-language messages. */
 export function friendlyError(err) {
@@ -143,7 +155,7 @@ export function friendlyError(err) {
 }
 
 /** Whether an error means the wasm instance may be unusable (so the next run should start a fresh engine). */
-export const needsReset = (err) => /memory|Aborted|out of bounds|RangeError|unreachable/i.test(String(err?.message || err))
+export const needsReset = (err) => /memory|Aborted|out of bounds|RangeError|unreachable/i.test(String(err?.message || err || ''))
 
 // ---------- Output inspection ----------
 

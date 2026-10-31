@@ -6,7 +6,7 @@ import { baseName } from '../../lib/files.js'
 import { load, save, remove } from '../../lib/store.js'
 import * as K from './_kit.js'
 import { cueEditor, mediaPlayer } from './_cues.js'
-import { SUB_ACCEPT, parseSubtitles, decodeText, format, shiftCues } from './_subs.js'
+import { SUB_ACCEPT, FORMAT_NAMES, parseSubtitles, decodeText, format, shiftCues } from './_subs.js'
 
 const SAMPLE = [
   { start: 1, end: 3.5, text: 'Welcome to the subtitle editor.' },
@@ -26,12 +26,12 @@ export function mount(root, { signal }) {
   const notice = h('div')
 
   const subZone = dropzone({
-    accept: SUB_ACCEPT, compact: true, label: 'Open a subtitle file', hint: 'SRT, VTT, ASS or SSA', icon: 'captions',
+    accept: SUB_ACCEPT, compact: true, label: 'Open a subtitle file', hint: 'SRT, VTT, ASS, SAMI, LRC, TTML, MicroDVD or SCC', icon: 'captions',
     onFiles: async ([f]) => {
       const { cues, format: fmt } = parseSubtitles(decodeText(await f.arrayBuffer()))
       if (!cues.length) return toast(`No subtitle lines found in ${f.name}.`, 'error')
       open(cues, f.name)
-      toast(`Opened ${cues.length} lines (${fmt.toUpperCase()})`, 'success')
+      toast(`Opened ${cues.length} lines (${FORMAT_NAMES[fmt] || fmt})`, 'success')
     },
   })
   const mediaZone = dropzone({
