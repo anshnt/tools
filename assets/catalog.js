@@ -42,6 +42,7 @@ import fonts, * as fontsMeta from '../packs/fonts/catalog.js'
 import cadVector, * as cadVectorMeta from '../packs/cad-vector/catalog.js'
 import model3d, * as model3dMeta from '../packs/model3d/catalog.js'
 import dataFormats, * as dataFormatsMeta from '../packs/data-formats/catalog.js'
+import geo, * as geoMeta from '../packs/geo/catalog.js'
 
 export const CATEGORIES = [
   { id: 'pdf', name: 'PDF', title: 'PDF tools', icon: 'file-text', color: '#e5484d', blurb: 'Merge, split, compress, convert, sign and secure PDFs.' },
@@ -78,6 +79,7 @@ const PACKS = [
   ['cad-vector', cadVector, cadVectorMeta],
   ['model3d', model3d, model3dMeta],
   ['data-formats', dataFormats, dataFormatsMeta],
+  ['geo', geo, geoMeta],
 ]
 
 export const TOOLS = PACKS.flatMap(([pack, list, meta]) => list.map((t) => ({
