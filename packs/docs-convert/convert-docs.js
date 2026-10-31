@@ -60,10 +60,16 @@ export function mount(root, { params, signal }) {
     }
     optsHost.hidden = !defs.size
   }
+  const baseHint = params.hint || 'Runs on your device. Nothing is uploaded.'
+  const syncNote = () => {
+    const pagePictures = S.to === 'pdf' && !params.from.some((e) => ['py', 'js', 'c'].includes(e)) && !params.from.includes('odp')
+    note.textContent = pagePictures ? `${baseHint} PDF pages are saved as pictures with a hidden text layer for Latin, Greek, Cyrillic and Indic text, so other scripts (Korean, Chinese, Japanese) look right but cannot be selected.` : S.to === 'pdf' && params.from.includes('odp') ? `${baseHint} Slides are saved as pictures, so their text cannot be selected.` : baseHint
+  }
   function refresh(keepFiles) {
     if (!keepFiles) clear(results)
     renderTargets()
     renderOptions()
+    syncNote()
     go.disabled = !fl.files.length || !targets().length
     fl.el.hidden = !fl.files.length
     clear(go, h('span', fl.files.length > 1 ? `Convert ${fl.files.length} files` : 'Convert'))

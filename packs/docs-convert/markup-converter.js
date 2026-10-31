@@ -1,6 +1,5 @@
-// Markup converter: Markdown, HTML, reStructuredText, AsciiDoc, Org, LaTeX, MediaWiki, Textile, DocBook, Jupyter notebooks, OPML and man pages, in either direction.
-// Paste text or open a file, pick the formats, convert. Markdown <-> HTML and notebooks are instant; the other pairs use pandoc compiled to WebAssembly,
-// which downloads once (about 60 MB) and then works offline from the browser cache.
+// Markup converter: paste text or open a file, pick the formats, convert. Markdown <-> HTML and notebooks are instant; the other pairs load a converter
+// engine once (about 60 MB, then cached by the browser).
 import { h, button, busy, progress, select, field, panel, textarea, dropzone, clear, download, copyButton, alert, toast, formatBytes } from '../../lib/ui.js'
 import { baseName } from '../../lib/files.js'
 import { FORMATS, formatByExt, formatById, convertMarkup, readable, writable } from './_markup.js'

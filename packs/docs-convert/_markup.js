@@ -1,12 +1,12 @@
 // Markup converter between Markdown, HTML, reStructuredText, AsciiDoc, Org, LaTeX, MediaWiki, Textile, DocBook, Jupyter notebooks, OPML and man pages.
-// Engine: pandoc compiled to WebAssembly (GPL-2.0-or-later, loaded at run time from a CDN as a separate program; about 60 MB the first time, then cached by
-// the browser). AsciiDoc input goes through asciidoctor.js (MIT) first. Markdown <-> HTML and Jupyter notebooks use small built-in paths with no download.
+// Markdown <-> HTML and notebooks use small built-in paths with no download; every other pair loads a WebAssembly converter once (about 60 MB, then cached).
 import { marked as markedLib, script } from '../../lib/libs.js'
 import { fail, esc } from './_util.js'
 
-const PANDOC_VER = '1.1.0'
+const PANDOC_VER = '1.1.0' // pandoc-wasm (GPL-2.0-or-later), loaded at run time from a CDN as a separate program
 const CORE_URL = `https://cdn.jsdelivr.net/npm/pandoc-wasm@${PANDOC_VER}/src/core.js/+esm`
 const WASM_URL = `https://unpkg.com/pandoc-wasm@${PANDOC_VER}/src/pandoc.wasm`
+// asciidoctor.js (MIT) reads AsciiDoc input
 const ASCIIDOCTOR_URL = 'https://cdn.jsdelivr.net/npm/@asciidoctor/core@3.0.4/dist/browser/asciidoctor.min.js'
 
 export const FORMATS = [
