@@ -1,8 +1,11 @@
 // Subtitle parsing, formatting and timing transforms (SRT, WebVTT, basic ASS/SSA). Pure functions, no DOM.
+import { sniffFormat, parseSami, parseLrc, parseTtml, parseMicroDvd, parseScc, toSami, toLrc, toTtml, toMicroDvd, toScc, decodeBytes } from './_subformats.js'
 // A cue is { start, end, text } with times in seconds (rounded to milliseconds) and lines joined by "\n".
 
-export const SUB_ACCEPT = '.srt,.vtt,.ass,.ssa,.sbv,.txt,text/vtt,application/x-subrip,text/plain'
-export const SUB_FORMATS = [['srt', 'SRT'], ['vtt', 'WebVTT'], ['ass', 'ASS'], ['txt', 'Plain text']]
+export const SUB_ACCEPT = '.srt,.vtt,.ass,.ssa,.sbv,.smi,.sami,.lrc,.ttml,.dfxp,.xml,.sub,.scc,.txt,text/vtt,application/x-subrip,text/plain'
+export const SUB_FORMATS = [['srt', 'SRT'], ['vtt', 'WebVTT'], ['ass', 'ASS'], ['smi', 'SAMI'], ['lrc', 'LRC'], ['ttml', 'TTML'], ['sub', 'MicroDVD'], ['scc', 'SCC'], ['txt', 'Plain text']]
+/** Names for the formats parseSubtitles can report. */
+export const FORMAT_NAMES = { srt: 'SRT', vtt: 'WebVTT', ass: 'ASS', smi: 'SAMI', lrc: 'LRC', ttml: 'TTML', sub: 'MicroDVD', scc: 'SCC', unknown: 'Unknown' }
 
 const ms = (sec) => Math.round(sec * 1000)
 const round3 = (sec) => Math.round(sec * 1000) / 1000
@@ -75,9 +78,23 @@ function parseAss(text) {
   return cues.sort((a, b) => a.start - b.start)
 }
 
-/** parseSubtitles(text) -> { format: 'srt' | 'vtt' | 'ass' | 'unknown', cues: [{start, end, text}] }. Tolerates missing indexes, BOMs and sloppy blank lines. */
-export function parseSubtitles(input) {
+/**
+ * parseSubtitles(text, opts?) -> { format: 'srt' | 'vtt' | 'ass' | 'smi' | 'lrc' | 'ttml' | 'sub' | 'scc' | 'unknown', cues: [{start, end, text}], ...extras }
+ * Tolerates missing indexes, BOMs and sloppy blank lines. opts: { fps (MicroDVD frame rate), lang (SAMI class to read) }.
+ * Extras: SAMI gives `languages` [{id, name, lang, cues}] and `lang`; MicroDVD gives `fps` and `fpsFromFile`; LRC gives `enhanced`.
+ */
+export function parseSubtitles(input, opts = {}) {
   const text = String(input ?? '').replace(/^﻿/, '')
+  const kind = sniffFormat(text)
+  if (kind === 'smi') {
+    const { languages } = parseSami(text)
+    const pick = languages.find((l) => l.id.toLowerCase() === String(opts.lang || '').toLowerCase()) || languages[0]
+    return { format: 'smi', cues: pick ? pick.cues : [], languages, lang: pick?.id }
+  }
+  if (kind === 'lrc') { const r = parseLrc(text); return { format: 'lrc', cues: r.cues, enhanced: r.enhanced, meta: r.meta } }
+  if (kind === 'ttml') { try { return { format: 'ttml', cues: parseTtml(text).cues } } catch (e) { return { format: 'ttml', cues: [], error: e.message } } }
+  if (kind === 'sub') { const r = parseMicroDvd(text, opts.fps); return { format: 'sub', cues: r.cues, fps: r.fps, fpsFromFile: r.fpsFromFile } }
+  if (kind === 'scc') return { format: 'scc', cues: parseScc(text).cues }
   if (/^\s*\[Script Info\]/i.test(text) || (/\[Events\]/i.test(text) && /^\s*Dialogue\s*:/im.test(text))) return { format: 'ass', cues: parseAss(text) }
   const lines = text.split(/\r\n|\r|\n/)
   const vtt = /^\s*WEBVTT/.test(lines[0] || '')
@@ -137,9 +154,14 @@ function vttToSrtText(t) {
     .replace(/<(?!\/?[ibu]>|\/?font[ >])[^>]*>/gi, '')
 }
 
-/** Output in any of 'srt' | 'vtt' | 'ass' | 'txt'. */
-export function format(cues, kind, opts) {
+/** Output in any of 'srt' | 'vtt' | 'ass' | 'smi' | 'lrc' | 'ttml' | 'sub' | 'scc' | 'txt'. opts: { title, fps (MicroDVD), lang ({className, name, lang} for SAMI, a code for TTML), ...toPlain options }. */
+export function format(cues, kind, opts = {}) {
   if (kind === 'vtt') return toVTT(cues)
+  if (kind === 'smi') return toSami(cues, { title: opts.title, ...(opts.sami || {}) })
+  if (kind === 'lrc') return toLrc(cues, { title: opts.title })
+  if (kind === 'ttml') return toTtml(cues, { lang: opts.ttmlLang || 'en' })
+  if (kind === 'sub') return toMicroDvd(cues, { fps: opts.fps || 23.976 })
+  if (kind === 'scc') return toScc(cues)
   if (kind === 'ass') return toASS(cues, opts)
   if (kind === 'txt') return toPlain(cues, opts)
   return toSRT(cues)
@@ -307,10 +329,7 @@ export function cps(c) {
   return d > 0 ? c.text.replace(/\s/g, '').length / d : Infinity
 }
 
-/** Decode subtitle file bytes: UTF-8 (with or without BOM), UTF-16 with BOM, else Windows-1252 (old SRT files from Windows and DVDs). */
-export function decodeText(bytes) {
-  const u = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
-  if (u[0] === 0xff && u[1] === 0xfe) return new TextDecoder('utf-16le').decode(u.subarray(2))
-  if (u[0] === 0xfe && u[1] === 0xff) return new TextDecoder('utf-16be').decode(u.subarray(2))
-  try { return new TextDecoder('utf-8', { fatal: true }).decode(u).replace(/^\uFEFF/, '') } catch { return new TextDecoder('windows-1252').decode(u) }
+/** Decode subtitle file bytes: UTF-8 or UTF-16 (with or without a byte order mark), else the likeliest of Korean, Japanese, Chinese or Windows-1252. Pass `encoding` to force one. */
+export function decodeText(bytes, encoding = 'auto') {
+  return decodeBytes(bytes, encoding).text
 }

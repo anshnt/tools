@@ -1,4 +1,5 @@
 // Extract audio from video (also serves video-to-mp3 via params.to). Keeps the original audio untouched or re-encodes it.
+import { AUDIO_ACCEPT } from './_core.js'
 import { createShell, step, fixedOutput, note } from './_ui.js'
 import { audioOptions } from './_audio.js'
 import { AUDIO_FORMATS, copyExtFor, inputName } from './_media.js'
@@ -13,7 +14,7 @@ export function mount(root, { params, signal }) {
   createShell(root, { signal }, {
     kind: 'video',
     require: 'audio',
-    accept: 'video/*,audio/*,.mkv,.avi,.mov,.m4v,.wmv,.flv,.3gp,.ts,.mts,.m2ts,.webm,.mp4,.m4a,.mp3,.wav,.aac,.ogg,.opus,.flac',
+    accept: AUDIO_ACCEPT,
     dropIcon: fixed ? 'music' : 'audio-waveform',
     dropLabel: fixed ? 'Drop a video to save its sound as MP3' : 'Drop a video to pull its sound out',
     dropHint: 'MP4, MOV, MKV, WebM, AVI and more',

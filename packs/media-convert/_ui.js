@@ -1,5 +1,6 @@
 // Shared UI for the media-convert tools: file stage with preview and facts, option widgets, the run dock with a
 // progress ring and Cancel, the animated result card, and createShell() that wires them together for single-file tools.
+import { VIDEO_ACCEPT, AUDIO_ACCEPT } from './_core.js'
 import { h, icon, button, dropzone, alert, clear, formatBytes, isAbort, toast, stats, downloadButton, download, fileType, onCleanup } from '../../lib/ui.js'
 import { MAX_INPUT_BYTES } from '../../lib/ffmpeg.js'
 import { ext, zip } from '../../lib/files.js'
@@ -191,7 +192,7 @@ export const skeleton = () => h('div', { class: 'mc-skel', 'aria-hidden': 'true'
 
 // ---------- Runner: dock, progress ring, result ----------
 
-const kindOf = (name) => (/\.(mp3|m4a|m4r|wav|ogg|opus|flac|aac|ac3|wma|amr)$/i.test(name) ? 'audio' : /\.(gif|png|jpe?g|webp)$/i.test(name) ? 'image' : 'video')
+const kindOf = (name) => (/\.(mp3|m4a|m4b|m4r|wav|ogg|oga|opus|flac|aac|ac3|eac3|ec3|wma|amr|aiff?|aifc|ape|wv|tta|w64|caf|au|dts|dsf|dff|mka|mp2)$/i.test(name) ? 'audio' : /\.(gif|png|jpe?g|webp)$/i.test(name) ? 'image' : 'video')
 
 /**
  * createRunner({signal, label, icon, busyLabel, onRun(helpers) -> result, onBusy(bool)})
@@ -420,8 +421,8 @@ export function createRunner({ signal, label, icon: ic, busyLabel, onRun, onBusy
 // ---------- Shell for single-file tools ----------
 
 export const ACCEPT = {
-  video: 'video/*,.mkv,.avi,.mov,.m4v,.wmv,.flv,.3gp,.ts,.mts,.m2ts,.webm,.mp4',
-  audio: 'audio/*,video/*,.mp3,.wav,.m4a,.aac,.ogg,.oga,.opus,.flac,.wma,.amr,.aif,.aiff',
+  video: VIDEO_ACCEPT,
+  audio: AUDIO_ACCEPT,
 }
 export const TRUST = {
   video: [['shield-check', 'Stays on your device', 'Nothing is uploaded. Your video is processed inside this tab.'], ['download-cloud', 'One-time engine', 'A 31 MB engine downloads once, then your browser keeps it.'], ['zap', 'Fast when it can be', 'Streams are copied without re-encoding whenever that is possible.']],

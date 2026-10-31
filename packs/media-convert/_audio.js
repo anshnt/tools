@@ -1,10 +1,11 @@
 // Audio output options shared by audio-converter, extract-audio and compress-audio.
 import { h, step, tilePicker, note } from './_ui.js'
-import { AUDIO_FORMATS, audioArgs } from './_media.js'
+import { AUDIO_FORMATS, ALL_AUDIO, audioArgs } from './_media.js'
 import { ext as extOf } from '../../lib/files.js'
 import { select, field, formatBytes } from '../../lib/ui.js'
 
-const ICONS = { mp3: 'music', m4a: 'smartphone', ogg: 'waves', opus: 'mic', wav: 'audio-waveform', flac: 'gem' }
+const ICONS = { mp3: 'music', m4a: 'smartphone', ogg: 'waves', opus: 'mic', wav: 'audio-waveform', flac: 'gem', aac: 'radio', alac: 'apple', aiff: 'audio-lines', wv: 'package', tta: 'gem', w64: 'audio-waveform', ac3: 'tv', eac3: 'tv' }
+const PCM = new Set(['wav', 'aiff', 'w64'])
 export const RATES = [[0, 'Keep original'], [48000, '48 kHz'], [44100, '44.1 kHz (CD)'], [32000, '32 kHz'], [22050, '22.05 kHz'], [16000, '16 kHz (speech)'], [8000, '8 kHz (phone)']]
 export const CHANNELS = [[0, 'Keep original'], [2, 'Stereo'], [1, 'Mono']]
 
@@ -12,7 +13,7 @@ const LOSSLESS = new Set(['pcm_s16le', 'pcm_s24le', 'pcm_s32le', 'pcm_f32le', 'f
 
 /** Default bitrate for a format: the format's own default, but never far above what a lossy source had. */
 export function defaultBitrate(fmtId, info) {
-  const f = AUDIO_FORMATS[fmtId]
+  const f = ALL_AUDIO[fmtId]
   if (!f.lossy) return 0
   const src = info?.audio && !LOSSLESS.has(info.audio.codec) ? info.audio.bitrate || info.bitrate : 0
   if (!src) return f.def
@@ -28,12 +29,12 @@ export function setSelectOptions(sel, options, value) {
 /** Estimated size in bytes of an encode. */
 export function estimateBytes({ fmt, bitrate, sampleRate, channels, duration, info }) {
   if (!duration) return 0
-  const f = AUDIO_FORMATS[fmt]
+  const f = ALL_AUDIO[fmt]
   if (f.lossy) return (bitrate * 1000 / 8) * duration
   const rate = sampleRate || info?.audio?.rate || 44100
   const ch = channels || info?.audio?.channels || 2
   const wav = rate * ch * 2 * duration
-  return fmt === 'flac' ? wav * 0.6 : wav
+  return PCM.has(fmt) ? wav : wav * 0.6
 }
 
 /**
@@ -47,7 +48,7 @@ export function audioOptions({ formats = Object.keys(AUDIO_FORMATS), fmt = 'mp3'
   const info = () => (getInfo ? getInfo() : info0)
   const tiles = hideFormat ? null : tilePicker({
     label: formatTitle, value: cur, compact: false, onChange: (v) => { cur = v; sync(true) },
-    options: [...extra, ...formats.map((id) => ({ value: id, label: AUDIO_FORMATS[id].label, sub: AUDIO_FORMATS[id].note, icon: ICONS[id] }))],
+    options: [...extra, ...formats.map((id) => ({ value: id, label: ALL_AUDIO[id].label, sub: ALL_AUDIO[id].note, icon: ICONS[id] }))],
   })
   const br = select([], '', () => { touched = true; sync() })
   const rate = select(RATES, 0, () => sync())
@@ -62,11 +63,11 @@ export function audioOptions({ formats = Object.keys(AUDIO_FORMATS), fmt = 'mp3'
 
   function sync(formatChanged) {
     const isCopy = cur === 'copy'
-    const f = AUDIO_FORMATS[cur]
+    const f = ALL_AUDIO[cur]
     qStep.hidden = isCopy
     if (!isCopy) {
       brField.hidden = !f.lossy
-      depthField.hidden = cur !== 'wav'
+      depthField.hidden = !PCM.has(cur)
       if (f.lossy && (formatChanged || !br.options.length)) setSelectOptions(br, f.bitrates.map((b) => [b, `${b} kbps${b === f.def ? ' (recommended)' : ''}`]), defaultBitrate(cur, info()))
       const inf = info()
       const src = inf?.audio && !LOSSLESS.has(inf.audio.codec) ? inf.audio.bitrate : 0
@@ -78,9 +79,9 @@ export function audioOptions({ formats = Object.keys(AUDIO_FORMATS), fmt = 'mp3'
   }
   function get() {
     const isCopy = cur === 'copy'
-    const f = AUDIO_FORMATS[cur]
+    const f = ALL_AUDIO[cur]
     const o = { fmt: cur, bitrate: f?.lossy ? +br.value : 0, sampleRate: +rate.value || 0, channels: +ch.value || 0, depth: +depth.value || 16 }
-    o.args = isCopy ? ['-c:a', 'copy'] : audioArgs(cur, o)
+    o.args = isCopy ? ['-c:a', 'copy'] : audioArgs(cur, { ...o, srcRate: info()?.audio?.rate, srcCodec: info()?.audio?.codec, srcChannels: info()?.audio?.channels })
     return o
   }
   sync(true)

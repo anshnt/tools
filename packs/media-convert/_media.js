@@ -30,6 +30,8 @@ export const ts = (sec) => Math.max(0, sec).toFixed(3)
 
 // ---------- Reading ffmpeg's -i log ----------
 
+/** Subtitle codecs that are text (they convert to SRT, ASS and WebVTT). Picture-based ones (dvd_subtitle, hdmv_pgs_subtitle, dvb_subtitle) do not. */
+export const TEXT_SUBS = new Set(['subrip', 'srt', 'ass', 'ssa', 'webvtt', 'mov_text', 'text', 'ttml', 'subviewer', 'subviewer1', 'microdvd', 'sami', 'jacosub', 'realtext', 'mpl2', 'pjs', 'stl', 'vplayer', 'eia_608', 'cc_dec'])
 const CHANNELS = { mono: 1, stereo: 2, '2.1': 3, '3.0': 3, quad: 4, '4.0': 4, '5.0': 5, '5.1': 6, '6.1': 7, '7.1': 8 }
 const channelCount = (layout = '') => {
   const k = layout.trim().replace(/\(.*\)$/, '')
@@ -49,7 +51,7 @@ export function parseInfo(log) {
     duration: d ? +d[1] * 3600 + +d[2] * 60 + +d[3] : null,
     bitrate: +(text.match(/Duration:[^\n]*?bitrate:\s*(\d+)\s*kb\/s/)?.[1] || 0) || null,
     container: (text.match(/Input #0,\s*(.+?),\s*from\s/)?.[1] || '').split(',')[0] || null,
-    video: null, audio: null, nSub: 0, nVideo: 0, nAudio: 0, rotation: 0, tags: {},
+    video: null, audio: null, nSub: 0, nVideo: 0, nAudio: 0, rotation: 0, tags: {}, cover: false, subs: [],
   }
   let inMeta = false
   let last = ''
@@ -66,7 +68,7 @@ export function parseInfo(log) {
       const codec = rest.match(/^([\w.-]+)/)?.[1] || ''
       const kbps = +(rest.match(/(\d+)\s*kb\/s/)?.[1] || 0) || null
       if (type === 'Video') {
-        if (/attached pic/.test(rest)) { last = 'cover'; continue }
+        if (/attached pic/.test(rest)) { last = 'cover'; info.cover = true; continue }
         info.nVideo++
         if (info.video) continue
         const size = rest.match(/,\s*(\d{2,5})x(\d{2,5})\b/)
@@ -78,8 +80,15 @@ export function parseInfo(log) {
         if (info.audio) continue
         const layout = rest.match(/Hz,\s*([^,]+)/)?.[1]?.trim() || ''
         info.audio = { index: +index, codec, rate: +(rest.match(/(\d+)\s*Hz/)?.[1] || 0) || null, layout, channels: channelCount(layout), bitrate: kbps, lang }
-      } else if (type === 'Subtitle') info.nSub++
+      } else if (type === 'Subtitle') {
+        info.subs.push({ index: +index, ord: info.nSub, codec, lang: lang || '', title: '', text: TEXT_SUBS.has(codec) })
+        info.nSub++
+      }
       continue
+    }
+    if (last === 'Subtitle') {
+      const t = line.match(/^\s{6}title\s*:\s*(.+)$/)
+      if (t && info.subs.length) { info.subs.at(-1).title = t[1].trim(); continue }
     }
     if (last === 'Video') {
       const r = line.match(/rotation of\s*(-?[\d.]+)\s*degrees/) || line.match(/\brotate\s*:\s*(-?[\d.]+)/)
@@ -115,15 +124,45 @@ export const AUDIO_FORMATS = {
   flac: { id: 'flac', label: 'FLAC', ext: 'flac', codec: 'flac', lossy: false, bitrates: [], def: 0, note: 'Lossless, smaller than WAV' },
 }
 
-/** audioArgs('mp3', {bitrate: 192, sampleRate: 44100, channels: 2}) -> ['-c:a','libmp3lame','-b:a','192k',...] */
-export function audioArgs(fmtId, { bitrate, sampleRate, channels, depth = 16 } = {}) {
-  const f = AUDIO_FORMATS[fmtId]
-  const args = ['-c:a', fmtId === 'wav' && depth === 24 ? 'pcm_s24le' : f.codec]
+/** More audio outputs, offered by the audio converter only (the other tools keep the six above). */
+const BR = [64, 96, 128, 160, 192, 256, 320]
+export const AUDIO_EXTRA = {
+  aac: { id: 'aac', label: 'AAC (.aac)', ext: 'aac', codec: 'aac', lossy: true, bitrates: BR, def: 160, note: 'Raw AAC stream' },
+  alac: { id: 'alac', label: 'M4A (ALAC)', ext: 'm4a', codec: 'alac', lossy: false, bitrates: [], def: 0, note: 'Apple Lossless' },
+  aiff: { id: 'aiff', label: 'AIFF', ext: 'aiff', codec: 'pcm_s16be', lossy: false, bitrates: [], def: 0, note: 'Uncompressed, Mac and studio' },
+  wv: { id: 'wv', label: 'WavPack', ext: 'wv', codec: 'wavpack', lossy: false, bitrates: [], def: 0, note: 'Lossless, small files' },
+  tta: { id: 'tta', label: 'TTA', ext: 'tta', codec: 'tta', lossy: false, bitrates: [], def: 0, note: 'Lossless (True Audio)' },
+  w64: { id: 'w64', label: 'W64', ext: 'w64', codec: 'pcm_s16le', lossy: false, bitrates: [], def: 0, note: 'WAV for files over 4 GB' },
+  ac3: { id: 'ac3', label: 'AC3', ext: 'ac3', codec: 'ac3', lossy: true, bitrates: [96, 128, 192, 224, 256, 320, 384, 448, 640], def: 192, note: 'Dolby Digital for TVs and DVDs' },
+  eac3: { id: 'eac3', label: 'E-AC3', ext: 'eac3', codec: 'eac3', lossy: true, bitrates: [96, 128, 192, 224, 256, 320, 384, 448, 640], def: 192, note: 'Dolby Digital Plus' },
+}
+/** Every audio output the engine can write. Look formats up here when a tool offers the extra ones. */
+export const ALL_AUDIO = { ...AUDIO_FORMATS, ...AUDIO_EXTRA }
+/** Containers that can carry cover art as an attached picture when we copy it from the source. */
+export const COVER_OK = new Set(['mp3', 'm4a', 'alac', 'flac'])
+/** Source audio codecs whose sample rate is too high for the lossy encoders (DSD decodes at 352.8 kHz). */
+const isDsd = (codec) => /^dsd/.test(codec || '')
+
+/**
+ * audioArgs('mp3', {bitrate: 192, sampleRate: 44100, channels: 2}) -> ['-c:a','libmp3lame','-b:a','192k',...]
+ * Optional srcRate / srcCodec let it pick a sensible sample rate when the source cannot go in as it is (AC3 takes 32, 44.1 or 48 kHz only; DSD is resampled to 44.1 kHz).
+ */
+export function audioArgs(fmtId, { bitrate, sampleRate, channels, depth = 16, srcRate, srcCodec, srcChannels } = {}) {
+  const f = ALL_AUDIO[fmtId]
+  const pcm = depth === 24 ? '24' : '16'
+  const codec = fmtId === 'wav' || fmtId === 'w64' ? `pcm_s${pcm}le` : fmtId === 'aiff' ? `pcm_s${pcm}be` : f.codec
+  // libopus crashes inside the single-thread wasm build as soon as it encodes more than one channel, so stereo Opus uses ffmpeg's own (experimental) Opus encoder
+  const nativeOpus = fmtId === 'opus' && (channels || srcChannels) !== 1
+  const args = nativeOpus ? ['-c:a', 'opus', '-strict', '-2'] : ['-c:a', codec]
   if (f.lossy) args.push('-b:a', `${bitrate || f.def}k`)
-  // libopus only encodes at 8, 12, 16, 24 and 48 kHz
-  if (sampleRate && !(fmtId === 'opus' && ![8000, 12000, 16000, 24000, 48000].includes(sampleRate))) args.push('-ar', String(sampleRate))
+  let rate = sampleRate || 0
+  if (!rate && isDsd(srcCodec)) rate = 44100
+  if ((fmtId === 'ac3' || fmtId === 'eac3') && ![32000, 44100, 48000].includes(rate || srcRate)) rate = 48000 // Dolby Digital only takes these rates
+  // libopus only encodes at 8, 12, 16, 24 and 48 kHz, the native encoder at 48 kHz
+  if (rate && !(fmtId === 'opus' && !(nativeOpus ? [48000] : [8000, 12000, 16000, 24000, 48000]).includes(rate))) args.push('-ar', String(rate))
   if (channels) args.push('-ac', String(channels))
-  if (fmtId === 'm4a') args.push('-movflags', '+faststart')
+  else if ((fmtId === 'ac3' || fmtId === 'eac3') && srcCodec === 'dts') args.push('-ac', '2')
+  if (fmtId === 'm4a' || fmtId === 'alac') args.push('-movflags', '+faststart')
   return args
 }
 
@@ -146,10 +185,19 @@ export function copyExtFor(codec) {
 
 export const VIDEO_FORMATS = {
   mp4: { id: 'mp4', label: 'MP4', ext: 'mp4', sub: 'H.264 + AAC', note: 'Works on every phone, TV and browser', icon: 'smartphone' },
-  webm: { id: 'webm', label: 'WebM', ext: 'webm', sub: 'VP9 + Opus', note: 'Web video. Encoding is slow', icon: 'globe' },
+  webm: { id: 'webm', label: 'WebM', ext: 'webm', sub: 'VP8 + Vorbis', note: 'Web video. Encoding is slow', icon: 'globe' },
   mov: { id: 'mov', label: 'MOV', ext: 'mov', sub: 'H.264 + AAC', note: 'QuickTime, Final Cut, iMovie', icon: 'apple' },
   mkv: { id: 'mkv', label: 'MKV', ext: 'mkv', sub: 'H.264 + AAC', note: 'Flexible container for PCs and TVs', icon: 'layers' },
   avi: { id: 'avi', label: 'AVI', ext: 'avi', sub: 'MPEG-4 + MP3', note: 'Old players and editors', icon: 'file-video' },
+}
+
+/** Every target the video converter offers: containers with video, animated images, and audio-only. */
+export const VIDEO_TARGETS = {
+  ...VIDEO_FORMATS,
+  gif: { id: 'gif', label: 'GIF', ext: 'gif', sub: 'Animated GIF', note: 'Short looping clips, works everywhere', icon: 'film', kind: 'anim' },
+  apng: { id: 'apng', label: 'APNG', ext: 'apng', sub: 'Animated PNG', note: 'Sharper than GIF, full colour', icon: 'image-play', kind: 'anim' },
+  mp3: { id: 'mp3', label: 'MP3', ext: 'mp3', sub: 'Audio only', note: 'Just the soundtrack', icon: 'music', kind: 'audio' },
+  m4a: { id: 'm4a', label: 'M4A', ext: 'm4a', sub: 'Audio only (AAC)', note: 'Just the soundtrack, Apple friendly', icon: 'smartphone', kind: 'audio' },
 }
 
 export const X264_PRESETS = { fast: 'ultrafast', balanced: 'veryfast', small: 'faster' }
@@ -165,7 +213,7 @@ export function encodeArgs(fmtId, { crf = 23, preset = 'veryfast', vp = 'vp9', a
     if (vp === 'vp8') a.push('-c:v', 'libvpx', ...(bitrate ? ['-b:v', `${bitrate}k`] : ['-crf', String(Math.min(30, crf - 9)), '-b:v', '2M']), '-deadline', 'realtime', '-cpu-used', '5')
     else a.push('-c:v', 'libvpx-vp9', ...(bitrate ? ['-b:v', `${bitrate}k`] : ['-crf', String(crf + 9), '-b:v', '0']), '-deadline', 'realtime', '-cpu-used', '8', '-row-mt', '1')
     a.push('-pix_fmt', 'yuv420p')
-    if (audio === 'encode') a.push('-c:a', 'libopus', '-b:a', `${abitrate}k`)
+    if (audio === 'encode') a.push('-c:a', 'libvorbis', '-b:a', `${abitrate}k`) // Vorbis: libopus cannot encode stereo in this engine
   } else if (fmtId === 'avi') {
     a.push('-c:v', 'mpeg4', ...(bitrate ? ['-b:v', `${bitrate}k`] : ['-q:v', String(Math.max(2, Math.min(12, Math.round((crf - 14) / 1.6))))]), '-pix_fmt', 'yuv420p')
     if (audio === 'encode') a.push('-c:a', 'libmp3lame', '-b:a', `${abitrate}k`)
