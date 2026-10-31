@@ -1,6 +1,6 @@
 # Toolverse
 
-**Every everyday tool, right in your browser.** 866 free tools for PDFs, images, video and audio, documents, e-books, archives, fonts, 3D models, maps, Excel and data, text, calculators, developer work, security, reverse engineering, students, careers, India forms and AI, plus full Studio editors for photos, vectors, video, slides, docs, sheets and CAD.
+**Every everyday tool, right in your browser.** 862 free tools for PDFs, images, video and audio, documents, e-books, archives, fonts, 3D models, maps, Excel and data, text, calculators, developer work, security, reverse engineering, students, careers, India forms and AI, plus full Studio editors for photos, vectors, video, slides, docs, sheets and CAD.
 
 **Live site: https://anshnt.github.io/tools/**
 
