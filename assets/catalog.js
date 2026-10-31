@@ -39,6 +39,7 @@ import studioCad, * as studioCadMeta from '../packs/studio-cad/catalog.js'
 import corel, * as corelMeta from '../packs/corel/catalog.js'
 import reverse, * as reverseMeta from '../packs/reverse/catalog.js'
 import fonts, * as fontsMeta from '../packs/fonts/catalog.js'
+import cadVector, * as cadVectorMeta from '../packs/cad-vector/catalog.js'
 
 export const CATEGORIES = [
   { id: 'pdf', name: 'PDF', title: 'PDF tools', icon: 'file-text', color: '#e5484d', blurb: 'Merge, split, compress, convert, sign and secure PDFs.' },
@@ -72,6 +73,7 @@ const PACKS = [
   ['files', files, filesMeta], ['screen', screen, screenMeta], ['india', india, indiaMeta], ['ai', ai, aiMeta],
   ['studio-photo', studioPhoto, studioPhotoMeta], ['studio-develop', studioDevelop, studioDevelopMeta], ['studio-vector', studioVector, studioVectorMeta], ['studio-video', studioVideo, studioVideoMeta], ['studio-motion', studioMotion, studioMotionMeta], ['studio-layout', studioLayout, studioLayoutMeta], ['studio-pdf', studioPdf, studioPdfMeta], ['studio-audio', studioAudio, studioAudioMeta], ['studio-slides', studioSlides, studioSlidesMeta], ['studio-docs', studioDocs, studioDocsMeta], ['studio-sheets', studioSheets, studioSheetsMeta], ['studio-cad', studioCad, studioCadMeta], ['corel', corel, corelMeta], ['reverse', reverse, reverseMeta],
   ['fonts', fonts, fontsMeta],
+  ['cad-vector', cadVector, cadVectorMeta],
 ]
 
 export const TOOLS = PACKS.flatMap(([pack, list, meta]) => list.map((t) => ({
