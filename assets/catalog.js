@@ -47,6 +47,7 @@ import ebook, * as ebookMeta from '../packs/ebook/catalog.js'
 import docsConvert, * as docsConvertMeta from '../packs/docs-convert/catalog.js'
 import imageFormats, * as imageFormatsMeta from '../packs/image-formats/catalog.js'
 import archive, * as archiveMeta from '../packs/archive/catalog.js'
+import convertHub, * as convertHubMeta from '../packs/convert-hub/catalog.js'
 
 export const CATEGORIES = [
   { id: 'pdf', name: 'PDF', title: 'PDF tools', icon: 'file-text', color: '#e5484d', blurb: 'Merge, split, compress, convert, sign and secure PDFs.' },
@@ -88,6 +89,7 @@ const PACKS = [
   ['docs-convert', docsConvert, docsConvertMeta],
   ['image-formats', imageFormats, imageFormatsMeta],
   ['archive', archive, archiveMeta],
+  ['convert-hub', convertHub, convertHubMeta],
 ]
 
 export const TOOLS = PACKS.flatMap(([pack, list, meta]) => list.map((t) => ({
