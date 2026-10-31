@@ -48,6 +48,7 @@ import docsConvert, * as docsConvertMeta from '../packs/docs-convert/catalog.js'
 import imageFormats, * as imageFormatsMeta from '../packs/image-formats/catalog.js'
 import archive, * as archiveMeta from '../packs/archive/catalog.js'
 import convertHub, * as convertHubMeta from '../packs/convert-hub/catalog.js'
+import dataSql, * as dataSqlMeta from '../packs/data-sql/catalog.js'
 
 export const CATEGORIES = [
   { id: 'pdf', name: 'PDF', title: 'PDF tools', icon: 'file-text', color: '#e5484d', blurb: 'Merge, split, compress, convert, sign and secure PDFs.' },
@@ -90,6 +91,7 @@ const PACKS = [
   ['image-formats', imageFormats, imageFormatsMeta],
   ['archive', archive, archiveMeta],
   ['convert-hub', convertHub, convertHubMeta],
+  ['data-sql', dataSql, dataSqlMeta],
 ]
 
 export const TOOLS = PACKS.flatMap(([pack, list, meta]) => list.map((t) => ({
