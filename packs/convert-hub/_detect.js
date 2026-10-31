@@ -73,7 +73,7 @@ const FAMILIES = [['mp4', 'mov', 'm4a', '3gp', 'm4v', 'heic', 'avif', 'aac'], ['
   ['gz', 'tgz'], ['ttf', 'ttc'], ['html', 'xml', 'svg', 'txt'], ['jpg', 'jpeg']]
 const sameFamily = (a, b) => a === b || FAMILIES.some((f) => f.includes(a) && f.includes(b))
 // Magic that is trustworthy enough to overrule a wrong file name.
-const STRONG = new Set(['pdf', 'jpg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'psd', 'heic', 'avif', 'mp4', 'mov', 'webm', 'mkv', 'avi', 'wav', 'mp3', 'flac', 'ogg', 'gz', '7z', 'rar', 'woff', 'woff2', 'otf', 'ttf'])
+const STRONG = new Set(['pdf', 'jpg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'psd', 'heic', 'avif', 'mp4', 'mov', 'webm', 'mkv', 'avi', 'wav', 'mp3', 'flac', 'ogg', 'gz', '7z', 'rar', 'woff', 'woff2', 'otf', 'ttf', 'fits'])
 
 const MIME_EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/avif': 'avif', 'image/bmp': 'bmp', 'image/svg+xml': 'svg', 'image/heic': 'heic', 'image/heif': 'heif',
   'application/pdf': 'pdf', 'text/plain': 'txt', 'text/csv': 'csv', 'text/html': 'html', 'text/markdown': 'md', 'application/json': 'json', 'video/mp4': 'mp4', 'audio/mpeg': 'mp3', 'audio/wav': 'wav',

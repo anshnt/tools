@@ -108,7 +108,7 @@ export const toolsIn = (cat) => TOOLS.filter((t) => t.cat === cat || t.also.incl
 
 /** Shown first on the home page. */
 export const POPULAR = [
-  'merge-pdf', 'compress-pdf', 'pdf-to-word', 'image-to-pdf', 'compress-image', 'image-to-kb', 'remove-background', 'resize-image',
+  'file-converter', 'merge-pdf', 'compress-pdf', 'pdf-to-word', 'image-to-pdf', 'compress-image', 'image-to-kb', 'remove-background', 'resize-image',
   'heic-to-jpg', 'video-to-mp3', 'qr-generator', 'json-formatter', 'word-counter', 'password-generator', 'emi-calculator',
   'income-tax-calculator', 'govt-photo-resizer', 'unit-converter', 'pdf-summary', 'screen-recorder', 'age-calculator', 'sign-pdf',
   'case-converter', 'currency-converter',

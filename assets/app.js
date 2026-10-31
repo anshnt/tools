@@ -490,7 +490,7 @@ async function giveFiles(root, files, t) {
 
 function suggestFor(files) {
   const f = files[0]
-  const ids = [...new Set([...SUGGEST[fileKind(f)], ...SUGGEST.any])]
+  const ids = [...new Set(['file-converter', ...SUGGEST[fileKind(f)], ...SUGGEST.any])]
   const list = ids.map((id) => byId.get(id)).filter((t) => t?.ready).slice(0, 12)
   const m = modal({
     title: 'What do you want to do with it?', icon: 'wand-sparkles',

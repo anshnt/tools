@@ -58,7 +58,10 @@ const walk = (dir) => readdirSync(dir).flatMap((f) => {
 const all = walk(root)
 const jsFiles = all.filter((f) => f.endsWith('.js') || f.endsWith('.mjs'))
 for (const f of jsFiles) {
-  try { execFileSync(process.execPath, ['--check', f], { stdio: 'pipe' }) } catch (e) { fail(`${relative(root, f)}: syntax error\n${e.stderr}`) }
+  // site code runs as ES modules, so parse it as one: a plain --check accepts some files the browser rejects
+  const asModule = /^(packs|lib|assets)[\\/]/.test(relative(root, f)) && !/[\\/]vendor[\\/]/.test(f)
+  const args = asModule ? ['--input-type=module', '--check'] : ['--check', f]
+  try { execFileSync(process.execPath, args, { stdio: 'pipe', input: asModule ? readFileSync(f) : undefined }) } catch (e) { fail(`${relative(root, f)}: syntax error\n${e.stderr}`) }
 }
 
 // --- Static import check: relative imports resolve, and named imports from lib/ exist ---

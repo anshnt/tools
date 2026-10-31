@@ -19,7 +19,7 @@ async function run(file, to, opts, ctx) {
 
 export const CONVERTERS = [
   { from: ['shp', 'geojson', 'topojson', 'kml', 'kmz', 'gpx', 'gml', 'fit', 'wkt', 'wkb'], to: ALL_OUT, group: 'Maps and GPS', options: OPTIONS, run },
-  { from: ['zip'], to: ALL_OUT, group: 'Maps and GPS (zipped shapefile)', options: OPTIONS, run },
+  { from: ['zip'], to: ALL_OUT, group: 'Maps and GPS (zipped shapefile)', options: OPTIONS, run, firstOnly: true },
   { from: ['csv', 'tsv', 'xlsx', 'xls', 'ods'], to: GEO_OUT, group: 'Maps and GPS (tables with coordinates)', options: OPTIONS, run },
   { from: ['json'], to: GEO_OUT, group: 'Maps and GPS', options: OPTIONS, run },
 ]

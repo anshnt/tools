@@ -2,7 +2,7 @@
 // per-file progress, cancel and retry. No page UI in here, so the watch folder and the tests use it too.
 import { ext as extOf, baseName, safeName } from '../../lib/files.js'
 import { findRoute, optionsOf, routeExclusive } from './_registry.js'
-import { outExt } from './_formats.js'
+import { outExt, canon } from './_formats.js'
 
 const abortErr = () => Object.assign(new Error('Cancelled'), { code: 'ABORT' })
 export const isAbort = (e) => e?.code === 'ABORT' || e?.name === 'AbortError'
@@ -46,12 +46,15 @@ export async function convertFile(file, path, opts, { signal, onProgress } = {})
     const next = []
     for (let j = 0; j < current.length; j++) {
       if (signal?.aborted) throw abortErr()
-      const run = () => step.conv.run(current[j], step.to, opts, { signal, onProgress: (p) => onProgress?.((i + (j + (p || 0)) / current.length) / path.length) })
+      const run = () => step.conv.run(current[j], step.raw || step.to, opts, { signal, onProgress: (p) => onProgress?.((i + (j + (p || 0)) / current.length) / path.length) })
       const res = step.conv.exclusive ? await withLock(step.conv.exclusive, signal, run) : await run()
       for (const f of [].concat(res)) if (f) next.push(f)
     }
     if (!next.length) throw new Error('The conversion produced no file.')
-    current = next
+    // a step can return extras (attachments, a still photo): only the files the next step reads go on
+    const want = path[i + 1]?.from
+    const fit = want ? next.filter((f) => canon(extOf(f.name)) === want) : next
+    current = fit.length ? fit : next
   }
   onProgress?.(1)
   return current

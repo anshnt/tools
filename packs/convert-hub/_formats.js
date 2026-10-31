@@ -35,6 +35,13 @@ const KIND_EXTS = {
 const kindOf = new Map()
 for (const [k, list] of Object.entries(KIND_EXTS)) for (const e of list.split(' ')) if (!kindOf.has(e)) kindOf.set(e, k)
 kindOf.set('csv', 'sheet'); kindOf.set('json', 'data'); kindOf.set('stl', 'model')
+// formats added by the engine packs that the lists above do not name (first match wins above, so set them here)
+for (const [k, list] of Object.entries({
+  data: 'yaml toml ini env properties json5 hjson msgpack cbor vcf ics',
+  image: 'fits fts dcm tga pcx qoi mng xcf pam jxl j2k raw orf raf rw2 cr3',
+  ebook: 'kepub cb7 azw4 prc pdb fbz htmlz txtz',
+  model: '3ds usdz', geo: 'fit wkb', vector: 'wmz emz', doc: 'eml msg ott', text: 'ipynb mhtml mht',
+})) for (const e of list.split(' ')) kindOf.set(e, k)
 
 export const ALIAS = { jpeg: 'jpg', jpe: 'jpg', jfif: 'jpg', tif: 'tiff', htm: 'html', xhtml: 'html', markdown: 'md', mkd: 'md', mdown: 'md', yml: 'yaml', text: 'txt', tab: 'tsv', jsonl: 'ndjson', mpg: 'mpeg', oga: 'ogg', ps: 'eps' }
 export const canon = (ext = '') => { const e = ext.toLowerCase().replace(/^\./, ''); return ALIAS[e] || e }
@@ -45,7 +52,7 @@ const SPECIAL = {
   'pdf-merge': 'Merge into one PDF', 'pdf-split': 'Split into pages', 'pdf-compress': 'Smaller PDF',
   md: 'Markdown', txt: 'Plain text', html: 'HTML', json: 'JSON', csv: 'CSV', tsv: 'TSV', xlsx: 'Excel (XLSX)', docx: 'Word (DOCX)', pptx: 'PowerPoint (PPTX)',
   jpg: 'JPG', png: 'PNG', webp: 'WebP', avif: 'AVIF', gif: 'GIF', bmp: 'BMP', ico: 'ICO', heic: 'HEIC', pdf: 'PDF', svg: 'SVG', mp4: 'MP4', mp3: 'MP3',
-  wav: 'WAV', zip: 'ZIP', xml: 'XML', yaml: 'YAML', epub: 'EPUB', rtf: 'RTF', odt: 'ODT', ods: 'ODS', odp: 'ODP', tiff: 'TIFF', webm: 'WebM', mov: 'MOV',
+  wav: 'WAV', zip: 'ZIP', geojson: 'GeoJSON', topojson: 'TopoJSON', vtt: 'WebVTT', kepub: 'Kobo EPUB', 'tar.gz': 'TAR.GZ', xml: 'XML', yaml: 'YAML', epub: 'EPUB', rtf: 'RTF', odt: 'ODT', ods: 'ODS', odp: 'ODP', tiff: 'TIFF', webm: 'WebM', mov: 'MOV',
 }
 export const label = (ext) => SPECIAL[ext] || String(ext).toUpperCase()
 /** Short label (just the extension) for tight places like file badges. */
@@ -60,6 +67,16 @@ export const outExt = (t) => OUT_EXT[t] || t
 /** Most useful targets first. Anything not listed comes after, in route order. */
 export const POPULAR = ['pdf', 'jpg', 'png', 'webp', 'docx', 'txt', 'xlsx', 'csv', 'mp4', 'mp3', 'html', 'md', 'json', 'gif', 'wav', 'pptx', 'zip', 'avif', 'svg', 'epub', 'ico', 'bmp',
   'pdf-merge', 'pdf-compress', 'pdf-split']
+
+/** What people usually want from each kind of file, ahead of POPULAR (a 3D model wants GLB or STL before a picture of it). */
+export const PREFER = {
+  model: ['glb', 'stl', 'obj', '3mf', 'ply', 'gltf', 'usdz', 'png'], geo: ['geojson', 'kml', 'gpx', 'kmz', 'shp', 'csv', 'xlsx'],
+  font: ['woff2', 'ttf', 'woff', 'otf', 'eot'], ebook: ['epub', 'pdf', 'kepub', 'docx', 'txt', 'cbz'], archive: ['zip', 'extract', '7z', 'tar.gz', 'tar'],
+  subtitle: ['srt', 'vtt', 'ass', 'txt'], data: ['json', 'yaml', 'csv', 'xlsx', 'toml', 'xml'], cad: ['pdf', 'svg', 'dxf', 'png'],
+  vector: ['svg', 'pdf', 'png', 'emf', 'dxf'], doc: ['pdf', 'docx', 'odt', 'txt', 'html'], text: ['pdf', 'html', 'md', 'docx', 'txt'],
+}
+/** Sort key for a target when converting from `kind`: the kind's favourites, then the site-wide popular list. */
+export const rankFor = (kind) => (t) => { const k = PREFER[kind]?.indexOf(t) ?? -1; if (k >= 0) return k; const i = POPULAR.indexOf(t); return i < 0 ? 999 : 100 + i }
 
 /** Types a browser can decode to a picture, so the crop step can open them. */
 export const CROPPABLE = new Set(['jpg', 'png', 'webp', 'gif', 'bmp', 'avif', 'svg', 'heic', 'heif', 'ico'])

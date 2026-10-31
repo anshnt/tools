@@ -4,7 +4,7 @@ import { h, icon, button, busy, field, select, input, number, toggle, rangeField
 import { zip, ext as extOf, pickFolder } from '../../lib/files.js'
 import { loadAll, routesFrom, optionsOf, routeNotes, combineRoutes, isKnown, extraSniffers, findRoute, onChange as onRegistryChange } from './_registry.js'
 import { detect } from './_detect.js'
-import { label, shortLabel, HINT, KINDS, KIND_ICON, POPULAR, CROPPABLE, outExt, kindOfExt } from './_formats.js'
+import { label, shortLabel, HINT, KINDS, KIND_ICON, POPULAR, CROPPABLE, outExt, kindOfExt, rankFor } from './_formats.js'
 import { createQueue, convertJob, combineJob, resolveOptions, outputName, renamed } from './_engine.js'
 import { listPresets, getPreset, savePreset, deletePreset, setDefaultPreset, defaultValues, loadSettings, saveSettings } from './_presets.js'
 import { formatPicker } from './_picker.js'
@@ -175,7 +175,8 @@ export async function mount(root, { params, signal }) {
     const canonExt = ext
     const routes = routesFrom(ext)
     const all = [...routes].map(([t, r]) => ({ id: t, hops: r.hops, via: r.path.slice(0, -1).map((s) => label(s.to)), group: r.path.at(-1).conv.group || 'More'}))
-    const pri = (x) => (x.id === canonExt ? 500 : rank(x.id))
+    const byKind = rankFor(kindOfExt(ext))
+    const pri = (x) => (x.id === canonExt ? 1500 : byKind(x.id))
     all.sort((a, b) => a.hops - b.hops || pri(a) - pri(b))
     const direct = all.filter((x) => x.hops === 1)
     const front = direct.slice(0, 8)

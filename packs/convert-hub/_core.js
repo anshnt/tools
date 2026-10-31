@@ -289,7 +289,7 @@ export const CONVERTERS = [
   { from: IMG_IN, to: ['jpg', 'webp', 'avif'].filter((t) => t !== 'avif' || avifOk()), sameFormat: true, group: 'Pictures', options: [QUALITY, ...SIZE_OPTS], run: imageToImage },
   { from: IMG_IN, to: ['gif'], sameFormat: true, group: 'Pictures', note: 'Animated GIFs become a still picture.', options: [...SIZE_OPTS], run: imageToImage },
   { from: IMG_IN, to: ['ico'], group: 'Pictures', options: [{ key: 'sizes', label: 'Icon sizes (px, comma separated)', type: 'text', default: '16,32,48' }], run: imageToImage },
-  { from: IMG_IN, to: ['pdf'], group: 'Pictures to PDF', options: [PAGE_SIZE, MARGIN, ...SIZE_OPTS], run: imageToPdf },
+  { from: IMG_IN, to: ['pdf'], lastOnly: true, group: 'Pictures to PDF', options: [PAGE_SIZE, MARGIN, ...SIZE_OPTS], run: imageToPdf },
   { from: [...IMG_IN, 'pdf'], to: ['pdf-merge'], combine: true, group: 'PDF tools', options: [PAGE_SIZE, MARGIN, { key: 'blank', label: 'Blank page between files', type: 'toggle', default: false }], run: mergeToPdf },
   { from: ['pdf'], to: ['png'], group: 'PDF pages as pictures', options: [DPI, PAGES], run: pdfToImages },
   { from: ['pdf'], to: ['jpg', 'webp'], group: 'PDF pages as pictures', options: [DPI, PAGES, QUALITY], run: pdfToImages },
