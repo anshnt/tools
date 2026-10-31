@@ -95,6 +95,7 @@ export const CONVERTERS = [
     from: ['mkv', 'mp4', 'm4v', 'mov', 'webm', 'ts', 'm2ts', 'mts', '3gp', 'ogv'],
     to: ['srt', 'ass', 'vtt'],
     group: 'Subtitles in a video',
+    firstOnly: true, // only for a dropped video, never after another conversion
     exclusive: 'ffmpeg',
     options: [{ key: 'track', label: 'Subtitle track', type: 'select', default: 'all', choices: [['all', 'Every text track'], ['1', 'Track 1'], ['2', 'Track 2'], ['3', 'Track 3'], ['4', 'Track 4'], ['5', 'Track 5']] }],
     run: async (file, to, o = {}, { signal, onProgress } = {}) => {

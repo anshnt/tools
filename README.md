@@ -1,12 +1,13 @@
 # Toolverse
 
-**Every everyday tool, right in your browser.** 648 free tools for PDFs, images, video and audio, Excel and data, text, calculators, developer work, security, reverse engineering, students, careers, India forms and AI, plus full Studio editors for photos, vectors, video, slides, docs, sheets and CAD.
+**Every everyday tool, right in your browser.** 862 free tools for PDFs, images, video and audio, documents, e-books, archives, fonts, 3D models, maps, Excel and data, text, calculators, developer work, security, reverse engineering, students, careers, India forms and AI, plus full Studio editors for photos, vectors, video, slides, docs, sheets and CAD.
 
 **Live site: https://anshnt.github.io/tools/**
 
 - **Private by design.** Most tools run entirely on your device. Files are never uploaded.
 - **No sign-up, no install.** Open a tool and use it, on phone or desktop, in light or dark mode.
 - **Fast to find.** Search from anywhere with `Ctrl K` (or `/`), favorite tools, and pick up recent ones.
+- **Convert anything.** The File Converter turns about 270 formats into each other on your device: images, camera RAW, PDF, Word, Excel, PowerPoint, OpenDocument, HWP, e-books, video, audio, subtitles, archives, CAD, fonts, data, 3D models and maps. Batch, presets, crop, history and watch folders included.
 - **Drop any file.** Drop or paste a file anywhere and pick what to do with it; the tool opens with your file loaded.
 - **Install it.** Add Toolverse to your home screen or dock; tools you have used keep working offline.
 

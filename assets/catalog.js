@@ -47,6 +47,7 @@ import ebook, * as ebookMeta from '../packs/ebook/catalog.js'
 import docsConvert, * as docsConvertMeta from '../packs/docs-convert/catalog.js'
 import imageFormats, * as imageFormatsMeta from '../packs/image-formats/catalog.js'
 import archive, * as archiveMeta from '../packs/archive/catalog.js'
+import convertHub, * as convertHubMeta from '../packs/convert-hub/catalog.js'
 
 export const CATEGORIES = [
   { id: 'pdf', name: 'PDF', title: 'PDF tools', icon: 'file-text', color: '#e5484d', blurb: 'Merge, split, compress, convert, sign and secure PDFs.' },
@@ -88,6 +89,7 @@ const PACKS = [
   ['docs-convert', docsConvert, docsConvertMeta],
   ['image-formats', imageFormats, imageFormatsMeta],
   ['archive', archive, archiveMeta],
+  ['convert-hub', convertHub, convertHubMeta],
 ]
 
 export const TOOLS = PACKS.flatMap(([pack, list, meta]) => list.map((t) => ({
@@ -106,7 +108,7 @@ export const toolsIn = (cat) => TOOLS.filter((t) => t.cat === cat || t.also.incl
 
 /** Shown first on the home page. */
 export const POPULAR = [
-  'merge-pdf', 'compress-pdf', 'pdf-to-word', 'image-to-pdf', 'compress-image', 'image-to-kb', 'remove-background', 'resize-image',
+  'file-converter', 'merge-pdf', 'compress-pdf', 'pdf-to-word', 'image-to-pdf', 'compress-image', 'image-to-kb', 'remove-background', 'resize-image',
   'heic-to-jpg', 'video-to-mp3', 'qr-generator', 'json-formatter', 'word-counter', 'password-generator', 'emi-calculator',
   'income-tax-calculator', 'govt-photo-resizer', 'unit-converter', 'pdf-summary', 'screen-recorder', 'age-calculator', 'sign-pdf',
   'case-converter', 'currency-converter',

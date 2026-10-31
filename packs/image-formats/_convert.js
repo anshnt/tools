@@ -128,7 +128,7 @@ const COMMON = [
 const PAGES = { key: 'pages', label: 'Pages, frames and sizes', type: 'select', choices: [['all', 'Every page, frame or size'], ['first', 'First only']], default: 'all' }
 
 const route = (from, to, group, options, extra = {}) => ({
-  from, to, group, options,
+  from, to, group, options, lastOnly: ['pdf'], // a PDF of pictures is never a useful step towards text
   run: async (file, target, opts, ctx = {}) => {
     const files = await convertImage(file, target, { ...opts, ...extra }, ctx)
     return files.length === 1 ? files[0] : files
@@ -148,11 +148,11 @@ export const CONVERTERS = [
   route(['exr', 'hdr'], RASTER_OUT, 'HDR images', [...COMMON,
     { key: 'exposure', label: 'Exposure (stops)', type: 'range', min: -6, max: 6, step: 0.1, default: 0 },
     { key: 'tonemap', label: 'Tone mapping', type: 'select', choices: [['reinhard', 'Soft (Reinhard)'], ['aces', 'Filmic (ACES)'], ['clip', 'Clip']], default: 'reinhard' }]),
-  route(['fits', 'fit', 'fts'], RASTER_OUT, 'Science images', [...COMMON,
+  route(['fits', 'fts'], RASTER_OUT, 'Science images', [...COMMON,
     { key: 'stretch', label: 'Brightness stretch', type: 'select', choices: [['asinh', 'Auto (asinh)'], ['linear', 'Linear'], ['sqrt', 'Square root'], ['log', 'Logarithmic']], default: 'asinh' }]),
   route([...COMMON_IN, ...EXOTIC_IN, 'psd'], ['svg'], 'Vector', [
     { key: 'preset', label: 'Tracing style', type: 'select', choices: [['logo', 'Logo or clipart (color)'], ['lineart', 'Line art (black and white)'], ['poster', 'Poster or photo (many colors)']], default: 'logo' }]),
-  route(['jpg', 'jpeg'], ['mp4'], 'Motion photos (experimental)', [{ key: 'still', label: 'Also save the still photo', type: 'toggle', default: false }]),
+  { ...route(['jpg', 'jpeg'], ['mp4'], 'Motion photos (experimental)', [{ key: 'still', label: 'Also save the still photo', type: 'toggle', default: false }]), firstOnly: true },
   route(['livp'], ['jpg', 'png', 'mp4', 'mov'], 'Motion photos (experimental)', [{ key: 'quality', label: 'Quality (JPG)', type: 'range', min: 1, max: 100, default: 90 }]),
 ]
 
