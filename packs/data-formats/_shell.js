@@ -109,6 +109,7 @@ export function mountConverter(root, { signal, cfg }) {
       copyBtn.disabled = !output.value
       const size = o.text !== undefined ? new Blob([o.text]).size : o.bytes.length
       status.textContent = `${st.from === 'auto' ? `Detected ${labelOf(cfg.formats, from)}. ` : ''}${r.info?.summary ? `${r.info.summary} · ` : ''}${formatBytes(new Blob([text]).size)} in, ${formatBytes(size)} out · ${Math.max(1, Math.round(performance.now() - t0))} ms`
+      if (o.bytes && !output.value) status.textContent += ' · This is a file, not text: use Download.'
       clear(msgHost, ...(r.warnings || []).map((w) => alert('warn', w)))
     } catch (e) {
       if (my !== gen || isAbort(e)) return
@@ -160,7 +161,15 @@ export function mountConverter(root, { signal, cfg }) {
     const files = [...list.files]
     if (!files.length) { toast('Add at least one file first.', 'error'); return }
     list.setDisabled(true)
-    const items = [], warns = []
+    const items = [], warns = [], used = new Set()
+    // two inputs such as data.json and data.xml would both become data.yaml: keep the source type in the name
+    const uniqueName = (name, inName) => {
+      let n = name
+      if (used.has(n)) n = name.replace(/(\.[^.]+)$/, `-${extOf(inName) || 'file'}$1`)
+      for (let k = 2; used.has(n); k++) n = name.replace(/(\.[^.]+)$/, `-${k}$1`)
+      used.add(n)
+      return n
+    }
     try {
       for (let i = 0; i < files.length; i++) {
         const f = files[i]
@@ -172,7 +181,7 @@ export function mountConverter(root, { signal, cfg }) {
           if (!from && cfg.sniffBytes) from = cfg.sniffBytes(bytes)
           if (!from) throw new Error('Could not tell what format this is. Choose the input format above.')
           const r = await cfg.convert(bytes, from, st.to, st.opts, { signal, onProgress: (p) => prog.set((i + p) / files.length, `Converting ${f.name}`) })
-          for (const o of r.outputs) items.push({ name: f.name, inSize: f.size, file: new File([blobOf(o)], outName(f.name, o, from), { type: o.mime }) })
+          for (const o of r.outputs) items.push({ name: f.name, inSize: f.size, file: new File([blobOf(o)], uniqueName(outName(f.name, o, from), f.name), { type: o.mime }) })
           for (const w of r.warnings || []) warns.push(files.length > 1 ? `${f.name}: ${w}` : w)
         } catch (e) {
           if (isAbort(e)) throw e
@@ -202,7 +211,7 @@ export function mountConverter(root, { signal, cfg }) {
   }
   function onOpt() { if (st.mode === 'text') debRun() }
 
-  el.append(cfg.intro || null, h('div', { class: 'row', style: 'justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px' }, tabs), fmtRow, optHost, textPane, filePane,
+  el.append(...(cfg.intro ? [cfg.intro] : []), h('div', { class: 'row', style: 'justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px' }, tabs), fmtRow, optHost, textPane, filePane,
     h('p', { class: 'fc-priv' }, icon('shield-check'), cfg.hint || 'Runs in your browser. Your files and text are never uploaded.'))
   if (cfg.fixed) syncFixed()
   buildOptions()
