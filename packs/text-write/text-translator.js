@@ -1,6 +1,6 @@
 // Text translator: Chrome's on-device Translator API when the language pair is supported, otherwise the free MyMemory service
 // (500 characters per request, so text is chunked and the daily limit is explained), or Claude with your own key. Shows which engine ran.
-import { h, button, busy, alert, field, select, clear, copyButton, download, toast, onCleanup, debounce, icon } from '../../lib/ui.js'
+import { h, button, busy, alert, field, select, clear, copyButton, download, toast, onCleanup, debounce, icon, isAbort } from '../../lib/ui.js'
 import * as ai from '../../lib/ai.js'
 import { toolRoot, addStyle, textInput, chips, kicker, note, wordCount, celebrate } from './_shared.js'
 import { load, save } from '../../lib/store.js'
@@ -227,7 +227,7 @@ export function mount(root, { signal }) {
   }
 
   const live = () => { if (prefs.engine === 'chrome' || (prefs.engine === 'auto' && st.chrome)) liveLater() }
-  const liveLater = debounce(() => { if (inp.get().trim().length > 1 && !go.hasAttribute('aria-busy')) translate(true).catch((e) => { clear(result, alert('error', e.message)) }) }, 700)
+  const liveLater = debounce(() => { if (inp.get().trim().length > 1 && !go.hasAttribute('aria-busy')) translate(true).catch((e) => { if (!isAbort(e)) clear(result, alert('error', e.message)) }) }, 700) // a newer run cancels this one: not an error
   go.addEventListener('click', () => busy(go, async () => { clear(result); await translate(false) }, { label: 'Translating', errorTo: result }))
   inp.ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); go.click() } })
   signal?.addEventListener('abort', () => st.abort?.abort())
