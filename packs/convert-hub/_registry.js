@@ -4,7 +4,7 @@ import { canon } from './_formats.js'
 import { canEncode } from '../../lib/image.js'
 
 // Engine packs ship packs/<name>/_convert.js. They are loaded one by one and a missing or broken one is simply skipped.
-const SIBLINGS = ['image-formats', 'docs-convert', 'ebook', 'archive', 'fonts', 'data-formats', 'model3d', 'geo', 'cad-vector', 'media-convert', 'media-capture']
+const SIBLINGS = ['image-formats', 'data-sql', 'docs-convert', 'ebook', 'archive', 'fonts', 'data-formats', 'model3d', 'geo', 'cad-vector', 'media-convert', 'media-capture']
 export const MAX_HOPS = 3
 
 const convs = []
